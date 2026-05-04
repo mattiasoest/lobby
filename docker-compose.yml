@@ -1,0 +1,9 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lobby
+      POSTGRES_PASSWORD: lobby
+      POSTGRES_DB: lobby
+    ports:
+      - '5432:5432'
