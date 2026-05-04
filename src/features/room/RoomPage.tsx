@@ -4,8 +4,10 @@ import { useAuth } from '../../app/authContext.tsx';
 import { PixiCanvas } from '../../components/Canvas/PixiCanvas.tsx';
 import { ChatBox } from '../../components/Chat/ChatBox.tsx';
 import { PlayerList } from '../../components/UI/PlayerList.tsx';
+import { queryKeys } from '../../query/keys.ts';
+import { queryClient } from '../../query/queryClient.ts';
+import { useRoomMessagesQuery } from '../../query/hooks.ts';
 import { createRoomSocket } from '../../services/socket.ts';
-import { fetchRoomMessages } from '../../services/messagesApi.ts';
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import type { Socket } from 'socket.io-client';
 
@@ -19,6 +21,8 @@ function clamp(value: number, min: number, max: number) {
 
 export function RoomPage({ roomId }: { roomId: number }) {
   const { token, username } = useAuth();
+  const messagesQuery = useRoomMessagesQuery(roomId, token);
+  const messages = messagesQuery.data ?? [];
 
   const socketRef = useRef<Socket | null>(null);
   const localRef = useRef({ x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) });
@@ -27,7 +31,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const [socketId, setSocketId] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [serverPlayers, setServerPlayers] = useState<PlayerDTO[]>([]);
-  const [messages, setMessages] = useState<ChatMessageDTO[]>([]);
   const [typingFocus, setTypingFocus] = useState(false);
 
   const claims = decodeJwtPayload(token);
@@ -40,17 +43,9 @@ export function RoomPage({ roomId }: { roomId: number }) {
   useEffect(() => {
     localRef.current = { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
     setLocalPos(localRef.current);
-    setMessages([]);
     setServerPlayers([]);
     lastSent.current = null;
   }, [roomId]);
-
-  useEffect(() => {
-    if (!token) return;
-    void fetchRoomMessages(roomId, token)
-      .then(setMessages)
-      .catch(() => setMessages([]));
-  }, [roomId, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -63,9 +58,10 @@ export function RoomPage({ roomId }: { roomId: number }) {
     }
 
     function handleChatMessage(msg: ChatMessageDTO) {
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
+      queryClient.setQueryData<ChatMessageDTO[]>(queryKeys.rooms.messages(roomId), (prev) => {
+        const list = prev ?? [];
+        if (list.some((m) => m.id === msg.id)) return list;
+        return [...list, msg];
       });
     }
 

@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../app/authContext.tsx';
+import { useAuthProvidersQuery, useDevLoginMutation } from '../../query/hooks.ts';
 import { apiUrl } from '../../services/apiOrigin.ts';
-import { devLogin, fetchProviders, type ProvidersResponse } from '../../services/messagesApi.ts';
 import { useCallback, useEffect, useState } from 'react';
 
 export function LoginPage() {
@@ -9,15 +9,13 @@ export function LoginPage() {
   const { token, sessionReady, setToken } = useAuth();
   const [search] = useSearchParams();
 
-  const [providers, setProviders] = useState<ProvidersResponse | null>(null);
+  const providersQuery = useAuthProvidersQuery();
+  const devLoginMut = useDevLoginMutation({ setToken });
+  const providers = providersQuery.isError
+    ? { google: false, github: false, dev: false }
+    : (providersQuery.data ?? null);
   const [devName, setDevName] = useState('explorer');
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void fetchProviders()
-      .then(setProviders)
-      .catch(() => setProviders({ google: false, github: false, dev: false }));
-  }, []);
 
   useEffect(() => {
     if (sessionReady && token) navigate('/lobby', { replace: true });
@@ -37,16 +35,10 @@ export function LoginPage() {
     window.location.href = apiUrl('/api/auth/github');
   }, []);
 
-  const handleDevLogin = useCallback(async () => {
+  const handleDevLogin = useCallback(() => {
     setError(null);
-    try {
-      const t = await devLogin(devName.trim() || 'explorer');
-      setToken(t);
-      navigate('/lobby', { replace: true });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Dev login failed');
-    }
-  }, [devName, navigate, setToken]);
+    devLoginMut.mutate(devName.trim() || 'explorer');
+  }, [devLoginMut, devName]);
 
   if (!sessionReady) {
     return (
@@ -65,7 +57,17 @@ export function LoginPage() {
           <code>/api/auth</code> (new tab restores access via silent refresh).
         </p>
 
-        {(error ?? paramError) && <div className="callout">{error ?? paramError}</div>}
+        {(error ?? devLoginMut.error ?? paramError) && (
+          <div className="callout">
+            {error ??
+              (devLoginMut.error instanceof Error
+                ? devLoginMut.error.message
+                : devLoginMut.error
+                  ? 'Dev login failed'
+                  : null) ??
+              paramError}
+          </div>
+        )}
 
         {providers?.google ? (
           <button type="button" className="primary" onClick={startGoogle}>
@@ -89,7 +91,7 @@ export function LoginPage() {
                 placeholder="Nickname"
               />
             </label>
-            <button type="button" onClick={handleDevLogin}>
+            <button type="button" disabled={devLoginMut.isPending} onClick={handleDevLogin}>
               Dev JWT (ALLOW_DEV_LOGIN=1 server)
             </button>
           </div>

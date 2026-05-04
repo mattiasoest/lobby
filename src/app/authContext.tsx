@@ -1,3 +1,4 @@
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   createContext,
   useCallback,
@@ -7,6 +8,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { queryClient } from '../query/queryClient.ts';
+import { queryKeys } from '../query/keys.ts';
 import { configureAuthApi } from '../services/api.ts';
 import { apiUrl } from '../services/apiOrigin.ts';
 import { refreshAccessFromCookieSingleFlight } from '../services/credentialRefresh.ts';
@@ -37,32 +40,39 @@ function isOAuthCallbackEntry(): boolean {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [sessionReady, setSessionReady] = useState(false);
+  const [skipBootstrap] = useState(() => isOAuthCallbackEntry());
+  const [sessionReady, setSessionReady] = useState(() => skipBootstrap);
   const [token, setTokenState] = useState<string | null>(null);
 
   const username = useMemo(() => decodeJwtUsername(token), [token]);
 
+  const bootstrapQuery = useQuery({
+    queryKey: queryKeys.auth.bootstrap,
+    queryFn: async (): Promise<string | null> => {
+      const outcome = await refreshAccessFromCookieSingleFlight();
+      return outcome.ok && outcome.accessToken ? outcome.accessToken : null;
+    },
+    enabled: !skipBootstrap,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+  });
+
   useEffect(() => {
     clearLegacyAccessToken();
-    if (isOAuthCallbackEntry()) {
-      setSessionReady(true);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const outcome = await refreshAccessFromCookieSingleFlight();
-        if (!cancelled && outcome.ok && outcome.accessToken) {
-          setTokenState(outcome.accessToken);
-        }
-      } finally {
-        if (!cancelled) setSessionReady(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    const t = bootstrapQuery.data;
+    if (typeof t === 'string' && t.length > 0) {
+      setTokenState(t);
+    }
+  }, [bootstrapQuery.data]);
+
+  useEffect(() => {
+    if (skipBootstrap) return;
+    if (bootstrapQuery.isFetched) setSessionReady(true);
+  }, [bootstrapQuery.isFetched, skipBootstrap]);
 
   const setToken = useCallback((t: string | null) => {
     setTokenState(t);
@@ -80,15 +90,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => configureAuthApi(null);
   }, [refreshAccessToken]);
 
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      try {
+        await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
+      } catch {
+        /* ignore network errors — still drop local session */
+      }
+    },
+    onSettled: () => {
+      queryClient.clear();
+      setTokenState(null);
+      clearLegacyAccessToken();
+    },
+  });
+
   const logout = useCallback(async () => {
-    try {
-      await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
-    } catch {
-      /* ignore network errors — still drop local session */
-    }
-    setTokenState(null);
-    clearLegacyAccessToken();
-  }, []);
+    await logoutMutation.mutateAsync();
+  }, [logoutMutation]);
 
   const value = useMemo(
     () => ({ token, username, sessionReady, setToken, logout }),

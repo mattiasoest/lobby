@@ -6,7 +6,7 @@ import type pg from 'pg';
 export const REFRESH_COOKIE_NAME = 'lobby_rt';
 
 export function accessTokenExpiresIn(): jwt.SignOptions['expiresIn'] {
-  const raw = process.env.JWT_ACCESS_EXPIRES ?? '15m';
+  const raw = process.env.JWT_ACCESS_EXPIRES ?? '1m';
   return raw as jwt.SignOptions['expiresIn'];
 }
 

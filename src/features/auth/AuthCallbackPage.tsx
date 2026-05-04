@@ -1,16 +1,13 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/authContext.tsx';
-import {
-  bootstrapServerSession,
-  clearOAuthFragmentStaging,
-  clearSessionBootstrapCache,
-  consumeOAuthFragmentFromUrl,
-} from './oauthBootstrap.ts';
+import { useOAuthBindSessionMutation } from '../../query/hooks.ts';
+import { clearOAuthFragmentStaging, consumeOAuthFragmentFromUrl } from './oauthBootstrap.ts';
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const { setToken } = useAuth();
+  const bindSession = useOAuthBindSessionMutation();
 
   useEffect(() => {
     let cancelled = false;
@@ -23,9 +20,12 @@ export function AuthCallbackPage() {
       }
 
       const { access, rt } = fragment;
-      const ok = await bootstrapServerSession(access, rt);
-
-      if (!cancelled) clearSessionBootstrapCache(access);
+      let ok: boolean;
+      try {
+        ok = await bindSession.mutateAsync({ access, rt });
+      } catch {
+        ok = false;
+      }
 
       if (cancelled) return;
 
@@ -43,7 +43,7 @@ export function AuthCallbackPage() {
     return () => {
       cancelled = true;
     };
-  }, [navigate, setToken]);
+  }, [bindSession, navigate, setToken]);
 
   return (
     <div className="auth-page">
