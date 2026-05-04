@@ -16,13 +16,9 @@ async function main() {
   }
 
   const pool = new pg.Pool({ connectionString: url });
-  const migrations = ['001_init.sql', '002_refresh_tokens.sql'];
-  for (const name of migrations) {
-    const sqlPath = join(__dirname, '../db/migrations', name);
-    const sql = readFileSync(sqlPath, 'utf-8');
-    await pool.query(sql);
-    console.log('Applied:', name);
-  }
+  const sqlPath = join(__dirname, '../db/migrations/001_init.sql');
+  const sql = readFileSync(sqlPath, 'utf-8');
+  await pool.query(sql);
   await pool.end();
   console.log('Migrations applied');
 }

@@ -1,6 +1,6 @@
 # Lobby
 
-Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **PostgreSQL**, and **Socket.IO** for presence/chat-style features. Auth is **JWT** in `localStorage`, with optional **Google/GitHub OAuth** and a **dev login** shortcut for local work.
+Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **PostgreSQL**, and **Socket.IO** for presence/chat-style features. Auth uses a **short-lived access JWT in memory** (React state). A **rotating refresh token** lives in an **httpOnly cookie** on `/api/auth`; the app calls **`POST /api/auth/refresh`** on startup to restore access in new tabs without keeping the JWT in `localStorage` (legacy `lobby_token` is cleared on boot). Optional **Google/GitHub OAuth** and a **dev login** shortcut round out local development.
 
 ## Prerequisites
 
@@ -101,11 +101,11 @@ Use the **Vite dev URL** (`http://localhost:5173`) so API routes are proxied. Op
 
 ## Sign-in options
 
-1. **Dev login** — With `ALLOW_DEV_LOGIN=1`, use the dev section on `/login` to pick a display name and receive a JWT. No OAuth setup required.
+1. **Dev login** — With `ALLOW_DEV_LOGIN=1`, use the dev section on `/login` to pick a display name. The API returns a short-lived **`accessToken`** (JSON) and sets the **httpOnly refresh cookie**; the client keeps the access token in memory only.
 2. **Google** — Enable when **`GOOGLE_CLIENT_ID`** and **`GOOGLE_CLIENT_SECRET`** are both set in `server/.env` (see below).
 3. **GitHub** — Enable when **`GITHUB_CLIENT_ID`** and **`GITHUB_CLIENT_SECRET`** are both set in `server/.env` (see below).
 
-After a successful OAuth flow, the API redirects the browser to **`{FRONTEND_URL}/auth/callback#token=...`**. The app must load from **`FRONTEND_URL`** (e.g. `http://localhost:5173` in dev) so that page can read the token.
+After a successful OAuth flow, the API redirects the browser to **`{FRONTEND_URL}/auth/callback#access=...&rt=...`**. The SPA reads the hash, calls **`POST /api/auth/session`** to install the refresh cookie, then keeps **`access`** in memory. Load the app from **`FRONTEND_URL`** (e.g. `http://localhost:5173` in dev) so that route runs correctly.
 
 ### Local dev: two servers (Vite + API) and OAuth
 
@@ -115,7 +115,7 @@ You run **two** processes: the **frontend** (Vite, e.g. `http://localhost:5173`)
 2. The browser goes to **`/api/auth/...` on port 5173**; Vite **proxies** that to the API on **3001** (`VITE_PROXY_TARGET`).
 3. You sign in at Google/GitHub. They **redirect your browser to the OAuth “callback” URL** — that URL must hit the **API**, not Vite:  
    **`http://localhost:3001/api/auth/google/callback`** or **`.../github/callback`**.
-4. The API finishes the flow and **redirects you to** **`http://localhost:5173/auth/callback#token=...`** (`FRONTEND_URL`).
+4. The API finishes the flow and **redirects you to** **`http://localhost:5173/auth/callback#access=...&rt=...`** (`FRONTEND_URL`), where the refresh cookie is wired up and access is held in memory.
 
 So in the provider’s dashboard:
 
