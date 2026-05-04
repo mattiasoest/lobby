@@ -12,8 +12,12 @@ import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import type { Socket } from 'socket.io-client';
 
 const TILE = 32;
-const COLS = 24;
-const ROWS = 16;
+/** Visible grid (canvas size unchanged) */
+const VIEW_COLS = 24;
+const VIEW_ROWS = 16;
+/** Walkable world — larger than viewport; camera clamps at edges */
+const WORLD_COLS = 48;
+const WORLD_ROWS = 32;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -25,7 +29,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const messages = messagesQuery.data ?? [];
 
   const socketRef = useRef<Socket | null>(null);
-  const localRef = useRef({ x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) });
+  const localRef = useRef({ x: Math.floor(WORLD_COLS / 2), y: Math.floor(WORLD_ROWS / 2) });
   const lastSent = useRef<{ x: number; y: number } | null>(null);
 
   const [socketId, setSocketId] = useState<string | null>(null);
@@ -41,7 +45,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
   }, [localPos]);
 
   useEffect(() => {
-    localRef.current = { x: Math.floor(COLS / 2), y: Math.floor(ROWS / 2) };
+    localRef.current = { x: Math.floor(WORLD_COLS / 2), y: Math.floor(WORLD_ROWS / 2) };
     setLocalPos(localRef.current);
     setServerPlayers([]);
     lastSent.current = null;
@@ -107,8 +111,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const attemptMove = useCallback((dx: number, dy: number) => {
     setLocalPos((prev) => {
       const next = {
-        x: clamp(prev.x + dx, 0, COLS - 1),
-        y: clamp(prev.y + dy, 0, ROWS - 1),
+        x: clamp(prev.x + dx, 0, WORLD_COLS - 1),
+        y: clamp(prev.y + dy, 0, WORLD_ROWS - 1),
       };
 
       if (next.x === prev.x && next.y === prev.y) return prev;
@@ -157,10 +161,14 @@ export function RoomPage({ roomId }: { roomId: number }) {
         <div className="room-stage">
           <PixiCanvas
             tileSize={TILE}
-            cols={COLS}
-            rows={ROWS}
+            viewCols={VIEW_COLS}
+            viewRows={VIEW_ROWS}
+            worldCols={WORLD_COLS}
+            worldRows={WORLD_ROWS}
+            cameraTarget={{ x: localPos.x, y: localPos.y }}
             players={displayPlayers}
             localId={socketId}
+            roomId={roomId}
             keysDisabled={typingFocus}
             onMoveIntent={attemptMove}
           />
