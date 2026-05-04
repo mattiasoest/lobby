@@ -1,11 +1,12 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../app/authContext.tsx';
+import { apiUrl } from '../../services/apiOrigin.ts';
 import { devLogin, fetchProviders, type ProvidersResponse } from '../../services/messagesApi.ts';
 import { useCallback, useEffect, useState } from 'react';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { token, setToken } = useAuth();
+  const { token, sessionReady, setToken } = useAuth();
   const [search] = useSearchParams();
 
   const [providers, setProviders] = useState<ProvidersResponse | null>(null);
@@ -19,8 +20,8 @@ export function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (token) navigate('/lobby', { replace: true });
-  }, [navigate, token]);
+    if (sessionReady && token) navigate('/lobby', { replace: true });
+  }, [navigate, token, sessionReady]);
 
   const paramError = search.get('error');
 
@@ -29,11 +30,11 @@ export function LoginPage() {
   }, [paramError]);
 
   const startGoogle = useCallback(() => {
-    window.location.href = '/api/auth/google';
+    window.location.href = apiUrl('/api/auth/google');
   }, []);
 
   const startGithub = useCallback(() => {
-    window.location.href = '/api/auth/github';
+    window.location.href = apiUrl('/api/auth/github');
   }, []);
 
   const handleDevLogin = useCallback(async () => {
@@ -47,11 +48,22 @@ export function LoginPage() {
     }
   }, [devName, navigate, setToken]);
 
+  if (!sessionReady) {
+    return (
+      <div className="auth-page">
+        <p className="muted">Checking session…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="auth-page">
       <div className="auth-card">
         <h1>Sign in</h1>
-        <p className="muted">OAuth issues a JWT saved in localStorage.</p>
+        <p className="muted">
+          Short-lived access JWT kept in memory; rotating refresh stays in an http-only cookie scoped to{' '}
+          <code>/api/auth</code> (new tab restores access via silent refresh).
+        </p>
 
         {(error ?? paramError) && <div className="callout">{error ?? paramError}</div>}
 

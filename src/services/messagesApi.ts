@@ -1,5 +1,6 @@
 import type { ChatMessageDTO } from '../types.ts';
 import { apiFetch } from './api.ts';
+import { apiUrl } from './apiOrigin.ts';
 
 export function fetchRoomMessages(roomId: number, token: string): Promise<ChatMessageDTO[]> {
   return apiFetch(`/api/rooms/${roomId}/messages`, token);
@@ -12,7 +13,7 @@ export type ProvidersResponse = {
 }
 
 export function fetchProviders(): Promise<ProvidersResponse> {
-  return fetch('/api/auth/providers').then((r) => {
+  return fetch(apiUrl('/api/auth/providers')).then((r) => {
     if (!r.ok) throw new Error('providers');
     return r.json() as Promise<ProvidersResponse>;
   });
@@ -21,9 +22,10 @@ export function fetchProviders(): Promise<ProvidersResponse> {
 export async function devLogin(username: string): Promise<string> {
   let res: Response;
   try {
-    res = await fetch('/api/auth/dev-login', {
+    res = await fetch(apiUrl('/api/auth/dev-login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ username }),
     });
   } catch {
@@ -32,9 +34,9 @@ export async function devLogin(username: string): Promise<string> {
     );
   }
   const text = await res.text();
-  let data: { token?: string; error?: string };
+  let data: { accessToken?: string; error?: string };
   try {
-    data = JSON.parse(text) as { token?: string; error?: string };
+    data = JSON.parse(text) as { accessToken?: string; error?: string };
   } catch {
     throw new Error(
       text.trim()
@@ -43,6 +45,6 @@ export async function devLogin(username: string): Promise<string> {
     );
   }
   if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-  if (!data.token) throw new Error('missing token');
-  return data.token;
+  if (!data.accessToken) throw new Error('missing access token');
+  return data.accessToken;
 }

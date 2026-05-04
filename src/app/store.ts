@@ -1,14 +1,7 @@
+/** Legacy key — cleared on boot so access tokens are memory-only. */
 const TOKEN_KEY = 'lobby_token';
 
-export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setStoredToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearStoredToken() {
+export function clearLegacyAccessToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 

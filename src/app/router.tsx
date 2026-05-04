@@ -7,7 +7,14 @@ import { RoomRouteGate } from '../features/room/RoomGate.tsx';
 import { useAuth } from './authContext.tsx';
 
 function ProtectedLayout() {
-  const { token } = useAuth();
+  const { token, sessionReady } = useAuth();
+  if (!sessionReady) {
+    return (
+      <div className="auth-page">
+        <p>Loading session…</p>
+      </div>
+    );
+  }
   if (!token) return <Navigate to="/login" replace />;
   return (
     <AppChrome>

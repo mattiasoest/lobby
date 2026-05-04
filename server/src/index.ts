@@ -1,13 +1,21 @@
 import 'dotenv/config';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import { createServer } from 'node:http';
-import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Server as IOServer } from 'socket.io';
 import { setupOAuth } from './auth/passportSetup.js';
+import {
+  REFRESH_COOKIE_NAME,
+  issueAccessToken,
+  generateRefreshSecret,
+  persistRefreshToken,
+  refreshCookieOptions,
+} from './auth/tokens.js';
 import { createPool } from './db/client.js';
 import { createRequireAuth } from './middleware/jwt.js';
+import { createAuthTokensRouter } from './routes/authTokens.js';
 import { messagesRouter } from './routes/messages.js';
 import { registerRoomNamespaces } from './sockets/roomHandler.js';
 
@@ -29,13 +37,11 @@ const pool = createPool(DATABASE_URL);
 const app = express();
 
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(passport.initialize());
 
 setupOAuth(app, pool, JWT_SECRET, FRONTEND_URL);
-
-const requireAuth = createRequireAuth(JWT_SECRET);
-app.use('/api', messagesRouter(pool, requireAuth));
 
 app.get('/api/auth/providers', (_req, res) => {
   res.json({
@@ -71,14 +77,22 @@ app.post('/api/auth/dev-login', async (req, res) => {
       res.status(500).json({ error: 'failed' });
       return;
     }
-    const token = jwt.sign({ sub: id, username }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token });
+    const raw = generateRefreshSecret();
+    await persistRefreshToken(pool, id, raw);
+    const accessToken = issueAccessToken({ id, username }, JWT_SECRET);
+    res.cookie(REFRESH_COOKIE_NAME, raw, refreshCookieOptions());
+    res.json({ accessToken });
   } catch (e) {
     console.error('dev-login', e);
     const message = e instanceof Error ? e.message : 'failed';
     res.status(500).json({ error: message });
   }
 });
+
+app.use('/api/auth', createAuthTokensRouter(pool, JWT_SECRET));
+
+const requireAuth = createRequireAuth(JWT_SECRET);
+app.use('/api', messagesRouter(pool, requireAuth));
 
 const httpServer = createServer(app);
 const io = new IOServer(httpServer, {

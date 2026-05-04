@@ -1,25 +1,48 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../app/authContext.tsx';
+import {
+  bootstrapServerSession,
+  clearOAuthFragmentStaging,
+  clearSessionBootstrapCache,
+  consumeOAuthFragmentFromUrl,
+} from './oauthBootstrap.ts';
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const { setToken } = useAuth();
 
   useEffect(() => {
-    const hash = window.location.hash.startsWith('#')
-      ? window.location.hash.slice(1)
-      : window.location.hash;
-    const params = new URLSearchParams(hash);
-    const incoming = params.get('token');
-    window.history.replaceState(null, '', window.location.pathname);
+    let cancelled = false;
 
-    if (incoming) {
-      setToken(incoming);
+    void (async () => {
+      const fragment = consumeOAuthFragmentFromUrl();
+      if (!fragment) {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      const { access, rt } = fragment;
+      const ok = await bootstrapServerSession(access, rt);
+
+      if (!cancelled) clearSessionBootstrapCache(access);
+
+      if (cancelled) return;
+
+      if (!ok) {
+        clearOAuthFragmentStaging();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      clearOAuthFragmentStaging();
+      setToken(access);
       navigate('/lobby', { replace: true });
-    } else {
-      navigate('/login', { replace: true });
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [navigate, setToken]);
 
   return (

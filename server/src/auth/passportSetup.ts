@@ -1,6 +1,5 @@
 import type { Express } from 'express';
 import type pg from 'pg';
-import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import {
@@ -8,6 +7,12 @@ import {
   type Profile as GoogleProfile,
   type VerifyCallback,
 } from 'passport-google-oauth20';
+import {
+  generateRefreshSecret,
+  issueAccessToken,
+  persistRefreshToken,
+  refreshTtlMs,
+} from './tokens.js';
 
 export type SerializedUser = { id: string; username: string }
 
@@ -116,11 +121,16 @@ export function setupOAuth(
     );
   }
 
-  function redirectWithToken(res: import('express').Response, user: SerializedUser) {
-    const token = jwt.sign({ sub: user.id, username: user.username }, jwtSecret, {
-      expiresIn: '7d',
-    });
-    const target = `${frontendUrl.replace(/\/$/, '')}/auth/callback#token=${encodeURIComponent(token)}`;
+  async function redirectWithOAuthSession(
+    res: import('express').Response,
+    user: SerializedUser
+  ): Promise<void> {
+    const raw = generateRefreshSecret();
+    await persistRefreshToken(pool, user.id, raw, refreshTtlMs());
+    const access = issueAccessToken({ id: user.id, username: user.username }, jwtSecret);
+    const base = frontendUrl.replace(/\/$/, '');
+    const hash = `access=${encodeURIComponent(access)}&rt=${encodeURIComponent(raw)}`;
+    const target = `${base}/auth/callback#${hash}`;
     res.redirect(target);
   }
 
@@ -139,8 +149,12 @@ export function setupOAuth(
         failureRedirect: `${frontendUrl}/login?error=google`,
         session: false,
       }),
-      (req, res) => {
-        redirectWithToken(res, req.user as SerializedUser);
+      async (req, res, next) => {
+        try {
+          await redirectWithOAuthSession(res, req.user as SerializedUser);
+        } catch (e) {
+          next(e);
+        }
       }
     );
   }
@@ -157,8 +171,12 @@ export function setupOAuth(
         failureRedirect: `${frontendUrl}/login?error=github`,
         session: false,
       }),
-      (req, res) => {
-        redirectWithToken(res, req.user as SerializedUser);
+      async (req, res, next) => {
+        try {
+          await redirectWithOAuthSession(res, req.user as SerializedUser);
+        } catch (e) {
+          next(e);
+        }
       }
     );
   }
