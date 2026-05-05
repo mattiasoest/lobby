@@ -13,23 +13,95 @@ const POSITION_SYNC_HZ = 30;
 const SYNC_MS = 1000 / POSITION_SYNC_HZ;
 
 /** Local movement speed (px/s) */
-const MOVE_PX_PER_SEC = 220;
+const MOVE_PX_PER_SEC = 110;
 
-/** Blend each remote snapshot toward the next over this window (≤ sync interval feels smooth). */
-const REMOTE_INTERP_MS = 31;
+/**
+ * Playback delay bounds: shallow buffers use the min so motion starts sooner;
+ * once depth builds, ramp toward max for steadier bracketing.
+ */
+const REMOTE_RENDER_DELAY_MAX_MS = 105;
+const REMOTE_RENDER_DELAY_MIN_MS = 45;
 
-/** Ignore sub-pixel server jitter (Squared distance threshold). */
-const REMOTE_SNAP_EPS_SQ = 0.04 * 0.04;
+/** Drop buffered samples older than this to cap memory. */
+const REMOTE_SAMPLE_TTL_MS = 2500;
 
-type RemoteLerp = {
-  from: { x: number; y: number }
-  to: { x: number; y: number }
-  startTime: number
+const MAX_REMOTE_SAMPLES = 48;
+
+/**
+ * Drop front anchors if the gap before the next sample exceeds ~2 network steps.
+ * Keeps interpolation segments short so idle→motion doesn't span huge time windows.
+ */
+const MAX_REMOTE_SEGMENT_MS = SYNC_MS * 2 + 24;
+
+/** Ignore jittery duplicate snapshots (world px). */
+const REMOTE_SNAP_EPS_SQ = 0.06 * 0.06;
+
+/** Soft follow from last drawn pos → buffer target (higher = snappier, lower = silkier). */
+const REMOTE_DISPLAY_LAMBDA = 26;
+/** After rest→motion, follow buffer target more tightly for a longer window. */
+const REMOTE_DISPLAY_LAMBDA_BURST = 64;
+const REMOTE_BURST_DURATION_MS = 308;
+/** Smoothed speed below this (px/s) counts as “idle” for wake detection. */
+const REMOTE_BURST_IDLE_SPEED_PX_S = 22;
+/** Smoothed speed above this after idle starts the burst window (lower = catches gentle starts). */
+const REMOTE_BURST_WAKE_SPEED_PX_S = 43;
+/** During burst, shave ms off render delay (floor still applies). */
+const REMOTE_BURST_DELAY_SHAVE_MS = 20;
+const REMOTE_RENDER_DELAY_FLOOR_MS = 25;
+
+type RemoteSample = { t: number; x: number; y: number }
+
+function dropRemoteStaleAnchors(samples: RemoteSample[]): void {
+  while (samples.length >= 2) {
+    const a = samples[0];
+    const b = samples[1];
+    if (b.t - a.t > MAX_REMOTE_SEGMENT_MS) {
+      samples.shift();
+    } else {
+      break;
+    }
+  }
+}
+
+/** No-op: kept so stale callers cannot throw after removing squash behavior. */
+function squashRemoteIdleLeadIn(_samples: RemoteSample[]): void {}
+
+function remoteRenderDelayMs(samples: RemoteSample[]): number {
+  if (samples.length <= 2) return REMOTE_RENDER_DELAY_MIN_MS;
+  const span = REMOTE_RENDER_DELAY_MAX_MS - REMOTE_RENDER_DELAY_MIN_MS;
+  const depth = clamp((samples.length - 2) / 3, 0, 1);
+  return REMOTE_RENDER_DELAY_MIN_MS + span * depth;
 }
 
 function smoothstep01(t: number) {
   const x = clamp(t, 0, 1);
   return x * x * (3 - 2 * x);
+}
+
+function posFromRemoteBuffer(samples: RemoteSample[], playbackT: number): { x: number; y: number } {
+  if (samples.length === 0) return { x: 0, y: 0 };
+  if (samples.length === 1) return { x: samples[0].x, y: samples[0].y };
+
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+
+  if (playbackT <= first.t) return { x: first.x, y: first.y };
+  if (playbackT >= last.t) return { x: last.x, y: last.y };
+
+  for (let i = 0; i < samples.length - 1; i++) {
+    const a = samples[i];
+    const b = samples[i + 1];
+    if (playbackT <= b.t) {
+      const span = b.t - a.t;
+      const uLin = span < 1e-6 ? 0 : clamp((playbackT - a.t) / span, 0, 1);
+      const u = smoothstep01(uLin);
+      return {
+        x: a.x + (b.x - a.x) * u,
+        y: a.y + (b.y - a.y) * u,
+      };
+    }
+  }
+  return { x: last.x, y: last.y };
 }
 
 function scrollWorldPx(
@@ -136,9 +208,15 @@ export function PixiCanvas({
 
   const localPxRef = useRef({ x: worldSpawnPx.x, y: worldSpawnPx.y });
   const remotePxRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-  const remoteLerpRef = useRef<Map<string, RemoteLerp>>(new Map());
+  const remoteSampleBufRef = useRef<Map<string, RemoteSample[]>>(new Map());
   const lastServerSnapRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const lastSyncAtRef = useRef(0);
+  /** True when local player had movement keys active last tick (for instant first sync on key-down). */
+  const localWasMovingRef = useRef(false);
+  /** Per-remote: previous buffer target (world px) for speed estimate. */
+  const remoteTargetPrevRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const remoteSpeedSmoothedRef = useRef<Map<string, number>>(new Map());
+  const remoteBurstUntilRef = useRef<Map<string, number>>(new Map());
 
   tileSizeRef.current = tileSize;
   viewColsRef.current = viewCols;
@@ -222,6 +300,7 @@ export function PixiCanvas({
       );
       localPxRef.current = { ...spawn };
       lastSyncAtRef.current = 0;
+      localWasMovingRef.current = false;
 
       const pad0 = tileSize * 0.14;
       const size0 = tileSize - pad0 * 2;
@@ -265,40 +344,110 @@ export function PixiCanvas({
           local.y = c.y;
         }
 
+        const startedMove = len > 0 && !localWasMovingRef.current;
+        localWasMovingRef.current = len > 0;
+
         const plist = playersRef.current;
         for (const p of plist) {
           if (lid && p.id === lid) continue;
-          const prev = lastServerSnapRef.current.get(p.id);
-          const moved =
-            !prev ||
-            (p.x - prev.x) ** 2 + (p.y - prev.y) ** 2 > REMOTE_SNAP_EPS_SQ;
-          if (moved) {
+
+          let samples = remoteSampleBufRef.current.get(p.id);
+          if (!samples) {
+            samples = [{ t: now, x: p.x, y: p.y }];
+            remoteSampleBufRef.current.set(p.id, samples);
             lastServerSnapRef.current.set(p.id, { x: p.x, y: p.y });
-            const curVisual = remotePxRef.current.get(p.id) ?? { x: p.x, y: p.y };
-            remoteLerpRef.current.set(p.id, {
-              from: { ...curVisual },
-              to: { x: p.x, y: p.y },
-              startTime: now,
+          } else {
+            const prev = lastServerSnapRef.current.get(p.id);
+            const moved =
+              !prev ||
+              (p.x - prev.x) ** 2 + (p.y - prev.y) ** 2 > REMOTE_SNAP_EPS_SQ;
+            if (moved) {
+              lastServerSnapRef.current.set(p.id, { x: p.x, y: p.y });
+              samples.push({ t: now, x: p.x, y: p.y });
+              while (samples.length > MAX_REMOTE_SAMPLES) {
+                samples.shift();
+              }
+            }
+          }
+
+          const arr = remoteSampleBufRef.current.get(p.id);
+          if (arr && arr.length > 0) {
+            const cutoff = now - REMOTE_SAMPLE_TTL_MS;
+            while (arr.length > 1 && arr[0].t < cutoff) {
+              arr.shift();
+            }
+            squashRemoteIdleLeadIn(arr);
+            dropRemoteStaleAnchors(arr);
+          }
+
+          const ready = remoteSampleBufRef.current.get(p.id) ?? [];
+          const baseDelay = remoteRenderDelayMs(ready);
+          let burst = now < (remoteBurstUntilRef.current.get(p.id) ?? 0);
+
+          let playbackDelay = burst
+            ? Math.max(REMOTE_RENDER_DELAY_FLOOR_MS, baseDelay - REMOTE_BURST_DELAY_SHAVE_MS)
+            : baseDelay;
+          let target = posFromRemoteBuffer(ready, now - playbackDelay);
+
+          const prevTarget = remoteTargetPrevRef.current.get(p.id);
+          let instSpeed = 0;
+          if (prevTarget) {
+            const invDt = 1 / Math.max(dt, 1e-4);
+            instSpeed = Math.hypot(target.x - prevTarget.x, target.y - prevTarget.y) * invDt;
+          }
+          const prevSmooth = remoteSpeedSmoothedRef.current.get(p.id) ?? 0;
+          let smoothSpeed = prevSmooth * 0.55 + instSpeed * 0.45;
+
+          const woke =
+            prevTarget !== undefined &&
+            prevSmooth < REMOTE_BURST_IDLE_SPEED_PX_S &&
+            smoothSpeed > REMOTE_BURST_WAKE_SPEED_PX_S;
+
+          if (woke) {
+            remoteBurstUntilRef.current.set(p.id, now + REMOTE_BURST_DURATION_MS);
+            if (!burst) {
+              burst = true;
+              playbackDelay = Math.max(
+                REMOTE_RENDER_DELAY_FLOOR_MS,
+                baseDelay - REMOTE_BURST_DELAY_SHAVE_MS
+              );
+              target = posFromRemoteBuffer(ready, now - playbackDelay);
+              if (prevTarget) {
+                const invDt = 1 / Math.max(dt, 1e-4);
+                instSpeed = Math.hypot(target.x - prevTarget.x, target.y - prevTarget.y) * invDt;
+                smoothSpeed = prevSmooth * 0.55 + instSpeed * 0.45;
+              }
+            }
+          }
+
+          remoteSpeedSmoothedRef.current.set(p.id, smoothSpeed);
+          remoteTargetPrevRef.current.set(p.id, { x: target.x, y: target.y });
+
+          const prevDrawn = remotePxRef.current.get(p.id);
+          const lambda = burst ? REMOTE_DISPLAY_LAMBDA_BURST : REMOTE_DISPLAY_LAMBDA;
+          const blend = 1 - Math.exp(-lambda * dt);
+          if (!prevDrawn) {
+            remotePxRef.current.set(p.id, { ...target });
+          } else {
+            remotePxRef.current.set(p.id, {
+              x: prevDrawn.x + (target.x - prevDrawn.x) * blend,
+              y: prevDrawn.y + (target.y - prevDrawn.y) * blend,
             });
           }
         }
 
+        const remoteIds = new Set<string>();
         for (const p of plist) {
-          if (lid && p.id === lid) continue;
-          const ls = remoteLerpRef.current.get(p.id);
-          if (!ls) {
-            remotePxRef.current.set(p.id, { x: p.x, y: p.y });
-            continue;
-          }
-          const rawT = (now - ls.startTime) / REMOTE_INTERP_MS;
-          if (rawT >= 1) {
-            remotePxRef.current.set(p.id, { x: ls.to.x, y: ls.to.y });
-          } else {
-            const t = smoothstep01(rawT);
-            remotePxRef.current.set(p.id, {
-              x: ls.from.x + (ls.to.x - ls.from.x) * t,
-              y: ls.from.y + (ls.to.y - ls.from.y) * t,
-            });
+          if (!(lid && p.id === lid)) remoteIds.add(p.id);
+        }
+        for (const id of [...remoteSampleBufRef.current.keys()]) {
+          if (!remoteIds.has(id)) {
+            remoteSampleBufRef.current.delete(id);
+            lastServerSnapRef.current.delete(id);
+            remotePxRef.current.delete(id);
+            remoteTargetPrevRef.current.delete(id);
+            remoteSpeedSmoothedRef.current.delete(id);
+            remoteBurstUntilRef.current.delete(id);
           }
         }
 
@@ -325,7 +474,7 @@ export function PixiCanvas({
           gfx.position.set(pos.x, pos.y);
         }
 
-        if (now - lastSyncAtRef.current >= SYNC_MS) {
+        if (startedMove || now - lastSyncAtRef.current >= SYNC_MS) {
           lastSyncAtRef.current = now;
           onPositionSyncRef.current({ x: local.x, y: local.y });
         }
@@ -360,8 +509,11 @@ export function PixiCanvas({
       tickerFnRef.current = null;
       spriteByIdRef.current.clear();
       remotePxRef.current.clear();
-      remoteLerpRef.current.clear();
+      remoteSampleBufRef.current.clear();
       lastServerSnapRef.current.clear();
+      remoteTargetPrevRef.current.clear();
+      remoteSpeedSmoothedRef.current.clear();
+      remoteBurstUntilRef.current.clear();
       layerRef.current = null;
       worldRef.current = null;
 
@@ -381,12 +533,16 @@ export function PixiCanvas({
     }
     spriteByIdRef.current.clear();
     remotePxRef.current.clear();
-    remoteLerpRef.current.clear();
+    remoteSampleBufRef.current.clear();
     lastServerSnapRef.current.clear();
+    remoteTargetPrevRef.current.clear();
+    remoteSpeedSmoothedRef.current.clear();
+    remoteBurstUntilRef.current.clear();
 
     const pad = tileSize * 0.14;
     const size = tileSize - pad * 2;
     const lid = localId;
+    const tSeed = performance.now();
 
     for (const p of players) {
       const graphic = new Graphics();
@@ -401,6 +557,8 @@ export function PixiCanvas({
         py = loc.y;
       } else {
         remotePxRef.current.set(p.id, { x: p.x, y: p.y });
+        remoteSampleBufRef.current.set(p.id, [{ t: tSeed, x: p.x, y: p.y }]);
+        lastServerSnapRef.current.set(p.id, { x: p.x, y: p.y });
       }
       graphic.position.set(px, py);
       spriteByIdRef.current.set(p.id, graphic);
@@ -418,8 +576,12 @@ export function PixiCanvas({
     );
     localPxRef.current = { ...spawn };
     remotePxRef.current.clear();
-    remoteLerpRef.current.clear();
+    remoteSampleBufRef.current.clear();
     lastServerSnapRef.current.clear();
+    remoteTargetPrevRef.current.clear();
+    remoteSpeedSmoothedRef.current.clear();
+    remoteBurstUntilRef.current.clear();
+    localWasMovingRef.current = false;
     lastSyncAtRef.current = 0;
 
     const w = worldRef.current;
