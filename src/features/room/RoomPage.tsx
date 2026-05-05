@@ -12,15 +12,17 @@ import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import type { Socket } from 'socket.io-client';
 
 const TILE = 32;
-/** Visible grid (canvas size unchanged) */
 const VIEW_COLS = 24;
 const VIEW_ROWS = 16;
-/** Walkable world — larger than viewport; camera clamps at edges */
 const WORLD_COLS = 48;
 const WORLD_ROWS = 32;
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
+function worldSpawnPx() {
+  const pad = TILE * 0.14;
+  const size = TILE - pad * 2;
+  const w = WORLD_COLS * TILE;
+  const h = WORLD_ROWS * TILE;
+  return { x: w / 2 - size / 2, y: h / 2 - size / 2 };
 }
 
 export function RoomPage({ roomId }: { roomId: number }) {
@@ -29,26 +31,20 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const messages = messagesQuery.data ?? [];
 
   const socketRef = useRef<Socket | null>(null);
-  const localRef = useRef({ x: Math.floor(WORLD_COLS / 2), y: Math.floor(WORLD_ROWS / 2) });
-  const lastSent = useRef<{ x: number; y: number } | null>(null);
 
   const [socketId, setSocketId] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [serverPlayers, setServerPlayers] = useState<PlayerDTO[]>([]);
   const [typingFocus, setTypingFocus] = useState(false);
 
+  /** Throttled sidebar position (~30 Hz from canvas) */
+  const [localListPos, setLocalListPos] = useState(worldSpawnPx);
+
   const claims = decodeJwtPayload(token);
 
-  const [localPos, setLocalPos] = useState(localRef.current);
   useEffect(() => {
-    localRef.current = localPos;
-  }, [localPos]);
-
-  useEffect(() => {
-    localRef.current = { x: Math.floor(WORLD_COLS / 2), y: Math.floor(WORLD_ROWS / 2) };
-    setLocalPos(localRef.current);
+    setLocalListPos(worldSpawnPx());
     setServerPlayers([]);
-    lastSent.current = null;
   }, [roomId]);
 
   useEffect(() => {
@@ -72,12 +68,12 @@ export function RoomPage({ roomId }: { roomId: number }) {
     sock.on('connect', () => {
       setSocketConnected(true);
       setSocketId(sock.id ?? null);
-      sock.emit('player:join', { ...localRef.current });
+      const spawn = worldSpawnPx();
+      sock.emit('player:join', { x: spawn.x, y: spawn.y });
     });
 
     sock.on('disconnect', () => {
       setSocketConnected(false);
-      lastSent.current = null;
     });
 
     sock.on('connect_error', () => {
@@ -93,38 +89,19 @@ export function RoomPage({ roomId }: { roomId: number }) {
       socketRef.current = null;
       setSocketConnected(false);
       setSocketId(null);
-      lastSent.current = null;
     };
   }, [roomId, token]);
 
-  useEffect(() => {
+  const handlePositionSync = useCallback((pos: { x: number; y: number }) => {
+    setLocalListPos(pos);
     const sock = socketRef.current;
     if (!sock?.connected) return;
-
-    const last = lastSent.current;
-    if (last?.x === localPos.x && last?.y === localPos.y) return;
-
-    lastSent.current = { x: localPos.x, y: localPos.y };
-    sock.emit('player:move', { x: localPos.x, y: localPos.y });
-  }, [localPos, socketConnected]);
-
-  const attemptMove = useCallback((dx: number, dy: number) => {
-    setLocalPos((prev) => {
-      const next = {
-        x: clamp(prev.x + dx, 0, WORLD_COLS - 1),
-        y: clamp(prev.y + dy, 0, WORLD_ROWS - 1),
-      };
-
-      if (next.x === prev.x && next.y === prev.y) return prev;
-
-      localRef.current = next;
-      return next;
-    });
+    sock.emit('player:move', pos);
   }, []);
 
   const displayPlayers = useMemo(() => {
     const overridden = serverPlayers.map((p) =>
-      socketId && p.id === socketId ? { ...p, x: localPos.x, y: localPos.y } : p
+      socketId && p.id === socketId ? { ...p, x: localListPos.x, y: localListPos.y } : p
     );
 
     const ghostUserId =
@@ -134,14 +111,16 @@ export function RoomPage({ roomId }: { roomId: number }) {
       overridden.push({
         id: socketId,
         username: username ?? claims?.username ?? 'You',
-        x: localPos.x,
-        y: localPos.y,
+        x: localListPos.x,
+        y: localListPos.y,
         userId: ghostUserId,
       });
     }
 
     return overridden;
-  }, [claims?.sub, claims?.username, localPos.x, localPos.y, serverPlayers, socketId, username]);
+  }, [claims?.sub, claims?.username, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
+
+  const spawnPx = useMemo(() => worldSpawnPx(), []);
 
   const sendChat = useCallback((text: string) => {
     socketRef.current?.emit('chat:send', { content: text });
@@ -165,12 +144,12 @@ export function RoomPage({ roomId }: { roomId: number }) {
             viewRows={VIEW_ROWS}
             worldCols={WORLD_COLS}
             worldRows={WORLD_ROWS}
-            cameraTarget={{ x: localPos.x, y: localPos.y }}
+            worldSpawnPx={spawnPx}
             players={displayPlayers}
             localId={socketId}
             roomId={roomId}
             keysDisabled={typingFocus}
-            onMoveIntent={attemptMove}
+            onPositionSync={handlePositionSync}
           />
           <PlayerList players={displayPlayers} />
         </div>

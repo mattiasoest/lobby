@@ -9,7 +9,7 @@ export function PlayerList({ players }: { players: PlayerDTO[] }) {
           <li key={p.id}>
             {p.username}{' '}
             <small>
-              ({p.x}, {p.y})
+              ({Math.round(p.x)}, {Math.round(p.y)})
             </small>
           </li>
         ))}
