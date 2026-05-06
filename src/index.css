@@ -5,6 +5,7 @@
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
   --accent: #aa3bff;
+  --accent-hover: color-mix(in srgb, var(--accent) 82%, black);
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
@@ -38,6 +39,7 @@
     --border: #2e303a;
     --code-bg: #1f2028;
     --accent: #c084fc;
+    --accent-hover: color-mix(in srgb, var(--accent) 82%, white);
     --accent-bg: rgba(192, 132, 252, 0.15);
     --accent-border: rgba(192, 132, 252, 0.5);
     --social-bg: rgba(47, 48, 58, 0.5);
@@ -150,6 +152,15 @@ code {
   border-radius: 6px;
   padding: 8px 12px;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.chrome-logout:not(:disabled):hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
 }
 
 .chrome-body {
@@ -180,6 +191,24 @@ code {
   cursor: pointer;
   background: var(--accent);
   color: #fff;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.auth-card button.primary:not(:disabled):hover {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.auth-card button.primary:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.auth-card button.primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .dev-login {
@@ -192,6 +221,29 @@ code {
   display: grid;
   gap: 6px;
   text-align: start;
+}
+
+.dev-login > button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-h);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.dev-login > button:not(:disabled):hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.dev-login > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .dev-login input,
@@ -237,6 +289,27 @@ code {
   text-decoration: none;
   font-weight: 600;
   color: var(--text-h);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.room-card:hover {
+  border-color: var(--accent-border);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--accent-bg) 95%, transparent),
+    color-mix(in srgb, var(--bg) 70%, transparent)
+  );
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 16%, transparent);
+  transform: translateY(-2px);
+}
+
+.room-card:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .room-page {
@@ -308,11 +381,32 @@ code {
 
 .chat-compose button {
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
   background: var(--accent);
   color: #fff;
   padding-inline: 12px;
   cursor: pointer;
+  font: inherit;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.chat-compose button:not(:disabled):hover {
+  background: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--accent-hover) 55%, var(--border));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.chat-compose button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.chat-compose button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .chat-line {
