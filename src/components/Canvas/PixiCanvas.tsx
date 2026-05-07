@@ -1,6 +1,6 @@
 import grassBg from '../../assets/bg/grass.jpg';
 import type { Ticker } from 'pixi.js';
-import { Application, Assets, Container, Graphics, TilingSprite } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Text, TilingSprite } from 'pixi.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PlayerDTO } from '../../types.ts';
 
@@ -32,6 +32,54 @@ const MAX_REMOTE_SAMPLES = 48;
  * Keeps interpolation segments short so idle→motion doesn't span huge time windows.
  */
 const MAX_REMOTE_SEGMENT_MS = SYNC_MS * 2 + 24;
+
+/** Speech bubble layout (world space, above avatars) */
+const SPEECH_TAIL_H = 7;
+const SPEECH_PAD = 10;
+const SPEECH_RADIUS = 8;
+const SPEECH_ABOVE_AVATAR = 6;
+const SPEECH_WRAP = 204;
+
+type SpeechBubbleLayout = { group: Container; width: number; height: number };
+
+function createSpeechBubbleGroup(trimmed: string): SpeechBubbleLayout {
+  const label = new Text({
+    text: trimmed,
+    style: {
+      fontFamily: 'system-ui, "Segoe UI", Roboto, sans-serif',
+      fontSize: 13,
+      fill: 0x0f172a,
+      wordWrap: true,
+      wordWrapWidth: SPEECH_WRAP,
+      lineHeight: 17,
+    },
+  });
+
+  const innerW = Math.max(label.width, 1);
+  const innerH = Math.max(label.height, 1);
+  const bubbleW = Math.ceil(innerW + SPEECH_PAD * 2);
+  const bubbleBodyH = Math.ceil(innerH + SPEECH_PAD * 2);
+
+  const gfx = new Graphics();
+  gfx
+    .roundRect(0, 0, bubbleW, bubbleBodyH, SPEECH_RADIUS)
+    .fill({ color: 0xf8fafc, alpha: 0.97 })
+    .stroke({ width: 1, color: 0x94a3b8, alpha: 0.55 });
+  const mid = bubbleW / 2;
+  const tailBottom = bubbleBodyH + SPEECH_TAIL_H;
+  gfx
+    .poly([mid - 7, bubbleBodyH, mid + 7, bubbleBodyH, mid, tailBottom], true)
+    .fill({ color: 0xf8fafc, alpha: 0.97 });
+
+  label.position.set(SPEECH_PAD, SPEECH_PAD);
+
+  const group = new Container();
+  group.addChild(gfx);
+  group.addChild(label);
+
+  const totalH = bubbleBodyH + SPEECH_TAIL_H;
+  return { group, width: bubbleW, height: totalH };
+}
 
 /** Ignore jittery duplicate snapshots (world px). */
 const REMOTE_SNAP_EPS_SQ = 0.06 * 0.06;
@@ -151,6 +199,10 @@ type Props = {
   players: PlayerDTO[]
   localId: string | null
   roomId: number
+  /** Message above the local avatar until cleared by the parent */
+  localSpeechBubble: string | null
+  /** Socket id → message for other players' bubbles */
+  remoteSpeechBubbles: ReadonlyMap<string, string>
   keysDisabled?: boolean
   /** Matches POSITION_SYNC_HZ; parent emits to socket */
   onPositionSync: (pos: { x: number; y: number }) => void
@@ -188,11 +240,17 @@ export function PixiCanvas({
   keysDisabled,
   onPositionSync,
   roomId,
+  localSpeechBubble,
+  remoteSpeechBubbles,
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const worldRef = useRef<Container | null>(null);
   const layerRef = useRef<Container | null>(null);
+  /** Renders above avatars; world scroll applies automatically */
+  const speechBubbleWorldRef = useRef<Container | null>(null);
+  /** Socket id → bubble graphics + size (for ticker placement) */
+  const speechBubbleLayoutRef = useRef<Map<string, SpeechBubbleLayout>>(new Map());
   const spriteByIdRef = useRef<Map<string, Graphics>>(new Map());
   const tickerFnRef = useRef<((ticker: Ticker) => void) | null>(null);
 
@@ -288,6 +346,10 @@ export function PixiCanvas({
       const layer = new Container();
       layerRef.current = layer;
       world.addChild(layer);
+
+      const speechBubbleRoot = new Container();
+      speechBubbleWorldRef.current = speechBubbleRoot;
+      world.addChild(speechBubbleRoot);
 
       app.stage.addChild(world);
 
@@ -474,6 +536,28 @@ export function PixiCanvas({
           gfx.position.set(pos.x, pos.y);
         }
 
+        const speechWorld = speechBubbleWorldRef.current;
+        const layout = speechBubbleLayoutRef.current;
+        if (!speechWorld || layout.size === 0) {
+          if (speechWorld) speechWorld.visible = false;
+        } else {
+          speechWorld.visible = true;
+          for (const [pid, { group, width: bw, height: bh }] of layout) {
+            const isLocalBubble = !!lid && pid === lid;
+            const pos = isLocalBubble ? local : remotePxRef.current.get(pid);
+            const stillHere = plist.some((p) => p.id === pid);
+            if (!pos || !stillHere) {
+              group.visible = false;
+              continue;
+            }
+            group.visible = true;
+            group.position.set(
+              pos.x + size / 2 - bw / 2,
+              pos.y - SPEECH_ABOVE_AVATAR - bh
+            );
+          }
+        }
+
         if (startedMove || now - lastSyncAtRef.current >= SYNC_MS) {
           lastSyncAtRef.current = now;
           onPositionSyncRef.current({ x: local.x, y: local.y });
@@ -515,6 +599,8 @@ export function PixiCanvas({
       remoteSpeedSmoothedRef.current.clear();
       remoteBurstUntilRef.current.clear();
       layerRef.current = null;
+      speechBubbleWorldRef.current = null;
+      speechBubbleLayoutRef.current.clear();
       worldRef.current = null;
 
       appRef.current = null;
@@ -613,6 +699,34 @@ export function PixiCanvas({
       keysRef.current = { up: false, down: false, left: false, right: false };
     }
   }, [keysDisabled]);
+
+  useEffect(() => {
+    const parent = speechBubbleWorldRef.current;
+    if (!parent || !canvasReady) return;
+
+    for (const c of [...parent.children]) {
+      parent.removeChild(c);
+      c.destroy({ children: true });
+    }
+    const layout = speechBubbleLayoutRef.current;
+    layout.clear();
+
+    type Entry = { playerId: string; text: string };
+    const entries: Entry[] = [];
+    const localTrimmed = localSpeechBubble?.trim();
+    if (localTrimmed && localId) entries.push({ playerId: localId, text: localTrimmed });
+    for (const [socketId, raw] of remoteSpeechBubbles) {
+      const t = raw.trim();
+      if (!t || socketId === localId) continue;
+      entries.push({ playerId: socketId, text: t });
+    }
+
+    for (const { playerId, text } of entries) {
+      const built = createSpeechBubbleGroup(text);
+      parent.addChild(built.group);
+      layout.set(playerId, built);
+    }
+  }, [canvasReady, localId, localSpeechBubble, remoteSpeechBubbles]);
 
   useEffect(() => {
     function setMoveKey(code: string, down: boolean) {

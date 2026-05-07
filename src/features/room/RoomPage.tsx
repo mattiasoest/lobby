@@ -36,15 +36,38 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const [socketConnected, setSocketConnected] = useState(false);
   const [serverPlayers, setServerPlayers] = useState<PlayerDTO[]>([]);
   const [typingFocus, setTypingFocus] = useState(false);
+  /** Text shown above the local avatar after sending chat; cleared after a delay */
+  const [localSpeechBubble, setLocalSpeechBubble] = useState<string | null>(null);
+  const speechHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [remoteSpeechBubbles, setRemoteSpeechBubbles] = useState<Map<string, string>>(
+    () => new Map()
+  );
+  const remoteSpeechTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const serverPlayersRef = useRef<PlayerDTO[]>([]);
+  const selfUserIdRef = useRef<string>('');
+  /** Messages from others before roster lists their socket id yet (latest per user id) */
+  const pendingRemoteSpeechRef = useRef<Map<string, ChatMessageDTO>>(new Map());
   /** Throttled sidebar position (~30 Hz from canvas) */
   const [localListPos, setLocalListPos] = useState(worldSpawnPx);
 
   const claims = decodeJwtPayload(token);
 
+  serverPlayersRef.current = serverPlayers;
+  selfUserIdRef.current = typeof claims?.sub === 'string' ? claims.sub : '';
+
   useEffect(() => {
     setLocalListPos(worldSpawnPx());
     setServerPlayers([]);
+    setLocalSpeechBubble(null);
+    setRemoteSpeechBubbles(new Map());
+    for (const t of remoteSpeechTimersRef.current.values()) clearTimeout(t);
+    remoteSpeechTimersRef.current.clear();
+    pendingRemoteSpeechRef.current.clear();
+    if (speechHideTimerRef.current) {
+      clearTimeout(speechHideTimerRef.current);
+      speechHideTimerRef.current = null;
+    }
   }, [roomId]);
 
   useEffect(() => {
@@ -53,8 +76,46 @@ export function RoomPage({ roomId }: { roomId: number }) {
     const sock = createRoomSocket({ roomId, token });
     socketRef.current = sock;
 
+    function scheduleRemoteBubble(senderSocketId: string, content: string) {
+      setRemoteSpeechBubbles((prev) => {
+        const next = new Map(prev);
+        next.set(senderSocketId, content);
+        return next;
+      });
+
+      const timers = remoteSpeechTimersRef.current;
+      const prevTimer = timers.get(senderSocketId);
+      if (prevTimer) clearTimeout(prevTimer);
+      const timerId = window.setTimeout(() => {
+        setRemoteSpeechBubbles((prev) => {
+          const next = new Map(prev);
+          next.delete(senderSocketId);
+          return next;
+        });
+        timers.delete(senderSocketId);
+      }, 4000);
+      timers.set(senderSocketId, timerId);
+    }
+
+    /** @returns Whether the bubble was shown (sender on roster). */
+    function tryShowRemoteBubble(msg: ChatMessageDTO, roster: PlayerDTO[]): boolean {
+      const sender = roster.find((p) => p.userId === msg.user_id);
+      if (!sender) return false;
+      scheduleRemoteBubble(sender.id, msg.content);
+      return true;
+    }
+
+    function flushPendingRemoteSpeech(roster: PlayerDTO[]) {
+      const pend = pendingRemoteSpeechRef.current;
+      for (const [uid, m] of [...pend.entries()]) {
+        if (tryShowRemoteBubble(m, roster)) pend.delete(uid);
+      }
+    }
+
     function handlePlayers(payload: PlayerDTO[]) {
+      serverPlayersRef.current = payload;
       setServerPlayers(payload);
+      flushPendingRemoteSpeech(payload);
     }
 
     function handleChatMessage(msg: ChatMessageDTO) {
@@ -63,6 +124,13 @@ export function RoomPage({ roomId }: { roomId: number }) {
         if (list.some((m) => m.id === msg.id)) return list;
         return [...list, msg];
       });
+
+      if (msg.user_id === selfUserIdRef.current) return;
+
+      const rosterAtEvent = serverPlayersRef.current;
+      if (tryShowRemoteBubble(msg, rosterAtEvent)) return;
+
+      pendingRemoteSpeechRef.current.set(msg.user_id, msg);
     }
 
     sock.on('connect', () => {
@@ -84,6 +152,9 @@ export function RoomPage({ roomId }: { roomId: number }) {
     sock.on('chat:message', handleChatMessage);
 
     return () => {
+      for (const t of remoteSpeechTimersRef.current.values()) clearTimeout(t);
+      remoteSpeechTimersRef.current.clear();
+      pendingRemoteSpeechRef.current.clear();
       sock.removeAllListeners();
       sock.disconnect();
       socketRef.current = null;
@@ -124,7 +195,22 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const sendChat = useCallback((text: string) => {
     socketRef.current?.emit('chat:send', { content: text });
+    if (speechHideTimerRef.current) {
+      clearTimeout(speechHideTimerRef.current);
+    }
+    setLocalSpeechBubble(text);
+    speechHideTimerRef.current = setTimeout(() => {
+      setLocalSpeechBubble(null);
+      speechHideTimerRef.current = null;
+    }, 4000);
   }, []);
+
+  useEffect(
+    () => () => {
+      if (speechHideTimerRef.current) clearTimeout(speechHideTimerRef.current);
+    },
+    []
+  );
 
   return (
     <div className="room-page">
@@ -148,6 +234,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
             players={displayPlayers}
             localId={socketId}
             roomId={roomId}
+            localSpeechBubble={localSpeechBubble}
+            remoteSpeechBubbles={remoteSpeechBubbles}
             keysDisabled={typingFocus}
             onPositionSync={handlePositionSync}
           />
