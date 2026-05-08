@@ -274,7 +274,11 @@ code {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--bg);
-  max-width: 720px;
+  /* 20×28px swatches + 19×8 gaps = 712px content + 36px padding + 2px border */
+  width: min(100%, 750px);
+  max-width: 750px;
+  justify-self: center;
+  box-sizing: border-box;
 }
 
 .avatar-color-picker h2 {
@@ -324,6 +328,7 @@ code {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: center;
 }
 
 .avatar-color-swatch {
