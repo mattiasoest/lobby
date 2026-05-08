@@ -16,7 +16,12 @@ import {
   SYNC_MS,
 } from './constants.ts';
 import { isTypingTarget, MOVE_KEYS, createMoveKeysState, setMoveKey } from './keyboard.ts';
-import { SPEECH_ABOVE_AVATAR, createSpeechBubbleGroup, type SpeechBubbleLayout } from './speechBubble.ts';
+import {
+  SPEECH_BAND_ABOVE_AVATAR_PX,
+  PLAYER_NAME_LABEL_BOTTOM_GAP_PX,
+  createSpeechBubbleGroup,
+  type SpeechBubbleLayout,
+} from './speechBubble.ts';
 import { avatarColorOrFallback } from './playerColor.ts';
 import type { RoomCanvasSyncState } from './syncState.ts';
 import {
@@ -334,7 +339,7 @@ export class RoomPixiRunner {
             continue;
           }
           group.visible = true;
-          group.position.set(pos.x + size / 2 - bw / 2, pos.y - SPEECH_ABOVE_AVATAR - bh);
+          group.position.set(pos.x + size / 2 - bw / 2, pos.y - SPEECH_BAND_ABOVE_AVATAR_PX - bh);
         }
       }
 
@@ -402,7 +407,7 @@ export class RoomPixiRunner {
         },
       });
       nameLabel.anchor.set(0.5, 1);
-      nameLabel.position.set(size / 2, -3);
+      nameLabel.position.set(size / 2, -PLAYER_NAME_LABEL_BOTTOM_GAP_PX);
 
       root.addChild(graphic);
       root.addChild(nameLabel);

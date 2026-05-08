@@ -3,8 +3,19 @@ import { Container, Graphics, Text } from 'pixi.js';
 const SPEECH_TAIL_H = 7;
 const SPEECH_PAD = 10;
 const SPEECH_RADIUS = 8;
-export const SPEECH_ABOVE_AVATAR = 6;
 const SPEECH_WRAP = 204;
+/** Bottom of name label relative to avatar top-left; must match {@link PLAYER_NAME_LABEL_BOTTOM_GAP_PX} in RoomPixiRunner. */
+export const PLAYER_NAME_LABEL_BOTTOM_GAP_PX = 3;
+/** Nominal single-line height for fontSize 11 player name (RoomPixiRunner). */
+export const PLAYER_NAME_LABEL_TEXT_HEIGHT_PX = 15;
+/** Tail-to-name: vertical gap between bubble bottom and top of name glyphs. */
+export const SPEECH_CLEAR_BELOW_BUBBLE_PX = 4;
+/**
+ * World-space distance from avatar top (y) upward through the name band + clearance.
+ * Speech bubble tail bottom is placed at pos.y - this value.
+ */
+export const SPEECH_BAND_ABOVE_AVATAR_PX =
+  PLAYER_NAME_LABEL_BOTTOM_GAP_PX + PLAYER_NAME_LABEL_TEXT_HEIGHT_PX + SPEECH_CLEAR_BELOW_BUBBLE_PX;
 /** Body + tail fill; lower = more see-through to the world behind. */
 const SPEECH_BUBBLE_FILL_ALPHA = 0.62;
 const SPEECH_BUBBLE_STROKE_ALPHA = 0.32;
