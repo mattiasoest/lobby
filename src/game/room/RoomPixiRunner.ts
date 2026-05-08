@@ -1,5 +1,5 @@
 import type { Ticker } from 'pixi.js';
-import { Application, Assets, Container, Graphics, TilingSprite } from 'pixi.js';
+import { Application, Assets, Container, Graphics, Text, TilingSprite } from 'pixi.js';
 import type { PlayerDTO } from '../../types.ts';
 import {
   MAX_REMOTE_SAMPLES,
@@ -56,7 +56,8 @@ export class RoomPixiRunner {
   private layerRef: Container | null = null;
   private speechBubbleWorldRef: Container | null = null;
   private speechBubbleLayoutRef = new Map<string, SpeechBubbleLayout>();
-  private spriteByIdRef = new Map<string, Graphics>();
+  /** Avatar + name label; position is world top-left of the avatar quad. */
+  private playerRootByIdRef = new Map<string, Container>();
   private tickerFn: ((ticker: Ticker) => void) | null = null;
 
   private keysInternal = createMoveKeysState();
@@ -310,12 +311,12 @@ export class RoomPixiRunner {
       }
 
       for (const p of plist) {
-        const gfx = this.spriteByIdRef.get(p.id);
-        if (!gfx) continue;
+        const root = this.playerRootByIdRef.get(p.id);
+        if (!root) continue;
         const isLocal = !!lid && p.id === lid;
         const pos = isLocal ? local : this.remotePxRef.get(p.id);
         if (!pos) continue;
-        gfx.position.set(pos.x, pos.y);
+        root.position.set(pos.x, pos.y);
       }
 
       const speechWorld = this.speechBubbleWorldRef;
@@ -371,7 +372,7 @@ export class RoomPixiRunner {
     for (let idx = layer.children.length - 1; idx >= 0; idx -= 1) {
       layer.removeChildAt(idx).destroy({ children: true });
     }
-    this.spriteByIdRef.clear();
+    this.playerRootByIdRef.clear();
     this.remotePxRef.clear();
     this.remoteSampleBufRef.clear();
     this.lastServerSnapRef.clear();
@@ -384,10 +385,28 @@ export class RoomPixiRunner {
     const tSeed = performance.now();
 
     for (const p of players) {
+      const root = new Container();
       const graphic = new Graphics();
       const isLocal = !!localId && p.id === localId;
       graphic.rect(0, 0, size, size);
       graphic.fill({ color: avatarColorOrFallback(p.id, p.color) });
+
+      const nameLabel = new Text({
+        text: p.username || 'Player',
+        style: {
+          fontFamily: 'system-ui, "Segoe UI", Roboto, sans-serif',
+          fontSize: 11,
+          fill: 0xf9fafb,
+          stroke: { color: 0x111827, width: 3 },
+          align: 'center',
+        },
+      });
+      nameLabel.anchor.set(0.5, 1);
+      nameLabel.position.set(size / 2, -3);
+
+      root.addChild(graphic);
+      root.addChild(nameLabel);
+
       let px = p.x;
       let py = p.y;
       if (isLocal) {
@@ -399,9 +418,9 @@ export class RoomPixiRunner {
         this.remoteSampleBufRef.set(p.id, [{ t: tSeed, x: p.x, y: p.y }]);
         this.lastServerSnapRef.set(p.id, { x: p.x, y: p.y });
       }
-      graphic.position.set(px, py);
-      this.spriteByIdRef.set(p.id, graphic);
-      layer.addChild(graphic);
+      root.position.set(px, py);
+      this.playerRootByIdRef.set(p.id, root);
+      layer.addChild(root);
     }
   }
 
@@ -480,7 +499,7 @@ export class RoomPixiRunner {
       app.ticker.remove(this.tickerFn);
     }
     this.tickerFn = null;
-    this.spriteByIdRef.clear();
+    this.playerRootByIdRef.clear();
     this.remotePxRef.clear();
     this.remoteSampleBufRef.clear();
     this.lastServerSnapRef.clear();

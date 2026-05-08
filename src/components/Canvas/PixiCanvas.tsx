@@ -68,12 +68,12 @@ export function PixiCanvas({
     remoteSpeechBubbles,
   ]);
 
-  const playerIdsSig = useMemo(
+  const playerLayerSig = useMemo(
     () =>
       players
-        .map((p) => p.id)
+        .map((p) => JSON.stringify([p.id, p.username]))
         .sort()
-        .join(','),
+        .join('|'),
     [players],
   );
 
@@ -114,8 +114,8 @@ export function PixiCanvas({
     // Re-run only when the player *set* changes (IDs), tile size, or local socket id—not on every
     // positional snapshot. Rebuilding wipes remote interpolation buffers and causes jitter.
     r.rebuildPlayerLayer(players, localId, tileSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- players omitted on purpose; playerIdsSig gates rebuilds
-  }, [canvasReady, localId, playerIdsSig, tileSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- players omitted on purpose; playerLayerSig gates rebuilds
+  }, [canvasReady, localId, playerLayerSig, tileSize]);
 
   useEffect(() => {
     const r = runnerRef.current;
