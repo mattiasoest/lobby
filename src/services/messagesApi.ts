@@ -7,10 +7,10 @@ export function fetchRoomMessages(roomId: number, token: string): Promise<ChatMe
 }
 
 export type ProvidersResponse = {
-  google: boolean
-  github: boolean
-  dev: boolean
-}
+  google: boolean;
+  github: boolean;
+  dev: boolean;
+};
 
 export function fetchProviders(): Promise<ProvidersResponse> {
   return fetch(apiUrl('/api/auth/providers')).then((r) => {
@@ -29,9 +29,7 @@ export async function devLogin(username: string): Promise<string> {
       body: JSON.stringify({ username }),
     });
   } catch {
-    throw new Error(
-      'Could not reach the API (is `npm run dev` running in /server on port 3001?).'
-    );
+    throw new Error('Could not reach the API (is `npm run dev` running in /server on port 3001?).');
   }
   const text = await res.text();
   let data: { accessToken?: string; error?: string };
@@ -41,7 +39,7 @@ export async function devLogin(username: string): Promise<string> {
     throw new Error(
       text.trim()
         ? `Unexpected response (${res.status}): ${text.slice(0, 160)}`
-        : `Unexpected empty response (${res.status}).`
+        : `Unexpected empty response (${res.status}).`,
     );
   }
   if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);

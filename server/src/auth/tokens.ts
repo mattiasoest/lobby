@@ -53,10 +53,7 @@ export function generateRefreshSecret(): string {
   return crypto.randomBytes(32).toString('base64url');
 }
 
-export function issueAccessToken(
-  user: { id: string; username: string },
-  jwtSecret: string
-): string {
+export function issueAccessToken(user: { id: string; username: string }, jwtSecret: string): string {
   return jwt.sign({ sub: user.id, username: user.username }, jwtSecret, {
     expiresIn: accessTokenExpiresIn(),
   });
@@ -66,14 +63,14 @@ export async function persistRefreshToken(
   pool: pg.Pool,
   userId: string,
   raw: string,
-  ttlMs: number = refreshTtlMs()
+  ttlMs: number = refreshTtlMs(),
 ): Promise<void> {
   const hash = hashRefreshToken(raw);
   const expiresAt = new Date(Date.now() + ttlMs);
   await pool.query(
     `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
      VALUES ($1, $2, $3::timestamptz)`,
-    [userId, hash, expiresAt.toISOString()]
+    [userId, hash, expiresAt.toISOString()],
   );
 }
 
@@ -81,13 +78,17 @@ export async function persistRefreshToken(
 export async function rotateRefreshToken(
   pool: pg.Pool,
   presentedRaw: string,
-  ttlMs: number = refreshTtlMs()
+  ttlMs: number = refreshTtlMs(),
 ): Promise<{ userId: string; username: string; newRaw: string } | null> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const h = hashRefreshToken(presentedRaw);
-    const sel = await client.query<{ id: string; user_id: string; username: string }>(
+    const sel = await client.query<{
+      id: string;
+      user_id: string;
+      username: string;
+    }>(
       `
       SELECT rt.id, rt.user_id, u.username
       FROM refresh_tokens rt
@@ -96,22 +97,20 @@ export async function rotateRefreshToken(
         AND rt.revoked_at IS NULL
         AND rt.expires_at > NOW()
       FOR UPDATE`,
-      [h]
+      [h],
     );
     const row = sel.rows[0];
     if (!row) {
       await client.query('ROLLBACK');
       return null;
     }
-    await client.query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [
-      row.id,
-    ]);
+    await client.query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [row.id]);
     const newRaw = generateRefreshSecret();
     const expiresAt = new Date(Date.now() + ttlMs);
     await client.query(
       `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, $3::timestamptz)`,
-      [row.user_id, hashRefreshToken(newRaw), expiresAt.toISOString()]
+      [row.user_id, hashRefreshToken(newRaw), expiresAt.toISOString()],
     );
     await client.query('COMMIT');
     return { userId: row.user_id, username: row.username, newRaw };
@@ -129,7 +128,7 @@ export async function bindRefreshToCookieSession(
   jwtSecret: string,
   accessToken: string,
   urlRefreshRaw: string,
-  ttlMs: number = refreshTtlMs()
+  ttlMs: number = refreshTtlMs(),
 ): Promise<{ newRaw: string } | null> {
   let sub: string;
   try {
@@ -152,22 +151,20 @@ export async function bindRefreshToCookieSession(
         AND revoked_at IS NULL
         AND expires_at > NOW()
       FOR UPDATE`,
-      [h]
+      [h],
     );
     const row = sel.rows[0];
     if (!row || row.user_id !== sub) {
       await client.query('ROLLBACK');
       return null;
     }
-    await client.query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [
-      row.id,
-    ]);
+    await client.query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [row.id]);
     const newRaw = generateRefreshSecret();
     const expiresAt = new Date(Date.now() + ttlMs);
     await client.query(
       `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, $3::timestamptz)`,
-      [row.user_id, hashRefreshToken(newRaw), expiresAt.toISOString()]
+      [row.user_id, hashRefreshToken(newRaw), expiresAt.toISOString()],
     );
     await client.query('COMMIT');
     return { newRaw };
@@ -183,6 +180,6 @@ export async function revokeRefreshByRaw(pool: pg.Pool, presentedRaw: string): P
   await pool.query(
     `UPDATE refresh_tokens SET revoked_at = NOW()
      WHERE token_hash = $1 AND revoked_at IS NULL`,
-    [hashRefreshToken(presentedRaw)]
+    [hashRefreshToken(presentedRaw)],
   );
 }

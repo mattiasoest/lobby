@@ -1,10 +1,6 @@
 import grassBg from '../../assets/bg/grass.jpg';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  RoomPixiRunner,
-  createInitialSyncState,
-  type RoomCanvasSyncState,
-} from '../../game/room/index.ts';
+import { RoomPixiRunner, createInitialSyncState, type RoomCanvasSyncState } from '../../game/room/index.ts';
 import type { PlayerDTO } from '../../types.ts';
 
 export type PixiCanvasProps = {
@@ -58,8 +54,12 @@ export function PixiCanvas({
   syncRef.current.remoteSpeechBubbles = remoteSpeechBubbles;
 
   const playerIdsSig = useMemo(
-    () => players.map((p) => p.id).sort().join(','),
-    [players]
+    () =>
+      players
+        .map((p) => p.id)
+        .sort()
+        .join(','),
+    [players],
   );
 
   const [canvasReady, setCanvasReady] = useState(false);

@@ -216,8 +216,7 @@ export class RoomPixiRunner {
           this.lastServerSnapRef.set(p.id, { x: p.x, y: p.y });
         } else {
           const prev = this.lastServerSnapRef.get(p.id);
-          const moved =
-            !prev || (p.x - prev.x) ** 2 + (p.y - prev.y) ** 2 > REMOTE_SNAP_EPS_SQ;
+          const moved = !prev || (p.x - prev.x) ** 2 + (p.y - prev.y) ** 2 > REMOTE_SNAP_EPS_SQ;
           if (moved) {
             this.lastServerSnapRef.set(p.id, { x: p.x, y: p.y });
             samples.push({ t: now, x: p.x, y: p.y });
@@ -264,10 +263,7 @@ export class RoomPixiRunner {
           this.remoteBurstUntilRef.set(p.id, now + REMOTE_BURST_DURATION_MS);
           if (!burst) {
             burst = true;
-            playbackDelay = Math.max(
-              REMOTE_RENDER_DELAY_FLOOR_MS,
-              baseDelay - REMOTE_BURST_DELAY_SHAVE_MS
-            );
+            playbackDelay = Math.max(REMOTE_RENDER_DELAY_FLOOR_MS, baseDelay - REMOTE_BURST_DELAY_SHAVE_MS);
             target = posFromRemoteBuffer(ready, now - playbackDelay);
             if (prevTarget) {
               const invDt = 1 / Math.max(dt, 1e-4);
@@ -310,15 +306,7 @@ export class RoomPixiRunner {
 
       const w = this.worldRef;
       if (w) {
-        const { left, top } = scrollWorldPx(
-          local.x,
-          local.y,
-          size,
-          viewW,
-          viewH,
-          worldW,
-          worldH
-        );
+        const { left, top } = scrollWorldPx(local.x, local.y, size, viewW, viewH, worldW, worldH);
         w.position.set(-left, -top);
       }
 
@@ -366,7 +354,7 @@ export class RoomPixiRunner {
       viewPixelW,
       viewPixelH,
       worldPixelW,
-      worldPixelH
+      worldPixelH,
     );
     world.position.set(-left, -top);
 
@@ -441,15 +429,7 @@ export class RoomPixiRunner {
       const pad = ts * 0.14;
       const size = ts - pad * 2;
       const loc = this.localPxRef;
-      const { left, top } = scrollWorldPx(
-        loc.x,
-        loc.y,
-        size,
-        vc * ts,
-        vr * ts,
-        wc * ts,
-        wr * ts
-      );
+      const { left, top } = scrollWorldPx(loc.x, loc.y, size, vc * ts, vr * ts, wc * ts, wr * ts);
       w.position.set(-left, -top);
     }
     s.onPositionSync({ x: spawn.x, y: spawn.y });
@@ -458,7 +438,7 @@ export class RoomPixiRunner {
   rebuildSpeechBubbles(
     localSpeechBubble: string | null,
     localId: string | null,
-    remoteSpeechBubbles: ReadonlyMap<string, string>
+    remoteSpeechBubbles: ReadonlyMap<string, string>,
   ): void {
     const parent = this.speechBubbleWorldRef;
     if (!parent) return;

@@ -2,9 +2,9 @@ import { io } from 'socket.io-client';
 import { apiOrigin } from './apiOrigin.ts';
 
 export type RoomSocketOptions = {
-  roomId: number
-  token: string
-}
+  roomId: number;
+  token: string;
+};
 
 /** In dev, hit the API host directly so cookies + WS match REST (matches `apiOrigin()`). */
 function socketHttpBase(): string | undefined {

@@ -6,16 +6,16 @@ export function ChatBox({
   onSend,
   onTypingChange,
 }: {
-  messages: ChatMessageDTO[]
-  onSend: (text: string) => void
+  messages: ChatMessageDTO[];
+  onSend: (text: string) => void;
   /** Disables Pixi WASD/arrows while the composer is focused */
-  onTypingChange?: (typing: boolean) => void
+  onTypingChange?: (typing: boolean) => void;
 }) {
   const [text, setText] = useState('');
 
   const ordered = useMemo(
     () => [...messages].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)),
-    [messages]
+    [messages],
   );
 
   const submit = useCallback(
@@ -26,7 +26,7 @@ export function ChatBox({
       onSend(trimmed);
       setText('');
     },
-    [onSend, text]
+    [onSend, text],
   );
 
   return (
@@ -35,8 +35,7 @@ export function ChatBox({
       <div className="chat-feed" aria-live="polite">
         {ordered.map((m) => (
           <div key={m.id} className="chat-line">
-            <span className="chat-user">{m.username}</span>{' '}
-            <span className="chat-content">{m.content}</span>
+            <span className="chat-user">{m.username}</span> <span className="chat-content">{m.content}</span>
           </div>
         ))}
       </div>

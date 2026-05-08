@@ -81,11 +81,7 @@ export function LoginPage() {
           <div className="dev-login">
             <label>
               Display name for dev login
-              <input
-                value={devName}
-                onChange={(event) => setDevName(event.target.value)}
-                placeholder="Nickname"
-              />
+              <input value={devName} onChange={(event) => setDevName(event.target.value)} placeholder="Nickname" />
             </label>
             <button type="button" disabled={devLoginMut.isPending} onClick={handleDevLogin}>
               Dev JWT (ALLOW_DEV_LOGIN=1 server)
@@ -93,10 +89,7 @@ export function LoginPage() {
           </div>
         ) : null}
 
-        {!providers?.google &&
-        !providers?.github &&
-        !providers?.dev &&
-        providers !== null ? (
+        {!providers?.google && !providers?.github && !providers?.dev && providers !== null ? (
           <div className="callout muted">No providers configured.</div>
         ) : null}
       </div>

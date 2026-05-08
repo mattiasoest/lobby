@@ -18,7 +18,12 @@ export const MOVE_KEYS = new Set([
   'D',
 ]);
 
-export type MoveKeysState = { up: boolean; down: boolean; left: boolean; right: boolean };
+export type MoveKeysState = {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
+};
 
 export function createMoveKeysState(): MoveKeysState {
   return { up: false, down: false, left: false, right: false };

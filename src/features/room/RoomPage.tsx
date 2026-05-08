@@ -40,9 +40,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const [localSpeechBubble, setLocalSpeechBubble] = useState<string | null>(null);
   const speechHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [remoteSpeechBubbles, setRemoteSpeechBubbles] = useState<Map<string, string>>(
-    () => new Map()
-  );
+  const [remoteSpeechBubbles, setRemoteSpeechBubbles] = useState<Map<string, string>>(() => new Map());
   const remoteSpeechTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const serverPlayersRef = useRef<PlayerDTO[]>([]);
   const selfUserIdRef = useRef<string>('');
@@ -158,11 +156,10 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const displayPlayers = useMemo(() => {
     const overridden = serverPlayers.map((p) =>
-      socketId && p.id === socketId ? { ...p, x: localListPos.x, y: localListPos.y } : p
+      socketId && p.id === socketId ? { ...p, x: localListPos.x, y: localListPos.y } : p,
     );
 
-    const ghostUserId =
-      typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : socketId ?? 'local';
+    const ghostUserId = typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : (socketId ?? 'local');
 
     if (socketId && !overridden.some((p) => p.id === socketId)) {
       overridden.push({
@@ -195,7 +192,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     () => () => {
       if (speechHideTimerRef.current) clearTimeout(speechHideTimerRef.current);
     },
-    []
+    [],
   );
 
   return (
@@ -203,8 +200,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
       <header className="room-header">
         <h2>Room {roomId}</h2>
         <p className="muted">
-          {socketConnected ? 'Connected' : 'Connecting…'}{' '}
-          {socketId ? `· Socket ${socketId.slice(0, 6)}` : ''}
+          {socketConnected ? 'Connected' : 'Connecting…'} {socketId ? `· Socket ${socketId.slice(0, 6)}` : ''}
         </p>
       </header>
 

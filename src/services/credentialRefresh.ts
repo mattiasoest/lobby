@@ -1,8 +1,8 @@
 import { apiUrl } from './apiOrigin.ts';
 
 export type CredentialRefreshOutcome = {
-  ok: boolean
-  accessToken: string | null
+  ok: boolean;
+  accessToken: string | null;
 };
 
 let credentialRefreshPromise: Promise<CredentialRefreshOutcome> | null = null;

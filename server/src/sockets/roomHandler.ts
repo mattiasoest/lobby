@@ -25,17 +25,14 @@ function clampPlayerPx(x: unknown, y: unknown): { x: number; y: number } {
 export const ROOM_IDS = [1, 2, 3, 4] as const;
 
 export type PlayerPublic = {
-  id: string
-  username: string
-  x: number
-  y: number
-  userId: string
-}
+  id: string;
+  username: string;
+  x: number;
+  y: number;
+  userId: string;
+};
 
-export function registerRoomNamespaces(
-  io: Server,
-  opts: { jwtSecret: string; pool: pg.Pool }
-) {
+export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; pool: pg.Pool }) {
   const { jwtSecret, pool } = opts;
 
   for (const roomId of ROOM_IDS) {
@@ -53,7 +50,10 @@ export function registerRoomNamespaces(
         return;
       }
       try {
-        const payload = jwt.verify(raw, jwtSecret) as { sub: string; username: string };
+        const payload = jwt.verify(raw, jwtSecret) as {
+          sub: string;
+          username: string;
+        };
         socket.data.user = payload;
         next();
       } catch {
@@ -97,30 +97,29 @@ export function registerRoomNamespaces(
 
       socket.on('chat:send', async (payload: { content: string }) => {
         const u = socket.data.user as { sub: string; username: string };
-        const content =
-          typeof payload?.content === 'string' ? payload.content.trim().slice(0, 2000) : '';
+        const content = typeof payload?.content === 'string' ? payload.content.trim().slice(0, 2000) : '';
         if (!content) return;
 
         let msg: {
-          id: string
-          room_id: number
-          user_id: string
-          username: string
-          content: string
-          created_at: string
+          id: string;
+          room_id: number;
+          user_id: string;
+          username: string;
+          content: string;
+          created_at: string;
         };
 
         try {
           const ins = await pool.query<{
-            id: string
-            room_id: number
-            user_id: string
-            content: string
-            created_at: Date
+            id: string;
+            room_id: number;
+            user_id: string;
+            content: string;
+            created_at: Date;
           }>(
             `INSERT INTO messages (room_id, user_id, content) VALUES ($1, $2, $3)
              RETURNING id, room_id, user_id, content, created_at`,
-            [roomId, u.sub, content]
+            [roomId, u.sub, content],
           );
           const row = ins.rows[0];
           if (!row) return;

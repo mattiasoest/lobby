@@ -40,16 +40,16 @@ cd ..
 
 Create `server/.env` (see values below). The server **exits on startup** if `JWT_SECRET` or `DATABASE_URL` is missing.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `PORT` | optional | API port (default `3001`) |
-| `DATABASE_URL` | **yes** | Postgres connection string, e.g. `postgresql://lobby:lobby@localhost:5432/lobby` |
-| `JWT_SECRET` | **yes** | Secret for signing JWTs (use a long random string; never commit real secrets) |
-| `FRONTEND_URL` | recommended | Origin of the Vite app for CORS (default `http://localhost:5173`) |
-| `SERVER_PUBLIC_URL` | for OAuth | Public URL of this API (default `http://localhost:3001`); used in OAuth callback URLs |
-| `ALLOW_DEV_LOGIN` | optional | Set to `1` to enable **POST `/api/auth/dev-login`** and the dev login button on the sign-in page. **Turn off in production.** |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional | Enable “Continue with Google” when both are set |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional | Enable “Continue with GitHub” when both are set |
+| Variable                                    | Required    | Description                                                                                                                   |
+| ------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                                      | optional    | API port (default `3001`)                                                                                                     |
+| `DATABASE_URL`                              | **yes**     | Postgres connection string, e.g. `postgresql://lobby:lobby@localhost:5432/lobby`                                              |
+| `JWT_SECRET`                                | **yes**     | Secret for signing JWTs (use a long random string; never commit real secrets)                                                 |
+| `FRONTEND_URL`                              | recommended | Origin of the Vite app for CORS (default `http://localhost:5173`)                                                             |
+| `SERVER_PUBLIC_URL`                         | for OAuth   | Public URL of this API (default `http://localhost:3001`); used in OAuth callback URLs                                         |
+| `ALLOW_DEV_LOGIN`                           | optional    | Set to `1` to enable **POST `/api/auth/dev-login`** and the dev login button on the sign-in page. **Turn off in production.** |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional    | Enable “Continue with Google” when both are set                                                                               |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional    | Enable “Continue with GitHub” when both are set                                                                               |
 
 Example for local Docker Postgres and dev login:
 
@@ -82,8 +82,8 @@ VITE_PROXY_TARGET=http://localhost:3001
 npm run dev
 ```
 
-- **Frontend:** http://localhost:5173  
-- **API:** http://localhost:3001  
+- **Frontend:** http://localhost:5173
+- **API:** http://localhost:3001
 
 Sign in at http://localhost:5173/login.
 
@@ -128,16 +128,16 @@ So in the provider’s dashboard:
 
 The server builds redirect URIs as **`${SERVER_PUBLIC_URL}/api/auth/.../callback`**. For default local dev (`SERVER_PUBLIC_URL=http://localhost:3001`):
 
-| Provider | Redirect / callback URL to register |
-|----------|-------------------------------------|
-| Google | `http://localhost:3001/api/auth/google/callback` |
-| GitHub | `http://localhost:3001/api/auth/github/callback` |
+| Provider | Redirect / callback URL to register              |
+| -------- | ------------------------------------------------ |
+| Google   | `http://localhost:3001/api/auth/google/callback` |
+| GitHub   | `http://localhost:3001/api/auth/github/callback` |
 
 In production, use your real API origin (e.g. `https://api.example.com/api/auth/google/callback`).
 
 ### Google OAuth setup
 
-1. Open [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **OAuth consent screen**. Configure it (External is fine for testing; add yourself as a test user if the app stays in *Testing*).
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **OAuth consent screen**. Configure it (External is fine for testing; add yourself as a test user if the app stays in _Testing_).
 2. **APIs & Services** → **Credentials** → **Create credentials** → **OAuth client ID**.
 3. Application type: **Web application**.
 4. Under **Authorized redirect URIs**, add exactly:  
@@ -188,6 +188,6 @@ Output is in `dist/`. Serving that static build still expects an API behind the 
 
 ## Tech stack
 
-- React 19, Vite 8, React Router 7, PixiJS 8, Socket.IO client  
-- Express 4, `pg`, Passport (Google/GitHub), Socket.IO  
+- React 19, Vite 8, React Router 7, PixiJS 8, Socket.IO client
+- Express 4, `pg`, Passport (Google/GitHub), Socket.IO
 - PostgreSQL 16 (Docker image in `docker-compose.yml`)

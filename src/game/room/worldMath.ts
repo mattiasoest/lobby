@@ -1,8 +1,4 @@
-import {
-  MAX_REMOTE_SEGMENT_MS,
-  REMOTE_RENDER_DELAY_MAX_MS,
-  REMOTE_RENDER_DELAY_MIN_MS,
-} from './constants.ts';
+import { MAX_REMOTE_SEGMENT_MS, REMOTE_RENDER_DELAY_MAX_MS, REMOTE_RENDER_DELAY_MIN_MS } from './constants.ts';
 
 export type RemoteSample = { t: number; x: number; y: number };
 
@@ -37,10 +33,7 @@ export function smoothstep01(t: number) {
   return x * x * (3 - 2 * x);
 }
 
-export function posFromRemoteBuffer(
-  samples: RemoteSample[],
-  playbackT: number
-): { x: number; y: number } {
+export function posFromRemoteBuffer(samples: RemoteSample[], playbackT: number): { x: number; y: number } {
   if (samples.length === 0) return { x: 0, y: 0 };
   if (samples.length === 1) return { x: samples[0].x, y: samples[0].y };
 
@@ -73,7 +66,7 @@ export function scrollWorldPx(
   viewW: number,
   viewH: number,
   worldW: number,
-  worldH: number
+  worldH: number,
 ) {
   const cx = avatarLeft + avatarSize / 2;
   const cy = avatarTop + avatarSize / 2;
@@ -85,13 +78,7 @@ export function scrollWorldPx(
   };
 }
 
-export function clampWorldTopLeft(
-  x: number,
-  y: number,
-  tileSize: number,
-  worldCols: number,
-  worldRows: number
-) {
+export function clampWorldTopLeft(x: number, y: number, tileSize: number, worldCols: number, worldRows: number) {
   const pad = tileSize * 0.14;
   const size = tileSize - pad * 2;
   const w = worldCols * tileSize;

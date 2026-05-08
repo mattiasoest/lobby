@@ -6,8 +6,8 @@ export function clearLegacyAccessToken() {
 }
 
 export function decodeJwtPayload(token: string | null): {
-  username?: string
-  sub?: string
+  username?: string;
+  sub?: string;
 } | null {
   if (!token) return null;
   try {
@@ -15,7 +15,7 @@ export function decodeJwtPayload(token: string | null): {
     if (!segment) return null;
     const padded = segment.replace(/-/g, '+').replace(/_/g, '/');
     const decoded = decodeURIComponent(
-      [...atob(padded)].map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join('')
+      [...atob(padded)].map((c) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`).join(''),
     );
     const payload = JSON.parse(decoded) as { username?: string; sub?: string };
     return payload;

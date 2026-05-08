@@ -15,12 +15,12 @@ export function messagesRouter(pool: pg.Pool, requireAuth: RequestHandler) {
     }
 
     const result = await pool.query<{
-      id: string
-      room_id: number
-      user_id: string
-      content: string
-      created_at: Date
-      username: string
+      id: string;
+      room_id: number;
+      user_id: string;
+      content: string;
+      created_at: Date;
+      username: string;
     }>(
       `
       SELECT m.id, m.room_id, m.user_id, m.content, m.created_at, u.username
@@ -30,7 +30,7 @@ export function messagesRouter(pool: pg.Pool, requireAuth: RequestHandler) {
       ORDER BY m.created_at ASC
       LIMIT 500
       `,
-      [rid]
+      [rid],
     );
 
     res.json(
@@ -41,7 +41,7 @@ export function messagesRouter(pool: pg.Pool, requireAuth: RequestHandler) {
         content: row.content,
         username: row.username,
         created_at: row.created_at.toISOString(),
-      }))
+      })),
     );
   });
 

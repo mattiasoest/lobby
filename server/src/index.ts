@@ -70,7 +70,7 @@ app.post('/api/auth/dev-login', async (req, res) => {
       ON CONFLICT (provider, provider_id) DO UPDATE SET username = EXCLUDED.username
       RETURNING id
       `,
-      [`dev:${username}`, username]
+      [`dev:${username}`, username],
     );
     const id = r.rows[0]?.id;
     if (!id) {

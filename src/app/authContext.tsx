@@ -1,13 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { queryClient } from '../query/queryClient.ts';
 import { queryKeys } from '../query/keys.ts';
 import { configureAuthApi } from '../services/api.ts';
@@ -16,13 +8,13 @@ import { refreshAccessFromCookieSingleFlight } from '../services/credentialRefre
 import { clearLegacyAccessToken, decodeJwtUsername } from './store';
 
 type AuthValue = {
-  token: string | null
-  username: string | null
+  token: string | null;
+  username: string | null;
   /** False until the first `/api/auth/refresh` bootstrap attempt finishes (avoids flash to /login). */
-  sessionReady: boolean
-  setToken: (token: string | null) => void
-  logout: () => Promise<void>
-}
+  sessionReady: boolean;
+  setToken: (token: string | null) => void;
+  logout: () => Promise<void>;
+};
 
 const AuthContext = createContext<AuthValue | null>(null);
 
@@ -31,9 +23,7 @@ const AuthContext = createContext<AuthValue | null>(null);
 function isOAuthCallbackEntry(): boolean {
   if (typeof window === 'undefined') return false;
   if (window.location.pathname.startsWith('/auth/callback')) return true;
-  const hash = window.location.hash.startsWith('#')
-    ? window.location.hash.slice(1)
-    : window.location.hash;
+  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
   if (!hash) return false;
   const params = new URLSearchParams(hash);
   return params.has('access') || params.has('token');
@@ -90,7 +80,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       try {
-        await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
+        await fetch(apiUrl('/api/auth/logout'), {
+          method: 'POST',
+          credentials: 'include',
+        });
       } catch {
         /* ignore network errors — still drop local session */
       }
@@ -108,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({ token, username, sessionReady, setToken, logout }),
-    [token, username, sessionReady, setToken, logout]
+    [token, username, sessionReady, setToken, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

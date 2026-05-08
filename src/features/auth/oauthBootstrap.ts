@@ -14,9 +14,7 @@ let oauthFragmentHold: OAuthFragment | null = null;
  * after the URL hash is stripped on first consumption.
  */
 export function consumeOAuthFragmentFromUrl(): OAuthFragment | null {
-  const rawHash = window.location.hash.startsWith('#')
-    ? window.location.hash.slice(1)
-    : window.location.hash;
+  const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
 
   if (rawHash) {
     const params = new URLSearchParams(rawHash);
@@ -49,7 +47,7 @@ export function bootstrapServerSession(access: string, rt: string | null): Promi
   let pending = sessionByAccess.get(access);
   if (!pending) {
     pending = (async (): Promise<boolean> => {
-        const sessionRes = await fetch(apiUrl('/api/auth/session'), {
+      const sessionRes = await fetch(apiUrl('/api/auth/session'), {
         method: 'POST',
         credentials: 'include',
         headers: {

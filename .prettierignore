@@ -1,0 +1,20 @@
+# Dependencies & caches
+node_modules
+.pnpm-store
+.vite
+
+# Build outputs
+dist
+dist-ssr
+build
+coverage
+
+# Lockfiles (avoid noisy churn)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Secrets / local overrides
+.env
+.env.*
+!.env.example
