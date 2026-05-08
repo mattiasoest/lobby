@@ -7,6 +7,7 @@ import { PlayerList } from '../../components/UI/PlayerList.tsx';
 import { queryKeys } from '../../query/keys.ts';
 import { queryClient } from '../../query/queryClient.ts';
 import { useRoomMessagesQuery } from '../../query/hooks.ts';
+import { isTypingTarget } from '../../game/room/keyboard.ts';
 import { randomAvatarColor } from '../../game/room/playerColor.ts';
 import { createRoomSocket } from '../../services/socket.ts';
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
@@ -37,6 +38,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const [socketConnected, setSocketConnected] = useState(false);
   const [serverPlayers, setServerPlayers] = useState<PlayerDTO[]>([]);
   const [typingFocus, setTypingFocus] = useState(false);
+  const chatComposerRef = useRef<HTMLInputElement>(null);
   /** Text shown above the local avatar after sending chat; cleared after a delay */
   const [localSpeechBubble, setLocalSpeechBubble] = useState<string | null>(null);
   const speechHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -208,6 +210,23 @@ export function RoomPage({ roomId }: { roomId: number }) {
     [],
   );
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.repeat) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // e.target is the focus at dispatch time — covers the case where the chat input
+      // handler already blurred itself in response to the same Enter event.
+      if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return;
+      const input =
+        chatComposerRef.current ?? document.querySelector<HTMLInputElement>('[data-chat-composer]');
+      if (!input) return;
+      e.preventDefault();
+      input.focus();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
     <div className="room-page">
       <header className="room-header">
@@ -236,7 +255,12 @@ export function RoomPage({ roomId }: { roomId: number }) {
           />
           <PlayerList players={displayPlayers} />
         </div>
-        <ChatBox messages={messages} onSend={sendChat} onTypingChange={setTypingFocus} />
+        <ChatBox
+          messages={messages}
+          onSend={sendChat}
+          onTypingChange={setTypingFocus}
+          composerRef={chatComposerRef}
+        />
       </div>
     </div>
   );

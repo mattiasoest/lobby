@@ -1,15 +1,24 @@
-import { useCallback, type FormEvent, useMemo, useState } from 'react';
+import {
+  useCallback,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
+  useMemo,
+  useState,
+} from 'react';
 import type { ChatMessageDTO } from '../../types.ts';
 
 export function ChatBox({
   messages,
   onSend,
   onTypingChange,
+  composerRef,
 }: {
   messages: ChatMessageDTO[];
   onSend: (text: string) => void;
   /** Disables Pixi WASD/arrows while the composer is focused */
   onTypingChange?: (typing: boolean) => void;
+  composerRef?: RefObject<HTMLInputElement | null>;
 }) {
   const [text, setText] = useState('');
 
@@ -22,9 +31,24 @@ export function ChatBox({
     (e: FormEvent) => {
       e.preventDefault();
       const trimmed = text.trim();
-      if (!trimmed) return;
-      onSend(trimmed);
-      setText('');
+      if (trimmed) {
+        onSend(trimmed);
+        setText('');
+      }
+    },
+    [onSend, text],
+  );
+
+  const onComposerKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLInputElement>) => {
+      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+      e.preventDefault();
+      const trimmed = text.trim();
+      if (trimmed) {
+        onSend(trimmed);
+        setText('');
+      }
+      e.currentTarget.blur();
     },
     [onSend, text],
   );
@@ -41,8 +65,11 @@ export function ChatBox({
       </div>
       <form className="chat-compose" onSubmit={submit}>
         <input
+          ref={composerRef}
+          data-chat-composer=""
           value={text}
           onChange={(ev) => setText(ev.target.value)}
+          onKeyDown={onComposerKeyDown}
           onFocus={() => onTypingChange?.(true)}
           onBlur={() => onTypingChange?.(false)}
           placeholder="Message"
