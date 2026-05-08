@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ROOM_IDS } from '../../app/constants.ts';
+import { AvatarColorPicker } from '../../components/UI/AvatarColorPicker.tsx';
 
 export function LobbyPage() {
   return (
@@ -12,6 +13,7 @@ export function LobbyPage() {
           </Link>
         ))}
       </div>
+      <AvatarColorPicker />
     </div>
   );
 }
