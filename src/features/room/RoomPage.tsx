@@ -217,8 +217,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
       // e.target is the focus at dispatch time — covers the case where the chat input
       // handler already blurred itself in response to the same Enter event.
       if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return;
-      const input =
-        chatComposerRef.current ?? document.querySelector<HTMLInputElement>('[data-chat-composer]');
+      const input = chatComposerRef.current ?? document.querySelector<HTMLInputElement>('[data-chat-composer]');
       if (!input) return;
       e.preventDefault();
       input.focus();
@@ -255,12 +254,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
           />
           <PlayerList players={displayPlayers} />
         </div>
-        <ChatBox
-          messages={messages}
-          onSend={sendChat}
-          onTypingChange={setTypingFocus}
-          composerRef={chatComposerRef}
-        />
+        <ChatBox messages={messages} onSend={sendChat} onTypingChange={setTypingFocus} composerRef={chatComposerRef} />
       </div>
     </div>
   );
