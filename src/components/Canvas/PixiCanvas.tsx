@@ -1,5 +1,5 @@
 import grassBg from '../../assets/bg/grass.jpg';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RoomPixiRunner, createInitialSyncState, type RoomCanvasSyncState } from '../../game/room/index.ts';
 import type { PlayerDTO } from '../../types.ts';
 
@@ -41,17 +41,32 @@ export function PixiCanvas({
   const syncRef = useRef<RoomCanvasSyncState>(createInitialSyncState());
   const runnerRef = useRef<RoomPixiRunner | null>(null);
 
-  syncRef.current.players = players;
-  syncRef.current.localId = localId;
-  syncRef.current.tileSize = tileSize;
-  syncRef.current.viewCols = viewCols;
-  syncRef.current.viewRows = viewRows;
-  syncRef.current.worldCols = worldCols;
-  syncRef.current.worldRows = worldRows;
-  syncRef.current.keysDisabled = keysDisabled ?? false;
-  syncRef.current.onPositionSync = onPositionSync;
-  syncRef.current.localSpeechBubble = localSpeechBubble;
-  syncRef.current.remoteSpeechBubbles = remoteSpeechBubbles;
+  useLayoutEffect(() => {
+    const s = syncRef.current;
+    s.players = players;
+    s.localId = localId;
+    s.tileSize = tileSize;
+    s.viewCols = viewCols;
+    s.viewRows = viewRows;
+    s.worldCols = worldCols;
+    s.worldRows = worldRows;
+    s.keysDisabled = keysDisabled ?? false;
+    s.onPositionSync = onPositionSync;
+    s.localSpeechBubble = localSpeechBubble;
+    s.remoteSpeechBubbles = remoteSpeechBubbles;
+  }, [
+    players,
+    localId,
+    tileSize,
+    viewCols,
+    viewRows,
+    worldCols,
+    worldRows,
+    keysDisabled,
+    onPositionSync,
+    localSpeechBubble,
+    remoteSpeechBubbles,
+  ]);
 
   const playerIdsSig = useMemo(
     () =>
@@ -90,6 +105,7 @@ export function PixiCanvas({
       runner.destroy();
       runnerRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- worldSpawnPx only used for init; changing it must not recreate runner
   }, [tileSize, viewCols, viewRows, worldCols, worldRows]);
 
   useEffect(() => {
@@ -98,6 +114,7 @@ export function PixiCanvas({
     // Re-run only when the player *set* changes (IDs), tile size, or local socket id—not on every
     // positional snapshot. Rebuilding wipes remote interpolation buffers and causes jitter.
     r.rebuildPlayerLayer(players, localId, tileSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- players omitted on purpose; playerIdsSig gates rebuilds
   }, [canvasReady, localId, playerIdsSig, tileSize]);
 
   useEffect(() => {

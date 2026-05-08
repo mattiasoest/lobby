@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { decodeJwtPayload } from '../../app/store.ts';
 import { useAuth } from '../../app/authContext.tsx';
 import { PixiCanvas } from '../../components/Canvas/PixiCanvas.tsx';
@@ -49,13 +49,18 @@ export function RoomPage({ roomId }: { roomId: number }) {
   /** Throttled sidebar position (~30 Hz from canvas) */
   const [localListPos, setLocalListPos] = useState(worldSpawnPx);
 
-  const claims = decodeJwtPayload(token);
+  const claims = useMemo(() => decodeJwtPayload(token), [token]);
 
-  serverPlayersRef.current = serverPlayers;
-  selfUserIdRef.current = typeof claims?.sub === 'string' ? claims.sub : '';
+  useLayoutEffect(() => {
+    serverPlayersRef.current = serverPlayers;
+    selfUserIdRef.current = typeof claims?.sub === 'string' ? claims.sub : '';
+  }, [serverPlayers, claims]);
 
   useEffect(() => {
     if (!token) return;
+
+    const timersForCleanup = remoteSpeechTimersRef.current;
+    const pendingForCleanup = pendingRemoteSpeechRef.current;
 
     const sock = createRoomSocket({ roomId, token });
     socketRef.current = sock;
@@ -136,9 +141,9 @@ export function RoomPage({ roomId }: { roomId: number }) {
     sock.on('chat:message', handleChatMessage);
 
     return () => {
-      for (const t of remoteSpeechTimersRef.current.values()) clearTimeout(t);
-      remoteSpeechTimersRef.current.clear();
-      pendingRemoteSpeechRef.current.clear();
+      for (const t of timersForCleanup.values()) clearTimeout(t);
+      timersForCleanup.clear();
+      pendingForCleanup.clear();
       sock.removeAllListeners();
       sock.disconnect();
       socketRef.current = null;
@@ -172,7 +177,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     }
 
     return overridden;
-  }, [claims?.sub, claims?.username, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
+  }, [claims, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
 
   const spawnPx = useMemo(() => worldSpawnPx(), []);
 

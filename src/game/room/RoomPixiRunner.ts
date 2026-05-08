@@ -24,7 +24,6 @@ import {
   posFromRemoteBuffer,
   remoteRenderDelayMs,
   scrollWorldPx,
-  squashRemoteIdleLeadIn,
   type RemoteSample,
 } from './worldMath.ts';
 
@@ -232,7 +231,6 @@ export class RoomPixiRunner {
           while (arr.length > 1 && arr[0].t < cutoff) {
             arr.shift();
           }
-          squashRemoteIdleLeadIn(arr);
           dropRemoteStaleAnchors(arr);
         }
 

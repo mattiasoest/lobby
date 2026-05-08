@@ -1,27 +1,9 @@
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
-import { AppChrome } from '../components/UI/AppChrome.tsx';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AuthCallbackPage } from '../features/auth/AuthCallbackPage.tsx';
 import { LoginPage } from '../features/auth/LoginPage.tsx';
 import { LobbyPage } from '../features/lobby/LobbyPage.tsx';
 import { RoomRouteGate } from '../features/room/RoomGate.tsx';
-import { useAuth } from './authContext.tsx';
-
-function ProtectedLayout() {
-  const { token, sessionReady } = useAuth();
-  if (!sessionReady) {
-    return (
-      <div className="auth-page">
-        <p>Loading session…</p>
-      </div>
-    );
-  }
-  if (!token) return <Navigate to="/login" replace />;
-  return (
-    <AppChrome>
-      <Outlet />
-    </AppChrome>
-  );
-}
+import { ProtectedLayout } from './ProtectedLayout.tsx';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },

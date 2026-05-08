@@ -18,9 +18,6 @@ export function dropRemoteStaleAnchors(samples: RemoteSample[]): void {
   }
 }
 
-/** No-op: kept so stale callers cannot throw after removing squash behavior. */
-export function squashRemoteIdleLeadIn(_samples: RemoteSample[]): void {}
-
 export function remoteRenderDelayMs(samples: RemoteSample[]): number {
   if (samples.length <= 2) return REMOTE_RENDER_DELAY_MIN_MS;
   const span = REMOTE_RENDER_DELAY_MAX_MS - REMOTE_RENDER_DELAY_MIN_MS;

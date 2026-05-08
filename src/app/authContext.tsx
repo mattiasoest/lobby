@@ -31,9 +31,8 @@ function isOAuthCallbackEntry(): boolean {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [skipBootstrap] = useState(() => isOAuthCallbackEntry());
-  const [token, setTokenState] = useState<string | null>(null);
-
-  const username = useMemo(() => decodeJwtUsername(token), [token]);
+  /** `undefined` = follow bootstrap query; otherwise explicit session token (including forced `null` after logout). */
+  const [tokenOverride, setTokenOverride] = useState<string | null | undefined>(undefined);
 
   const bootstrapQuery = useQuery({
     queryKey: queryKeys.auth.bootstrap,
@@ -47,6 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
+  const bootstrapToken =
+    typeof bootstrapQuery.data === 'string' && bootstrapQuery.data.length > 0 ? bootstrapQuery.data : null;
+  const token = tokenOverride !== undefined ? tokenOverride : bootstrapToken;
+
+  const username = useMemo(() => decodeJwtUsername(token), [token]);
+
   /** OAuth callback skips refresh; otherwise wait until the first bootstrap attempt finishes. */
   const sessionReady = skipBootstrap || bootstrapQuery.isFetched;
 
@@ -54,21 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearLegacyAccessToken();
   }, []);
 
-  useEffect(() => {
-    const t = bootstrapQuery.data;
-    if (typeof t === 'string' && t.length > 0) {
-      setTokenState(t);
-    }
-  }, [bootstrapQuery.data]);
-
   const setToken = useCallback((t: string | null) => {
-    setTokenState(t);
+    setTokenOverride(t);
   }, []);
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     const outcome = await refreshAccessFromCookieSingleFlight();
     if (!outcome.ok || !outcome.accessToken) return null;
-    setTokenState(outcome.accessToken);
+    setTokenOverride(outcome.accessToken);
     return outcome.accessToken;
   }, []);
 
@@ -90,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSettled: () => {
       queryClient.clear();
-      setTokenState(null);
+      setTokenOverride(null);
       clearLegacyAccessToken();
     },
   });
@@ -107,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/* eslint-disable react-refresh/only-export-components -- paired hook for AuthProvider */
 export function useAuth(): AuthValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
