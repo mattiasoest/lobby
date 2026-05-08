@@ -6,5 +6,5 @@ export function RoomRouteGate() {
   const { roomId } = useParams<{ roomId: string }>();
   const id = Number(roomId);
   if (!isRoomId(id)) return <Navigate to="/lobby" replace />;
-  return <RoomPage roomId={id} />;
+  return <RoomPage key={id} roomId={id} />;
 }

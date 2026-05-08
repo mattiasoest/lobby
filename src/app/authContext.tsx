@@ -41,7 +41,6 @@ function isOAuthCallbackEntry(): boolean {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [skipBootstrap] = useState(() => isOAuthCallbackEntry());
-  const [sessionReady, setSessionReady] = useState(() => skipBootstrap);
   const [token, setTokenState] = useState<string | null>(null);
 
   const username = useMemo(() => decodeJwtUsername(token), [token]);
@@ -58,6 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
   });
 
+  /** OAuth callback skips refresh; otherwise wait until the first bootstrap attempt finishes. */
+  const sessionReady = skipBootstrap || bootstrapQuery.isFetched;
+
   useEffect(() => {
     clearLegacyAccessToken();
   }, []);
@@ -68,11 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setTokenState(t);
     }
   }, [bootstrapQuery.data]);
-
-  useEffect(() => {
-    if (skipBootstrap) return;
-    if (bootstrapQuery.isFetched) setSessionReady(true);
-  }, [bootstrapQuery.isFetched, skipBootstrap]);
 
   const setToken = useCallback((t: string | null) => {
     setTokenState(t);

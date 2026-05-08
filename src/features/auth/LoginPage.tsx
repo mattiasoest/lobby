@@ -1,11 +1,10 @@
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../app/authContext.tsx';
 import { useAuthProvidersQuery, useDevLoginMutation } from '../../query/hooks.ts';
 import { apiUrl } from '../../services/apiOrigin.ts';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 export function LoginPage() {
-  const navigate = useNavigate();
   const { token, sessionReady, setToken } = useAuth();
   const [search] = useSearchParams();
 
@@ -17,15 +16,8 @@ export function LoginPage() {
   const [devName, setDevName] = useState('explorer');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (sessionReady && token) navigate('/lobby', { replace: true });
-  }, [navigate, token, sessionReady]);
-
   const paramError = search.get('error');
-
-  useEffect(() => {
-    if (paramError) setError(`OAuth failed (${paramError})`);
-  }, [paramError]);
+  const oauthUrlError = paramError ? `OAuth failed (${paramError})` : null;
 
   const startGoogle = useCallback(() => {
     window.location.href = apiUrl('/api/auth/google');
@@ -48,6 +40,10 @@ export function LoginPage() {
     );
   }
 
+  if (token) {
+    return <Navigate to="/lobby" replace />;
+  }
+
   return (
     <div className="auth-page">
       <div className="auth-card">
@@ -57,15 +53,15 @@ export function LoginPage() {
           <code>/api/auth</code> (new tab restores access via silent refresh).
         </p>
 
-        {(error ?? devLoginMut.error ?? paramError) && (
+        {(oauthUrlError ?? error ?? devLoginMut.error) && (
           <div className="callout">
-            {error ??
+            {oauthUrlError ??
+              error ??
               (devLoginMut.error instanceof Error
                 ? devLoginMut.error.message
                 : devLoginMut.error
                   ? 'Dev login failed'
-                  : null) ??
-              paramError}
+                  : null)}
           </div>
         )}
 

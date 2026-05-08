@@ -57,20 +57,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
   selfUserIdRef.current = typeof claims?.sub === 'string' ? claims.sub : '';
 
   useEffect(() => {
-    setLocalListPos(worldSpawnPx());
-    setServerPlayers([]);
-    setLocalSpeechBubble(null);
-    setRemoteSpeechBubbles(new Map());
-    for (const t of remoteSpeechTimersRef.current.values()) clearTimeout(t);
-    remoteSpeechTimersRef.current.clear();
-    pendingRemoteSpeechRef.current.clear();
-    if (speechHideTimerRef.current) {
-      clearTimeout(speechHideTimerRef.current);
-      speechHideTimerRef.current = null;
-    }
-  }, [roomId]);
-
-  useEffect(() => {
     if (!token) return;
 
     const sock = createRoomSocket({ roomId, token });
