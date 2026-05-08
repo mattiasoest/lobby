@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import eslintConfigPrettier from 'eslint-config-prettier/flat';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
@@ -18,9 +19,6 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
-    rules: {
-      semi: ['error', 'always'],
-    },
   },
   {
     files: ['**/*.js'],
@@ -28,8 +26,7 @@ export default defineConfig([
       ecmaVersion: 2022,
       sourceType: 'module',
     },
-    rules: {
-      semi: ['error', 'always'],
-    },
   },
+  // Must be last: disables ESLint rules that conflict with Prettier (formatting lives in Prettier).
+  eslintConfigPrettier,
 ]);
