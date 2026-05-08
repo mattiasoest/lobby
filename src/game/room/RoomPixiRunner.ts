@@ -17,6 +17,7 @@ import {
 } from './constants.ts';
 import { isTypingTarget, MOVE_KEYS, createMoveKeysState, setMoveKey } from './keyboard.ts';
 import { SPEECH_ABOVE_AVATAR, createSpeechBubbleGroup, type SpeechBubbleLayout } from './speechBubble.ts';
+import { avatarColorOrFallback } from './playerColor.ts';
 import type { RoomCanvasSyncState } from './syncState.ts';
 import {
   clampWorldTopLeft,
@@ -386,7 +387,7 @@ export class RoomPixiRunner {
       const graphic = new Graphics();
       const isLocal = !!localId && p.id === localId;
       graphic.rect(0, 0, size, size);
-      graphic.fill({ color: isLocal ? 0x34d399 : 0x60a5fa });
+      graphic.fill({ color: avatarColorOrFallback(p.id, p.color) });
       let px = p.x;
       let py = p.y;
       if (isLocal) {

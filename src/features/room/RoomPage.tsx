@@ -7,6 +7,7 @@ import { PlayerList } from '../../components/UI/PlayerList.tsx';
 import { queryKeys } from '../../query/keys.ts';
 import { queryClient } from '../../query/queryClient.ts';
 import { useRoomMessagesQuery } from '../../query/hooks.ts';
+import { randomAvatarColor } from '../../game/room/playerColor.ts';
 import { createRoomSocket } from '../../services/socket.ts';
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import type { Socket } from 'socket.io-client';
@@ -44,6 +45,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const remoteSpeechTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const serverPlayersRef = useRef<PlayerDTO[]>([]);
   const selfUserIdRef = useRef<string>('');
+  /** Chosen once per mount; sent on join so every client agrees on our avatar color */
+  const [localAvatarColor] = useState(() => randomAvatarColor());
   /** Messages from others before roster lists their socket id yet (latest per user id) */
   const pendingRemoteSpeechRef = useRef<Map<string, ChatMessageDTO>>(new Map());
   /** Throttled sidebar position (~30 Hz from canvas) */
@@ -126,7 +129,11 @@ export function RoomPage({ roomId }: { roomId: number }) {
       setSocketConnected(true);
       setSocketId(sock.id ?? null);
       const spawn = worldSpawnPx();
-      sock.emit('player:join', { x: spawn.x, y: spawn.y });
+      sock.emit('player:join', {
+        x: spawn.x,
+        y: spawn.y,
+        color: localAvatarColor,
+      });
     });
 
     sock.on('disconnect', () => {
@@ -150,7 +157,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
       setSocketConnected(false);
       setSocketId(null);
     };
-  }, [roomId, token]);
+  }, [localAvatarColor, roomId, token]);
 
   const handlePositionSync = useCallback((pos: { x: number; y: number }) => {
     setLocalListPos(pos);
@@ -173,11 +180,12 @@ export function RoomPage({ roomId }: { roomId: number }) {
         x: localListPos.x,
         y: localListPos.y,
         userId: ghostUserId,
+        color: localAvatarColor,
       });
     }
 
     return overridden;
-  }, [claims, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
+  }, [claims, localAvatarColor, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
 
   const spawnPx = useMemo(() => worldSpawnPx(), []);
 

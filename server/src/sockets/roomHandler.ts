@@ -1,6 +1,7 @@
 import type { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import type pg from 'pg';
+import { sanitizeAvatarColor } from '../avatarColor.js';
 
 const TILE_PX = 32;
 const WORLD_COLS_CONST = 48;
@@ -30,6 +31,7 @@ export type PlayerPublic = {
   x: number;
   y: number;
   userId: string;
+  color: number;
 };
 
 export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; pool: pg.Pool }) {
@@ -68,15 +70,17 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; po
     };
 
     nsp.on('connection', (socket) => {
-      socket.on('player:join', (payload: { x: number; y: number }) => {
+      socket.on('player:join', (payload: { x: number; y: number; color?: number }) => {
         const u = socket.data.user as { sub: string; username: string };
         const { x, y } = clampPlayerPx(payload.x, payload.y);
+        const color = sanitizeAvatarColor(payload.color);
         players.set(socket.id, {
           id: socket.id,
           username: u.username,
           x,
           y,
           userId: u.sub,
+          color,
         });
         broadcastPlayers();
       });

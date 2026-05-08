@@ -5,6 +5,8 @@ export type PlayerDTO = {
   x: number;
   y: number;
   userId: string;
+  /** Packed RGB for PIXI avatar fill (0xRRGGBB), chosen by client and echoed by server */
+  color: number;
 };
 
 export type ChatMessageDTO = {
