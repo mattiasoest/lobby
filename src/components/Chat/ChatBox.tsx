@@ -1,12 +1,21 @@
 import {
   useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
-  useMemo,
   useState,
 } from 'react';
 import type { ChatMessageDTO } from '../../types.ts';
+
+/** Pixels from the bottom below which we treat the feed as "following" new messages. */
+const PINNED_BOTTOM_PX = 64;
+
+function isPinnedToBottom(el: HTMLDivElement): boolean {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= PINNED_BOTTOM_PX;
+}
 
 export function ChatBox({
   messages,
@@ -27,16 +36,39 @@ export function ChatBox({
     [messages],
   );
 
+  const feedRef = useRef<HTMLDivElement>(null);
+  /** When true, new messages snap the scroll position to the latest line. */
+  const followLatestRef = useRef(true);
+
+  const onFeedScroll = useCallback(() => {
+    const el = feedRef.current;
+    if (!el) return;
+    followLatestRef.current = isPinnedToBottom(el);
+  }, []);
+
+  const jumpToLatest = useCallback(() => {
+    followLatestRef.current = true;
+    const el = feedRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = feedRef.current;
+    if (!el || !followLatestRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [ordered]);
+
   const submit = useCallback(
     (e: FormEvent) => {
       e.preventDefault();
       const trimmed = text.trim();
       if (trimmed) {
+        jumpToLatest();
         onSend(trimmed);
         setText('');
       }
     },
-    [onSend, text],
+    [jumpToLatest, onSend, text],
   );
 
   const onComposerKeyDown = useCallback(
@@ -45,18 +77,19 @@ export function ChatBox({
       e.preventDefault();
       const trimmed = text.trim();
       if (trimmed) {
+        jumpToLatest();
         onSend(trimmed);
         setText('');
       }
       e.currentTarget.blur();
     },
-    [onSend, text],
+    [jumpToLatest, onSend, text],
   );
 
   return (
     <div className="chat">
       <h3 className="chat-title">Chat</h3>
-      <div className="chat-feed" aria-live="polite">
+      <div ref={feedRef} className="chat-feed" aria-live="polite" onScroll={onFeedScroll}>
         {ordered.map((m) => (
           <div key={m.id} className="chat-line">
             <span className="chat-user">{m.username}</span> <span className="chat-content">{m.content}</span>
