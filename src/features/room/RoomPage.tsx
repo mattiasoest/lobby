@@ -118,7 +118,15 @@ export function RoomPage({ roomId }: { roomId: number }) {
         return [...list, msg];
       });
 
-      if (msg.user_id === selfUserIdRef.current) return;
+      if (msg.user_id === selfUserIdRef.current) {
+        if (speechHideTimerRef.current) clearTimeout(speechHideTimerRef.current);
+        setLocalSpeechBubble(msg.content);
+        speechHideTimerRef.current = window.setTimeout(() => {
+          setLocalSpeechBubble(null);
+          speechHideTimerRef.current = null;
+        }, 4000);
+        return;
+      }
 
       const rosterAtEvent = serverPlayersRef.current;
       if (tryShowRemoteBubble(msg, rosterAtEvent)) return;
@@ -192,14 +200,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const sendChat = useCallback((text: string) => {
     socketRef.current?.emit('chat:send', { content: text });
-    if (speechHideTimerRef.current) {
-      clearTimeout(speechHideTimerRef.current);
-    }
-    setLocalSpeechBubble(text);
-    speechHideTimerRef.current = setTimeout(() => {
-      setLocalSpeechBubble(null);
-      speechHideTimerRef.current = null;
-    }, 4000);
   }, []);
 
   useEffect(
