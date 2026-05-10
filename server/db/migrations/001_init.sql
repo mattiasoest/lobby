@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS messages (
   room_id SMALLINT NOT NULL CHECK (room_id BETWEEN 1 AND 4),
   user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   content TEXT NOT NULL,
+  content_raw TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

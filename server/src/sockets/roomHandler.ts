@@ -123,9 +123,9 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; po
             content: string;
             created_at: Date;
           }>(
-            `INSERT INTO messages (room_id, user_id, content) VALUES ($1, $2, $3)
+            `INSERT INTO messages (room_id, user_id, content, content_raw) VALUES ($1, $2, $3, $4)
              RETURNING id, room_id, user_id, content, created_at`,
-            [roomId, u.sub, content],
+            [roomId, u.sub, content, raw],
           );
           const row = ins.rows[0];
           if (!row) return;
