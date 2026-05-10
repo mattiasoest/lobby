@@ -27,6 +27,18 @@ function worldSpawnPx() {
   return { x: w / 2 - size / 2, y: h / 2 - size / 2 };
 }
 
+const SPAWN_JITTER_PX = 125;
+
+/** Random offset ±{@link SPAWN_JITTER_PX} on each axis from map center (world top-left of avatar). */
+function jitterAroundWorldSpawn() {
+  const base = worldSpawnPx();
+  const j = SPAWN_JITTER_PX;
+  return {
+    x: base.x + (Math.random() * 2 * j - j),
+    y: base.y + (Math.random() * 2 * j - j),
+  };
+}
+
 export function RoomPage({ roomId }: { roomId: number }) {
   const { token, username } = useAuth();
   const { avatarRgb } = useAvatarColor();
@@ -50,8 +62,23 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const selfUserIdRef = useRef<string>('');
   /** Messages from others before roster lists their socket id yet (latest per user id) */
   const pendingRemoteSpeechRef = useRef<Map<string, ChatMessageDTO>>(new Map());
-  /** Throttled sidebar position (~30 Hz from canvas) */
-  const [localListPos, setLocalListPos] = useState(worldSpawnPx);
+
+  const spawnPx = useMemo(() => {
+    // Spawn coordinates do not use room geometry (same WORLD_* everywhere). We still key this memo on
+    // roomId so navigating to another room draws a fresh jittered spawn; to reuse one spawn for all
+    // rooms, use [] and drop roomId from the callback. `void roomId` ties the callback to the dep so
+    // eslint exhaustive-deps does not treat roomId as unused.
+    void roomId;
+    return jitterAroundWorldSpawn();
+  }, [roomId]);
+
+  /** Throttled sidebar position (~30 Hz from canvas), seeded from spawn */
+  const [prevRoomId, setPrevRoomId] = useState(roomId);
+  const [localListPos, setLocalListPos] = useState(spawnPx);
+  if (roomId !== prevRoomId) {
+    setPrevRoomId(roomId);
+    setLocalListPos(spawnPx);
+  }
 
   const claims = useMemo(() => decodeJwtPayload(token), [token]);
 
@@ -137,10 +164,9 @@ export function RoomPage({ roomId }: { roomId: number }) {
     sock.on('connect', () => {
       setSocketConnected(true);
       setSocketId(sock.id ?? null);
-      const spawn = worldSpawnPx();
       sock.emit('player:join', {
-        x: spawn.x,
-        y: spawn.y,
+        x: spawnPx.x,
+        y: spawnPx.y,
         color: avatarRgb,
       });
     });
@@ -166,7 +192,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
       setSocketConnected(false);
       setSocketId(null);
     };
-  }, [avatarRgb, roomId, token]);
+  }, [avatarRgb, roomId, spawnPx.x, spawnPx.y, token]);
 
   const handlePositionSync = useCallback((pos: { x: number; y: number }) => {
     setLocalListPos(pos);
@@ -195,8 +221,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
     return overridden;
   }, [claims, avatarRgb, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
-
-  const spawnPx = useMemo(() => worldSpawnPx(), []);
 
   const sendChat = useCallback((text: string) => {
     socketRef.current?.emit('chat:send', { content: text });
