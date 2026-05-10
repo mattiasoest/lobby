@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { decodeJwtPayload } from '../../app/store.ts';
 import { useAuth } from '../../app/authContext.tsx';
-import { PixiCanvas } from '../../components/Canvas/PixiCanvas.tsx';
+
+const PixiCanvas = lazy(() =>
+  import('../../components/Canvas/PixiCanvas.tsx').then((m) => ({ default: m.PixiCanvas })),
+);
 import { ChatBox } from '../../components/Chat/ChatBox.tsx';
 import { PlayerList } from '../../components/UI/PlayerList.tsx';
 import { queryKeys } from '../../query/keys.ts';
@@ -260,21 +263,34 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
       <div className="room-shell">
         <div className="room-stage">
-          <PixiCanvas
-            tileSize={TILE}
-            viewCols={VIEW_COLS}
-            viewRows={VIEW_ROWS}
-            worldCols={WORLD_COLS}
-            worldRows={WORLD_ROWS}
-            worldSpawnPx={spawnPx}
-            players={displayPlayers}
-            localId={socketId}
-            roomId={roomId}
-            localSpeechBubble={localSpeechBubble}
-            remoteSpeechBubbles={remoteSpeechBubbles}
-            keysDisabled={typingFocus}
-            onPositionSync={handlePositionSync}
-          />
+          <Suspense
+            fallback={
+              <div
+                className="pixi-mount pixi-mount--fallback"
+                style={{ width: TILE * VIEW_COLS, height: TILE * VIEW_ROWS }}
+                aria-busy="true"
+                aria-label="Loading room canvas"
+              >
+                <p className="muted">Loading canvas…</p>
+              </div>
+            }
+          >
+            <PixiCanvas
+              tileSize={TILE}
+              viewCols={VIEW_COLS}
+              viewRows={VIEW_ROWS}
+              worldCols={WORLD_COLS}
+              worldRows={WORLD_ROWS}
+              worldSpawnPx={spawnPx}
+              players={displayPlayers}
+              localId={socketId}
+              roomId={roomId}
+              localSpeechBubble={localSpeechBubble}
+              remoteSpeechBubbles={remoteSpeechBubbles}
+              keysDisabled={typingFocus}
+              onPositionSync={handlePositionSync}
+            />
+          </Suspense>
           <PlayerList players={displayPlayers} />
         </div>
         <ChatBox messages={messages} onSend={sendChat} onTypingChange={setTypingFocus} composerRef={chatComposerRef} />

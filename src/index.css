@@ -430,6 +430,13 @@ code {
   border: 1px solid var(--border);
 }
 
+.pixi-mount.pixi-mount--fallback {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
 .player-list ul {
   list-style: none;
   padding: 0;
