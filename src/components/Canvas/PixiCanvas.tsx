@@ -17,6 +17,8 @@ export type PixiCanvasProps = {
   remoteSpeechBubbles: ReadonlyMap<string, string>;
   keysDisabled?: boolean;
   onPositionSync: (pos: { x: number; y: number }) => void;
+  /** Fires when the WebGL runner finishes bootstrap or tears down (recreates runner). */
+  onCanvasReady?: (ready: boolean) => void;
 };
 
 /**
@@ -36,6 +38,7 @@ export function PixiCanvas({
   roomId,
   localSpeechBubble,
   remoteSpeechBubbles,
+  onCanvasReady,
 }: PixiCanvasProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const syncRef = useRef<RoomCanvasSyncState>(createInitialSyncState());
@@ -134,5 +137,9 @@ export function PixiCanvas({
     runnerRef.current?.rebuildSpeechBubbles(localSpeechBubble, localId, remoteSpeechBubbles);
   }, [canvasReady, localId, localSpeechBubble, remoteSpeechBubbles]);
 
-  return <div ref={mountRef} className="pixi-mount" aria-label="Room canvas" />;
+  useEffect(() => {
+    onCanvasReady?.(canvasReady);
+  }, [canvasReady, onCanvasReady]);
+
+  return <div ref={mountRef} className="pixi-mount pixi-mount__surface" />;
 }

@@ -424,6 +424,24 @@ code {
   gap: 12px;
 }
 
+/* Sized shell so lazy-loaded Pixi can show the same loader until WebGL init finishes (avoids empty flash). */
+.pixi-mount-host {
+  position: relative;
+}
+
+.pixi-mount.pixi-mount__surface {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.pixi-mount-bootstrap-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .pixi-mount canvas {
   width: min(100%, 100%);
   border-radius: 10px;
@@ -435,6 +453,64 @@ code {
   place-items: center;
   border-radius: 10px;
   border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 85% 70% at 50% 38%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 58%),
+    linear-gradient(168deg, var(--code-bg) 0%, var(--bg) 72%);
+}
+
+.pixi-canvas-loader {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.pixi-canvas-loader__rings {
+  position: relative;
+  width: 52px;
+  height: 52px;
+}
+
+.pixi-canvas-loader__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  box-sizing: border-box;
+}
+
+.pixi-canvas-loader__ring--track {
+  opacity: 0.4;
+}
+
+.pixi-canvas-loader__ring--spin {
+  border-color: transparent;
+  border-top-color: var(--accent);
+  border-right-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  animation: pixi-canvas-loader-spin 0.95s linear infinite;
+}
+
+@keyframes pixi-canvas-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pixi-canvas-loader__label {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pixi-canvas-loader__ring--spin {
+    animation: none;
+    opacity: 0.85;
+    transform: rotate(200deg);
+  }
 }
 
 .player-list ul {

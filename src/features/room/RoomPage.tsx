@@ -1,10 +1,8 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { decodeJwtPayload } from '../../app/store.ts';
 import { useAuth } from '../../app/authContext.tsx';
-
-const PixiCanvas = lazy(() =>
-  import('../../components/Canvas/PixiCanvas.tsx').then((m) => ({ default: m.PixiCanvas })),
-);
+import { CanvasLoadingFallback } from '../../components/Canvas/CanvasLoadingFallback.tsx';
+import { canvasViewPixels } from '../../components/Canvas/canvasLoaderLayout.ts';
 import { ChatBox } from '../../components/Chat/ChatBox.tsx';
 import { PlayerList } from '../../components/UI/PlayerList.tsx';
 import { queryKeys } from '../../query/keys.ts';
@@ -15,6 +13,8 @@ import { useAvatarColor } from '../../app/avatarColorContext.tsx';
 import { createRoomSocket } from '../../services/socket.ts';
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import type { Socket } from 'socket.io-client';
+
+type PixiCanvasModule = typeof import('../../components/Canvas/PixiCanvas.tsx');
 
 const TILE = 32;
 const VIEW_COLS = 24;
@@ -84,6 +84,28 @@ export function RoomPage({ roomId }: { roomId: number }) {
   }
 
   const claims = useMemo(() => decodeJwtPayload(token), [token]);
+
+  const canvasViewBox = useMemo(() => canvasViewPixels(TILE, VIEW_COLS, VIEW_ROWS), []);
+
+  const [pixiMod, setPixiMod] = useState<PixiCanvasModule | null>(null);
+  const [pixiCanvasReady, setPixiCanvasReady] = useState(false);
+
+  /** Lazy Pixi chunk — paired with `pixiCanvasReady` so one loader covers fetch + WebGL init (no Suspense handoff). */
+  useEffect(() => {
+    let cancelled = false;
+    void import('../../components/Canvas/PixiCanvas.tsx').then((m: PixiCanvasModule) => {
+      if (!cancelled) setPixiMod(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handlePixiCanvasReady = useCallback((ready: boolean) => {
+    setPixiCanvasReady(ready);
+  }, []);
+
+  const showRoomCanvasLoader = !pixiMod || !pixiCanvasReady;
 
   useLayoutEffect(() => {
     serverPlayersRef.current = serverPlayers;
@@ -252,6 +274,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  const PixiRoomCanvas = pixiMod?.PixiCanvas;
+
   return (
     <div className="room-page">
       <header className="room-header">
@@ -263,34 +287,40 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
       <div className="room-shell">
         <div className="room-stage">
-          <Suspense
-            fallback={
-              <div
-                className="pixi-mount pixi-mount--fallback"
-                style={{ width: TILE * VIEW_COLS, height: TILE * VIEW_ROWS }}
-                aria-busy="true"
-                aria-label="Loading room canvas"
-              >
-                <p className="muted">Loading canvas…</p>
-              </div>
-            }
+          <div
+            className="pixi-mount-host"
+            style={{
+              position: 'relative',
+              width: canvasViewBox.width,
+              height: canvasViewBox.height,
+            }}
+            aria-busy={showRoomCanvasLoader}
+            aria-label="Room canvas"
           >
-            <PixiCanvas
-              tileSize={TILE}
-              viewCols={VIEW_COLS}
-              viewRows={VIEW_ROWS}
-              worldCols={WORLD_COLS}
-              worldRows={WORLD_ROWS}
-              worldSpawnPx={spawnPx}
-              players={displayPlayers}
-              localId={socketId}
-              roomId={roomId}
-              localSpeechBubble={localSpeechBubble}
-              remoteSpeechBubbles={remoteSpeechBubbles}
-              keysDisabled={typingFocus}
-              onPositionSync={handlePositionSync}
-            />
-          </Suspense>
+            {PixiRoomCanvas && (
+              <PixiRoomCanvas
+                tileSize={TILE}
+                viewCols={VIEW_COLS}
+                viewRows={VIEW_ROWS}
+                worldCols={WORLD_COLS}
+                worldRows={WORLD_ROWS}
+                worldSpawnPx={spawnPx}
+                players={displayPlayers}
+                localId={socketId}
+                roomId={roomId}
+                localSpeechBubble={localSpeechBubble}
+                remoteSpeechBubbles={remoteSpeechBubbles}
+                keysDisabled={typingFocus}
+                onPositionSync={handlePositionSync}
+                onCanvasReady={handlePixiCanvasReady}
+              />
+            )}
+            {showRoomCanvasLoader && (
+              <div className="pixi-mount-bootstrap-overlay">
+                <CanvasLoadingFallback {...canvasViewBox} />
+              </div>
+            )}
+          </div>
           <PlayerList players={displayPlayers} />
         </div>
         <ChatBox messages={messages} onSend={sendChat} onTypingChange={setTypingFocus} composerRef={chatComposerRef} />
