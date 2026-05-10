@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type pg from 'pg';
 import type { RequestHandler } from 'express';
+import { maskProfanity } from '../lib/profanity.js';
 
 const ALLOWED_ROOMS = new Set([1, 2, 3, 4]);
 
@@ -38,7 +39,7 @@ export function messagesRouter(pool: pg.Pool, requireAuth: RequestHandler) {
         id: row.id,
         room_id: row.room_id,
         user_id: row.user_id,
-        content: row.content,
+        content: maskProfanity(row.content),
         username: row.username,
         created_at: row.created_at.toISOString(),
       })),

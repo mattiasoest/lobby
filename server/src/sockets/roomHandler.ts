@@ -2,6 +2,7 @@ import type { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import type pg from 'pg';
 import { sanitizeAvatarColor } from '../avatarColor.js';
+import { maskProfanity } from '../lib/profanity.js';
 
 const TILE_PX = 32;
 const WORLD_COLS_CONST = 48;
@@ -101,8 +102,9 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; po
 
       socket.on('chat:send', async (payload: { content: string }) => {
         const u = socket.data.user as { sub: string; username: string };
-        const content = typeof payload?.content === 'string' ? payload.content.trim().slice(0, 2000) : '';
-        if (!content) return;
+        const raw = typeof payload?.content === 'string' ? payload.content.trim().slice(0, 2000) : '';
+        if (!raw) return;
+        const content = maskProfanity(raw);
 
         let msg: {
           id: string;
