@@ -1,10 +1,10 @@
 import type { Request } from 'express';
 
 export function flattenCookieHeader(req: Request): string | undefined {
-  const v = req.headers.cookie;
-  if (v === undefined) return undefined;
-  if (Array.isArray(v)) return v.filter(Boolean).join('; ');
-  return v.length ? v : undefined;
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader === undefined) return undefined;
+  if (Array.isArray(cookieHeader)) return cookieHeader.filter(Boolean).join('; ');
+  return cookieHeader.length ? cookieHeader : undefined;
 }
 
 /** Prefer `cookie-parser`; fall back to raw header when the parser misses (e.g. proxy edge cases). */

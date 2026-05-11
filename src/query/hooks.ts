@@ -22,7 +22,7 @@ export function useRoomMessagesQuery(roomId: number, token: string | null) {
   });
 }
 
-export function useDevLoginMutation(opts: { setToken: (t: string) => void }) {
+export function useDevLoginMutation(opts: { setToken: (token: string) => void }) {
   const navigate = useNavigate();
   return useMutation({
     mutationFn: (username: string) => devLogin(username),
@@ -35,9 +35,9 @@ export function useDevLoginMutation(opts: { setToken: (t: string) => void }) {
 
 export function useOAuthBindSessionMutation() {
   return useMutation({
-    mutationFn: async ({ access, rt }: { access: string; rt: string | null }): Promise<boolean> =>
-      rt ? bootstrapServerSession(access, rt) : Promise.resolve(true),
-    onSettled: (_d, _e, vars) => {
+    mutationFn: async ({ access, refreshToken }: { access: string; refreshToken: string | null }): Promise<boolean> =>
+      refreshToken ? bootstrapServerSession(access, refreshToken) : Promise.resolve(true),
+    onSettled: (_settledData, _settledError, vars) => {
       clearSessionBootstrapCache(vars.access);
     },
   });

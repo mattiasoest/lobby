@@ -12,9 +12,9 @@ import {
 } from '../auth/tokens.js';
 
 export function createAuthTokensRouter(pool: pg.Pool, jwtSecret: string) {
-  const r = Router();
+  const router = Router();
 
-  r.post('/session', express.json(), async (req, res): Promise<void> => {
+  router.post('/session', express.json(), async (req, res): Promise<void> => {
     const auth = req.headers.authorization;
     if (!auth?.startsWith('Bearer ')) {
       res.status(401).json({ error: 'unauthorized' });
@@ -34,13 +34,13 @@ export function createAuthTokensRouter(pool: pg.Pool, jwtSecret: string) {
       }
       res.cookie(REFRESH_COOKIE_NAME, bound.newRaw, refreshCookieOptions());
       res.status(204).end();
-    } catch (e) {
-      console.error('auth session', e);
+    } catch (error) {
+      console.error('auth session', error);
       res.status(500).json({ error: 'session_failed' });
     }
   });
 
-  r.post('/refresh', async (req, res): Promise<void> => {
+  router.post('/refresh', async (req, res): Promise<void> => {
     const raw = readCookie(req, REFRESH_COOKIE_NAME);
     if (!raw) {
       res.status(401).json({ error: 'no_refresh' });
@@ -56,18 +56,18 @@ export function createAuthTokensRouter(pool: pg.Pool, jwtSecret: string) {
       const accessToken = issueAccessToken({ id: rotated.userId, username: rotated.username }, jwtSecret);
       res.cookie(REFRESH_COOKIE_NAME, rotated.newRaw, refreshCookieOptions());
       res.json({ accessToken });
-    } catch (e) {
-      console.error('auth refresh', e);
+    } catch (error) {
+      console.error('auth refresh', error);
       res.status(500).json({ error: 'refresh_failed' });
     }
   });
 
-  r.post('/logout', async (req, res): Promise<void> => {
+  router.post('/logout', async (req, res): Promise<void> => {
     const raw = readCookie(req, REFRESH_COOKIE_NAME);
     if (raw) await revokeRefreshByRaw(pool, raw);
     res.clearCookie(REFRESH_COOKIE_NAME, clearRefreshCookieOptions());
     res.status(204).end();
   });
 
-  return r;
+  return router;
 }

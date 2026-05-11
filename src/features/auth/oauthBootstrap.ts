@@ -1,11 +1,11 @@
 import { apiUrl } from '../../services/apiOrigin.ts';
 
-export type OAuthFragment = { access: string; rt: string | null };
+export type OAuthFragment = { access: string; refreshToken: string | null };
 
 /**
  * Holds the OAuth hash across React 18 Strict Mode's immediate unmount/remount (same navigation only).
- * In-memory — not written to sessionStorage/localStorage so a one-off `rt` isn't persisted via web APIs.
- * (The `rt` still appears in `location.hash` briefly before we strip it — that's unavoidable for SPA+fragment OAuth.)
+ * In-memory — not written to sessionStorage/localStorage so a one-off refresh token isn't persisted via web APIs.
+ * (The refresh token still appears in `location.hash` briefly before we strip it — that's unavoidable for SPA+fragment OAuth.)
  */
 let oauthFragmentHold: OAuthFragment | null = null;
 
@@ -19,17 +19,17 @@ export function consumeOAuthFragmentFromUrl(): OAuthFragment | null {
   if (rawHash) {
     const params = new URLSearchParams(rawHash);
     const access = params.get('access') ?? params.get('token');
-    const rt = params.get('rt');
+    const refreshTokenFromUrl = params.get('rt');
     if (access) {
-      oauthFragmentHold = { access, rt };
+      oauthFragmentHold = { access, refreshToken: refreshTokenFromUrl };
       window.history.replaceState(null, '', window.location.pathname);
     }
   }
 
   if (!oauthFragmentHold) return null;
-  const { access, rt } = oauthFragmentHold;
+  const { access, refreshToken } = oauthFragmentHold;
   if (!access) return null;
-  return { access, rt };
+  return { access, refreshToken };
 }
 
 export function clearOAuthFragmentStaging(): void {
@@ -41,8 +41,8 @@ const sessionByAccess = new Map<string, Promise<boolean>>();
 /**
  * Strict Mode mounts twice; reuse one POST /session so the one-time refresh token isn't consumed twice.
  */
-export function bootstrapServerSession(access: string, rt: string | null): Promise<boolean> {
-  if (!rt) return Promise.resolve(true);
+export function bootstrapServerSession(access: string, refreshToken: string | null): Promise<boolean> {
+  if (!refreshToken) return Promise.resolve(true);
 
   let pending = sessionByAccess.get(access);
   if (!pending) {
@@ -54,7 +54,7 @@ export function bootstrapServerSession(access: string, rt: string | null): Promi
           Authorization: `Bearer ${access}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refreshToken: rt }),
+        body: JSON.stringify({ refreshToken }),
       });
       return sessionRes.status !== 401 && sessionRes.status !== 400;
     })();

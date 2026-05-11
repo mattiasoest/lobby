@@ -10,8 +10,8 @@ export const AVATAR_PALETTE = [
 export function clampRgbInt(raw: unknown): number | null {
   if (typeof raw === 'number' && Number.isFinite(raw)) return Math.floor(raw) & 0xffffff;
   if (typeof raw === 'string' && raw.trim()) {
-    const n = Number.parseInt(raw.trim(), 10);
-    if (Number.isFinite(n)) return Math.floor(n) & 0xffffff;
+    const parsedDecimal = Number.parseInt(raw.trim(), 10);
+    if (Number.isFinite(parsedDecimal)) return Math.floor(parsedDecimal) & 0xffffff;
   }
   return null;
 }
@@ -21,9 +21,9 @@ export function rgbIntToCssHex(rgb: number): string {
 }
 
 export function cssHexToRgbInt(hex: string): number | null {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return null;
-  return Number.parseInt(m[1], 16);
+  const hexMatch = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!hexMatch) return null;
+  return Number.parseInt(hexMatch[1], 16);
 }
 
 export function randomAvatarColor(): number {
@@ -34,9 +34,9 @@ export function avatarColorOrFallback(id: string, color: number | undefined): nu
   if (typeof color === 'number' && Number.isFinite(color)) {
     return Math.floor(color) & 0xffffff;
   }
-  let h = 0;
-  for (let i = 0; i < id.length; i++) {
-    h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  let hashAccumulator = 0;
+  for (let charIndex = 0; charIndex < id.length; charIndex++) {
+    hashAccumulator = (hashAccumulator * 31 + id.charCodeAt(charIndex)) >>> 0;
   }
-  return AVATAR_PALETTE[h % AVATAR_PALETTE.length]!;
+  return AVATAR_PALETTE[hashAccumulator % AVATAR_PALETTE.length]!;
 }

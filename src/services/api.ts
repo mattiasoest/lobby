@@ -1,9 +1,9 @@
 import { apiUrl } from './apiOrigin.ts';
 
-async function parseJsonSafe<T>(res: Response): Promise<T> {
+async function parseJsonSafe<ResponseBody>(res: Response): Promise<ResponseBody> {
   const text = await res.text();
-  if (!text) return undefined as T;
-  return JSON.parse(text) as T;
+  if (!text) return undefined as ResponseBody;
+  return JSON.parse(text) as ResponseBody;
 }
 
 let refreshAccessTokenHook: (() => Promise<string | null>) | null = null;
@@ -25,10 +25,10 @@ async function singleFlightRefresh(): Promise<string | null> {
   return refreshInFlight;
 }
 
-export async function apiFetch<T>(path: string, token: string, init?: RequestInit): Promise<T> {
-  const run = async (t: string) => {
+export async function apiFetch<ResponseBody>(path: string, token: string, init?: RequestInit): Promise<ResponseBody> {
+  const run = async (bearerToken: string) => {
     const headers = new Headers(init?.headers ?? undefined);
-    headers.set('Authorization', `Bearer ${t}`);
+    headers.set('Authorization', `Bearer ${bearerToken}`);
     return fetch(apiUrl(path), { ...init, headers, credentials: 'include' });
   };
 
@@ -43,5 +43,5 @@ export async function apiFetch<T>(path: string, token: string, init?: RequestIni
     throw new Error(msg || `${res.status} ${res.statusText}`);
   }
 
-  return parseJsonSafe<T>(res);
+  return parseJsonSafe<ResponseBody>(res);
 }

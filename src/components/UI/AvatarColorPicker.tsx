@@ -17,9 +17,9 @@ export function AvatarColorPicker() {
           <input
             type="color"
             value={hex}
-            onChange={(e) => {
-              const n = cssHexToRgbInt(e.target.value);
-              if (n !== null) setAvatarRgb(n);
+            onChange={(event) => {
+              const customRgb = cssHexToRgbInt(event.target.value);
+              if (customRgb !== null) setAvatarRgb(customRgb);
             }}
             aria-label="Choose a custom color"
           />
@@ -27,19 +27,19 @@ export function AvatarColorPicker() {
       </div>
 
       <div className="avatar-color-swatches">
-        {AVATAR_PALETTE.map((c) => {
-          const h = rgbIntToCssHex(c);
-          const selected = c === avatarRgb;
+        {AVATAR_PALETTE.map((paletteRgb) => {
+          const cssHex = rgbIntToCssHex(paletteRgb);
+          const selected = paletteRgb === avatarRgb;
           return (
             <button
-              key={c}
+              key={paletteRgb}
               type="button"
               className="avatar-color-swatch"
-              style={{ backgroundColor: h }}
-              title={h}
-              aria-label={`Color ${h}`}
+              style={{ backgroundColor: cssHex }}
+              title={cssHex}
+              aria-label={`Color ${cssHex}`}
               aria-pressed={selected}
-              onClick={() => setAvatarRgb(c)}
+              onClick={() => setAvatarRgb(paletteRgb)}
             />
           );
         })}

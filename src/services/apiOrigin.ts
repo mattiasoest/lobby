@@ -12,6 +12,6 @@ export function apiOrigin(): string {
 
 export function apiUrl(pathAndQuery: string): string {
   const base = apiOrigin();
-  const p = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
-  return base === '' ? p : `${base}${p}`;
+  const relativePath = pathAndQuery.startsWith('/') ? pathAndQuery : `/${pathAndQuery}`;
+  return base === '' ? relativePath : `${base}${relativePath}`;
 }

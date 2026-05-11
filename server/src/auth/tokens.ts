@@ -21,8 +21,8 @@ function refreshCookieSecure(): boolean {
   if (process.env.REFRESH_COOKIE_SECURE === '1') return true;
   if (process.env.REFRESH_COOKIE_SECURE === '0') return false;
   try {
-    const u = new URL(process.env.FRONTEND_URL ?? 'http://localhost:5173');
-    return u.protocol === 'https:';
+    const frontendBaseUrl = new URL(process.env.FRONTEND_URL ?? 'http://localhost:5173');
+    return frontendBaseUrl.protocol === 'https:';
   } catch {
     return false;
   }
@@ -83,7 +83,7 @@ export async function rotateRefreshToken(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const h = hashRefreshToken(presentedRaw);
+    const presentedHash = hashRefreshToken(presentedRaw);
     const sel = await client.query<{
       id: string;
       user_id: string;
@@ -97,7 +97,7 @@ export async function rotateRefreshToken(
         AND rt.revoked_at IS NULL
         AND rt.expires_at > NOW()
       FOR UPDATE`,
-      [h],
+      [presentedHash],
     );
     const row = sel.rows[0];
     if (!row) {
@@ -114,9 +114,9 @@ export async function rotateRefreshToken(
     );
     await client.query('COMMIT');
     return { userId: row.user_id, username: row.username, newRaw };
-  } catch (e) {
+  } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
-    throw e;
+    throw error;
   } finally {
     client.release();
   }
@@ -142,7 +142,7 @@ export async function bindRefreshToCookieSession(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const h = hashRefreshToken(urlRefreshRaw);
+    const urlRefreshHash = hashRefreshToken(urlRefreshRaw);
     const sel = await client.query<{ id: string; user_id: string }>(
       `
       SELECT id, user_id
@@ -151,7 +151,7 @@ export async function bindRefreshToCookieSession(
         AND revoked_at IS NULL
         AND expires_at > NOW()
       FOR UPDATE`,
-      [h],
+      [urlRefreshHash],
     );
     const row = sel.rows[0];
     if (!row || row.user_id !== sub) {
@@ -168,9 +168,9 @@ export async function bindRefreshToCookieSession(
     );
     await client.query('COMMIT');
     return { newRaw };
-  } catch (e) {
+  } catch (error) {
     await client.query('ROLLBACK').catch(() => {});
-    throw e;
+    throw error;
   } finally {
     client.release();
   }

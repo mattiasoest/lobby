@@ -76,17 +76,17 @@ export class RoomPixiRunner {
   private remoteSpeedSmoothedRef = new Map<string, number>();
   private remoteBurstUntilRef = new Map<string, number>();
 
-  private keyDown = (e: KeyboardEvent) => {
-    if (this.opts.syncRef.current.keysDisabled || isTypingTarget(e.target)) return;
-    if (!MOVE_KEYS.has(e.key)) return;
-    setMoveKey(this.keysInternal, e.key, true);
-    e.preventDefault();
+  private keyDown = (keyEvent: KeyboardEvent) => {
+    if (this.opts.syncRef.current.keysDisabled || isTypingTarget(keyEvent.target)) return;
+    if (!MOVE_KEYS.has(keyEvent.key)) return;
+    setMoveKey(this.keysInternal, keyEvent.key, true);
+    keyEvent.preventDefault();
   };
 
-  private keyUp = (e: KeyboardEvent) => {
-    if (!MOVE_KEYS.has(e.key)) return;
-    setMoveKey(this.keysInternal, e.key, false);
-    e.preventDefault();
+  private keyUp = (keyEvent: KeyboardEvent) => {
+    if (!MOVE_KEYS.has(keyEvent.key)) return;
+    setMoveKey(this.keysInternal, keyEvent.key, false);
+    keyEvent.preventDefault();
   };
 
   private blur = () => {
@@ -170,27 +170,22 @@ export class RoomPixiRunner {
 
     const tickRun = (ticker: Ticker) => {
       const now = performance.now();
-      const sSync = this.opts.syncRef.current;
-      const ts = sSync.tileSize;
-      const wc = sSync.worldCols;
-      const wr = sSync.worldRows;
-      const vc = sSync.viewCols;
-      const vr = sSync.viewRows;
-      const lid = sSync.localId;
-      const pad = ts * 0.14;
-      const size = ts - pad * 2;
-      const worldW = wc * ts;
-      const worldH = wr * ts;
-      const viewW = vc * ts;
-      const viewH = vr * ts;
+      const syncState = this.opts.syncRef.current;
+      const { tileSize, worldCols, worldRows, viewCols, viewRows, localId } = syncState;
+      const pad = tileSize * 0.14;
+      const size = tileSize - pad * 2;
+      const worldW = worldCols * tileSize;
+      const worldH = worldRows * tileSize;
+      const viewW = viewCols * tileSize;
+      const viewH = viewRows * tileSize;
 
-      const k = this.keysInternal;
+      const moveKeys = this.keysInternal;
       let vx = 0;
       let vy = 0;
-      if (k.left) vx -= 1;
-      if (k.right) vx += 1;
-      if (k.up) vy -= 1;
-      if (k.down) vy += 1;
+      if (moveKeys.left) vx -= 1;
+      if (moveKeys.right) vx += 1;
+      if (moveKeys.up) vy -= 1;
+      if (moveKeys.down) vy += 1;
       const len = Math.hypot(vx, vy);
       if (len > 0) {
         vx /= len;
@@ -203,60 +198,60 @@ export class RoomPixiRunner {
       if (len > 0) {
         local.x += vx * step;
         local.y += vy * step;
-        const c = clampWorldTopLeft(local.x, local.y, ts, wc, wr);
-        local.x = c.x;
-        local.y = c.y;
+        const clampedTopLeft = clampWorldTopLeft(local.x, local.y, tileSize, worldCols, worldRows);
+        local.x = clampedTopLeft.x;
+        local.y = clampedTopLeft.y;
       }
 
       const startedMove = len > 0 && !this.localWasMovingRef;
       this.localWasMovingRef = len > 0;
 
-      const plist = sSync.players;
-      for (const p of plist) {
-        if (lid && p.id === lid) continue;
+      const playerList = syncState.players;
+      for (const player of playerList) {
+        if (localId && player.id === localId) continue;
 
-        let samples = this.remoteSampleBufRef.get(p.id);
+        let samples = this.remoteSampleBufRef.get(player.id);
         if (!samples) {
-          samples = [{ t: now, x: p.x, y: p.y }];
-          this.remoteSampleBufRef.set(p.id, samples);
-          this.lastServerSnapRef.set(p.id, { x: p.x, y: p.y });
+          samples = [{ time: now, x: player.x, y: player.y }];
+          this.remoteSampleBufRef.set(player.id, samples);
+          this.lastServerSnapRef.set(player.id, { x: player.x, y: player.y });
         } else {
-          const prev = this.lastServerSnapRef.get(p.id);
-          const moved = !prev || (p.x - prev.x) ** 2 + (p.y - prev.y) ** 2 > REMOTE_SNAP_EPS_SQ;
+          const prev = this.lastServerSnapRef.get(player.id);
+          const moved = !prev || (player.x - prev.x) ** 2 + (player.y - prev.y) ** 2 > REMOTE_SNAP_EPS_SQ;
           if (moved) {
-            this.lastServerSnapRef.set(p.id, { x: p.x, y: p.y });
-            samples.push({ t: now, x: p.x, y: p.y });
+            this.lastServerSnapRef.set(player.id, { x: player.x, y: player.y });
+            samples.push({ time: now, x: player.x, y: player.y });
             while (samples.length > MAX_REMOTE_SAMPLES) {
               samples.shift();
             }
           }
         }
 
-        const arr = this.remoteSampleBufRef.get(p.id);
+        const arr = this.remoteSampleBufRef.get(player.id);
         if (arr && arr.length > 0) {
           const cutoff = now - REMOTE_SAMPLE_TTL_MS;
-          while (arr.length > 1 && arr[0].t < cutoff) {
+          while (arr.length > 1 && arr[0].time < cutoff) {
             arr.shift();
           }
           dropRemoteStaleAnchors(arr);
         }
 
-        const ready = this.remoteSampleBufRef.get(p.id) ?? [];
+        const ready = this.remoteSampleBufRef.get(player.id) ?? [];
         const baseDelay = remoteRenderDelayMs(ready);
-        let burst = now < (this.remoteBurstUntilRef.get(p.id) ?? 0);
+        let burst = now < (this.remoteBurstUntilRef.get(player.id) ?? 0);
 
         let playbackDelay = burst
           ? Math.max(REMOTE_RENDER_DELAY_FLOOR_MS, baseDelay - REMOTE_BURST_DELAY_SHAVE_MS)
           : baseDelay;
         let target = posFromRemoteBuffer(ready, now - playbackDelay);
 
-        const prevTarget = this.remoteTargetPrevRef.get(p.id);
+        const prevTarget = this.remoteTargetPrevRef.get(player.id);
         let instSpeed = 0;
         if (prevTarget) {
           const invDt = 1 / Math.max(dt, 1e-4);
           instSpeed = Math.hypot(target.x - prevTarget.x, target.y - prevTarget.y) * invDt;
         }
-        const prevSmooth = this.remoteSpeedSmoothedRef.get(p.id) ?? 0;
+        const prevSmooth = this.remoteSpeedSmoothedRef.get(player.id) ?? 0;
         let smoothSpeed = prevSmooth * 0.55 + instSpeed * 0.45;
 
         const woke =
@@ -265,7 +260,7 @@ export class RoomPixiRunner {
           smoothSpeed > REMOTE_BURST_WAKE_SPEED_PX_S;
 
         if (woke) {
-          this.remoteBurstUntilRef.set(p.id, now + REMOTE_BURST_DURATION_MS);
+          this.remoteBurstUntilRef.set(player.id, now + REMOTE_BURST_DURATION_MS);
           if (!burst) {
             burst = true;
             playbackDelay = Math.max(REMOTE_RENDER_DELAY_FLOOR_MS, baseDelay - REMOTE_BURST_DELAY_SHAVE_MS);
@@ -278,16 +273,16 @@ export class RoomPixiRunner {
           }
         }
 
-        this.remoteSpeedSmoothedRef.set(p.id, smoothSpeed);
-        this.remoteTargetPrevRef.set(p.id, { x: target.x, y: target.y });
+        this.remoteSpeedSmoothedRef.set(player.id, smoothSpeed);
+        this.remoteTargetPrevRef.set(player.id, { x: target.x, y: target.y });
 
-        const prevDrawn = this.remotePxRef.get(p.id);
+        const prevDrawn = this.remotePxRef.get(player.id);
         const lambda = burst ? REMOTE_DISPLAY_LAMBDA_BURST : REMOTE_DISPLAY_LAMBDA;
         const blend = 1 - Math.exp(-lambda * dt);
         if (!prevDrawn) {
-          this.remotePxRef.set(p.id, { ...target });
+          this.remotePxRef.set(player.id, { ...target });
         } else {
-          this.remotePxRef.set(p.id, {
+          this.remotePxRef.set(player.id, {
             x: prevDrawn.x + (target.x - prevDrawn.x) * blend,
             y: prevDrawn.y + (target.y - prevDrawn.y) * blend,
           });
@@ -295,8 +290,8 @@ export class RoomPixiRunner {
       }
 
       const remoteIds = new Set<string>();
-      for (const p of plist) {
-        if (!(lid && p.id === lid)) remoteIds.add(p.id);
+      for (const player of playerList) {
+        if (!(localId && player.id === localId)) remoteIds.add(player.id);
       }
       for (const id of [...this.remoteSampleBufRef.keys()]) {
         if (!remoteIds.has(id)) {
@@ -309,17 +304,17 @@ export class RoomPixiRunner {
         }
       }
 
-      const w = this.worldRef;
-      if (w) {
+      const worldContainer = this.worldRef;
+      if (worldContainer) {
         const { left, top } = scrollWorldPx(local.x, local.y, size, viewW, viewH, worldW, worldH);
-        w.position.set(-left, -top);
+        worldContainer.position.set(-left, -top);
       }
 
-      for (const p of plist) {
-        const root = this.playerRootByIdRef.get(p.id);
+      for (const player of playerList) {
+        const root = this.playerRootByIdRef.get(player.id);
         if (!root) continue;
-        const isLocal = !!lid && p.id === lid;
-        const pos = isLocal ? local : this.remotePxRef.get(p.id);
+        const isLocal = !!localId && player.id === localId;
+        const pos = isLocal ? local : this.remotePxRef.get(player.id);
         if (!pos) continue;
         root.position.set(pos.x, pos.y);
       }
@@ -330,22 +325,22 @@ export class RoomPixiRunner {
         if (speechWorld) speechWorld.visible = false;
       } else {
         speechWorld.visible = true;
-        for (const [pid, { group, width: bw, height: bh }] of layout) {
-          const isLocalBubble = !!lid && pid === lid;
+        for (const [pid, { group, width: bubbleWidth, height: bubbleHeight }] of layout) {
+          const isLocalBubble = !!localId && pid === localId;
           const pos = isLocalBubble ? local : this.remotePxRef.get(pid);
-          const stillHere = plist.some((p) => p.id === pid);
+          const stillHere = playerList.some((player) => player.id === pid);
           if (!pos || !stillHere) {
             group.visible = false;
             continue;
           }
           group.visible = true;
-          group.position.set(pos.x + size / 2 - bw / 2, pos.y - SPEECH_BAND_ABOVE_AVATAR_PX - bh);
+          group.position.set(pos.x + size / 2 - bubbleWidth / 2, pos.y - SPEECH_BAND_ABOVE_AVATAR_PX - bubbleHeight);
         }
       }
 
       if (startedMove || now - this.lastSyncAtRef >= SYNC_MS) {
         this.lastSyncAtRef = now;
-        sSync.onPositionSync({ x: local.x, y: local.y });
+        syncState.onPositionSync({ x: local.x, y: local.y });
       }
     };
 
@@ -389,15 +384,15 @@ export class RoomPixiRunner {
     const size = tileSize - pad * 2;
     const tSeed = performance.now();
 
-    for (const p of players) {
+    for (const player of players) {
       const root = new Container();
       const graphic = new Graphics();
-      const isLocal = !!localId && p.id === localId;
+      const isLocal = !!localId && player.id === localId;
       graphic.rect(0, 0, size, size);
-      graphic.fill({ color: avatarColorOrFallback(p.id, p.color) });
+      graphic.fill({ color: avatarColorOrFallback(player.id, player.color) });
 
       const nameLabel = new Text({
-        text: p.username || 'Player',
+        text: player.username || 'Player',
         style: {
           fontFamily: 'system-ui, "Segoe UI", Roboto, sans-serif',
           fontSize: 11,
@@ -412,26 +407,32 @@ export class RoomPixiRunner {
       root.addChild(graphic);
       root.addChild(nameLabel);
 
-      let px = p.x;
-      let py = p.y;
+      let px = player.x;
+      let py = player.y;
       if (isLocal) {
         const loc = this.localPxRef;
         px = loc.x;
         py = loc.y;
       } else {
-        this.remotePxRef.set(p.id, { x: p.x, y: p.y });
-        this.remoteSampleBufRef.set(p.id, [{ t: tSeed, x: p.x, y: p.y }]);
-        this.lastServerSnapRef.set(p.id, { x: p.x, y: p.y });
+        this.remotePxRef.set(player.id, { x: player.x, y: player.y });
+        this.remoteSampleBufRef.set(player.id, [{ time: tSeed, x: player.x, y: player.y }]);
+        this.lastServerSnapRef.set(player.id, { x: player.x, y: player.y });
       }
       root.position.set(px, py);
-      this.playerRootByIdRef.set(p.id, root);
+      this.playerRootByIdRef.set(player.id, root);
       layer.addChild(root);
     }
   }
 
   applyRoomSpawn(worldSpawnX: number, worldSpawnY: number): void {
-    const s = this.opts.syncRef.current;
-    const spawn = clampWorldTopLeft(worldSpawnX, worldSpawnY, s.tileSize, s.worldCols, s.worldRows);
+    const syncState = this.opts.syncRef.current;
+    const spawn = clampWorldTopLeft(
+      worldSpawnX,
+      worldSpawnY,
+      syncState.tileSize,
+      syncState.worldCols,
+      syncState.worldRows,
+    );
     this.localPxRef = { ...spawn };
     this.remotePxRef.clear();
     this.remoteSampleBufRef.clear();
@@ -442,20 +443,24 @@ export class RoomPixiRunner {
     this.localWasMovingRef = false;
     this.lastSyncAtRef = 0;
 
-    const w = this.worldRef;
-    const ts = s.tileSize;
-    const wc = s.worldCols;
-    const wr = s.worldRows;
-    const vc = s.viewCols;
-    const vr = s.viewRows;
-    if (w) {
-      const pad = ts * 0.14;
-      const size = ts - pad * 2;
+    const worldContainer = this.worldRef;
+    const { tileSize, worldCols, worldRows, viewCols, viewRows } = syncState;
+    if (worldContainer) {
+      const pad = tileSize * 0.14;
+      const size = tileSize - pad * 2;
       const loc = this.localPxRef;
-      const { left, top } = scrollWorldPx(loc.x, loc.y, size, vc * ts, vr * ts, wc * ts, wr * ts);
-      w.position.set(-left, -top);
+      const { left, top } = scrollWorldPx(
+        loc.x,
+        loc.y,
+        size,
+        viewCols * tileSize,
+        viewRows * tileSize,
+        worldCols * tileSize,
+        worldRows * tileSize,
+      );
+      worldContainer.position.set(-left, -top);
     }
-    s.onPositionSync({ x: spawn.x, y: spawn.y });
+    syncState.onPositionSync({ x: spawn.x, y: spawn.y });
   }
 
   rebuildSpeechBubbles(
@@ -466,9 +471,9 @@ export class RoomPixiRunner {
     const parent = this.speechBubbleWorldRef;
     if (!parent) return;
 
-    for (const c of [...parent.children]) {
-      parent.removeChild(c);
-      c.destroy({ children: true });
+    for (const child of [...parent.children]) {
+      parent.removeChild(child);
+      child.destroy({ children: true });
     }
     this.speechBubbleLayoutRef.clear();
 
@@ -477,9 +482,9 @@ export class RoomPixiRunner {
     const localTrimmed = localSpeechBubble?.trim();
     if (localTrimmed && localId) entries.push({ playerId: localId, text: localTrimmed });
     for (const [socketId, raw] of remoteSpeechBubbles) {
-      const t = raw.trim();
-      if (!t || socketId === localId) continue;
-      entries.push({ playerId: socketId, text: t });
+      const trimmedRemote = raw.trim();
+      if (!trimmedRemote || socketId === localId) continue;
+      entries.push({ playerId: socketId, text: trimmedRemote });
     }
 
     for (const { playerId, text } of entries) {

@@ -13,9 +13,9 @@ export type ProvidersResponse = {
 };
 
 export function fetchProviders(): Promise<ProvidersResponse> {
-  return fetch(apiUrl('/api/auth/providers')).then((r) => {
-    if (!r.ok) throw new Error('providers');
-    return r.json() as Promise<ProvidersResponse>;
+  return fetch(apiUrl('/api/auth/providers')).then((response) => {
+    if (!response.ok) throw new Error('providers');
+    return response.json() as Promise<ProvidersResponse>;
   });
 }
 

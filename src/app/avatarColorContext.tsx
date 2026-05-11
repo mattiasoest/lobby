@@ -28,8 +28,8 @@ export function AvatarColorProvider({ storageScope, children }: { storageScope: 
 
   const setAvatarRgb = useCallback(
     (rgb: number) => {
-      const c = clampRgbInt(rgb);
-      const next = c ?? randomAvatarColor();
+      const clampedRgb = clampRgbInt(rgb);
+      const next = clampedRgb ?? randomAvatarColor();
       setAvatarRgbState(next);
       try {
         localStorage.setItem(storageKey(storageScope), String(next));

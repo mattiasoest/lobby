@@ -5,11 +5,11 @@ export function PlayerList({ players }: { players: PlayerDTO[] }) {
     <aside className="player-list">
       <h3>In room ({players.length})</h3>
       <ul>
-        {players.map((p) => (
-          <li key={p.id}>
-            {p.username}{' '}
+        {players.map((player) => (
+          <li key={player.id}>
+            {player.username}{' '}
             <small>
-              ({Math.round(p.x)}, {Math.round(p.y)})
+              ({Math.round(player.x)}, {Math.round(player.y)})
             </small>
           </li>
         ))}

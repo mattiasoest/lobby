@@ -25,9 +25,9 @@ const WORLD_ROWS = 32;
 function worldSpawnPx() {
   const pad = TILE * 0.14;
   const size = TILE - pad * 2;
-  const w = WORLD_COLS * TILE;
-  const h = WORLD_ROWS * TILE;
-  return { x: w / 2 - size / 2, y: h / 2 - size / 2 };
+  const worldWidthPx = WORLD_COLS * TILE;
+  const worldHeightPx = WORLD_ROWS * TILE;
+  return { x: worldWidthPx / 2 - size / 2, y: worldHeightPx / 2 - size / 2 };
 }
 
 const SPAWN_JITTER_PX = 125;
@@ -35,10 +35,10 @@ const SPAWN_JITTER_PX = 125;
 /** Random offset ±{@link SPAWN_JITTER_PX} on each axis from map center (world top-left of avatar). */
 function jitterAroundWorldSpawn() {
   const base = worldSpawnPx();
-  const j = SPAWN_JITTER_PX;
+  const spawnJitterRadiusPx = SPAWN_JITTER_PX;
   return {
-    x: base.x + (Math.random() * 2 * j - j),
-    y: base.y + (Math.random() * 2 * j - j),
+    x: base.x + (Math.random() * 2 * spawnJitterRadiusPx - spawnJitterRadiusPx),
+    y: base.y + (Math.random() * 2 * spawnJitterRadiusPx - spawnJitterRadiusPx),
   };
 }
 
@@ -93,8 +93,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
   /** Lazy Pixi chunk — paired with `pixiCanvasReady` so one loader covers fetch + WebGL init (no Suspense handoff). */
   useEffect(() => {
     let cancelled = false;
-    void import('../../components/Canvas/PixiCanvas.tsx').then((m: PixiCanvasModule) => {
-      if (!cancelled) setPixiMod(m);
+    void import('../../components/Canvas/PixiCanvas.tsx').then((pixiModule: PixiCanvasModule) => {
+      if (!cancelled) setPixiMod(pixiModule);
     });
     return () => {
       cancelled = true;
@@ -144,7 +144,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
     /** @returns Whether the bubble was shown (sender on roster). */
     function tryShowRemoteBubble(msg: ChatMessageDTO, roster: PlayerDTO[]): boolean {
-      const sender = roster.find((p) => p.userId === msg.user_id);
+      const sender = roster.find((player) => player.userId === msg.user_id);
       if (!sender) return false;
       scheduleRemoteBubble(sender.id, msg.content);
       return true;
@@ -152,8 +152,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
     function flushPendingRemoteSpeech(roster: PlayerDTO[]) {
       const pend = pendingRemoteSpeechRef.current;
-      for (const [uid, m] of [...pend.entries()]) {
-        if (tryShowRemoteBubble(m, roster)) pend.delete(uid);
+      for (const [userId, pendingMessage] of [...pend.entries()]) {
+        if (tryShowRemoteBubble(pendingMessage, roster)) pend.delete(userId);
       }
     }
 
@@ -166,7 +166,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     function handleChatMessage(msg: ChatMessageDTO) {
       queryClient.setQueryData<ChatMessageDTO[]>(queryKeys.rooms.messages(roomId), (prev) => {
         const list = prev ?? [];
-        if (list.some((m) => m.id === msg.id)) return list;
+        if (list.some((existing) => existing.id === msg.id)) return list;
         return [...list, msg];
       });
 
@@ -208,7 +208,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     sock.on('chat:message', handleChatMessage);
 
     return () => {
-      for (const t of timersForCleanup.values()) clearTimeout(t);
+      for (const timerId of timersForCleanup.values()) clearTimeout(timerId);
       timersForCleanup.clear();
       pendingForCleanup.clear();
       sock.removeAllListeners();
@@ -227,13 +227,13 @@ export function RoomPage({ roomId }: { roomId: number }) {
   }, []);
 
   const displayPlayers = useMemo(() => {
-    const overridden = serverPlayers.map((p) =>
-      socketId && p.id === socketId ? { ...p, x: localListPos.x, y: localListPos.y } : p,
+    const overridden = serverPlayers.map((player) =>
+      socketId && player.id === socketId ? { ...player, x: localListPos.x, y: localListPos.y } : player,
     );
 
     const ghostUserId = typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : (socketId ?? 'local');
 
-    if (socketId && !overridden.some((p) => p.id === socketId)) {
+    if (socketId && !overridden.some((player) => player.id === socketId)) {
       overridden.push({
         id: socketId,
         username: username ?? claims?.username ?? 'You',
@@ -259,15 +259,15 @@ export function RoomPage({ roomId }: { roomId: number }) {
   );
 
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' || e.repeat) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // e.target is the focus at dispatch time — covers the case where the chat input
+    const onKeyDown = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key !== 'Enter' || keyEvent.repeat) return;
+      if (keyEvent.ctrlKey || keyEvent.metaKey || keyEvent.altKey) return;
+      // keyEvent.target is the focus at dispatch time — covers the case where the chat input
       // handler already blurred itself in response to the same Enter event.
-      if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return;
+      if (isTypingTarget(keyEvent.target) || isTypingTarget(document.activeElement)) return;
       const input = chatComposerRef.current ?? document.querySelector<HTMLInputElement>('[data-chat-composer]');
       if (!input) return;
-      e.preventDefault();
+      keyEvent.preventDefault();
       input.focus();
     };
     document.addEventListener('keydown', onKeyDown);

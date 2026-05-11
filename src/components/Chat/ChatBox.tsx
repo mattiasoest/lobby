@@ -32,7 +32,7 @@ export function ChatBox({
   const [text, setText] = useState('');
 
   const ordered = useMemo(
-    () => [...messages].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)),
+    () => [...messages].sort((first, second) => Date.parse(first.created_at) - Date.parse(second.created_at)),
     [messages],
   );
 
@@ -59,8 +59,8 @@ export function ChatBox({
   }, [ordered]);
 
   const submit = useCallback(
-    (e: FormEvent) => {
-      e.preventDefault();
+    (event: FormEvent) => {
+      event.preventDefault();
       const trimmed = text.trim();
       if (trimmed) {
         jumpToLatest();
@@ -72,16 +72,16 @@ export function ChatBox({
   );
 
   const onComposerKeyDown = useCallback(
-    (e: ReactKeyboardEvent<HTMLInputElement>) => {
-      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
-      e.preventDefault();
+    (event: ReactKeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+      event.preventDefault();
       const trimmed = text.trim();
       if (trimmed) {
         jumpToLatest();
         onSend(trimmed);
         setText('');
       }
-      e.currentTarget.blur();
+      event.currentTarget.blur();
     },
     [jumpToLatest, onSend, text],
   );
@@ -90,9 +90,10 @@ export function ChatBox({
     <div className="chat">
       <h3 className="chat-title">Chat</h3>
       <div ref={feedRef} className="chat-feed" aria-live="polite" onScroll={onFeedScroll}>
-        {ordered.map((m) => (
-          <div key={m.id} className="chat-line">
-            <span className="chat-user">{m.username}</span> <span className="chat-content">{m.content}</span>
+        {ordered.map((message) => (
+          <div key={message.id} className="chat-line">
+            <span className="chat-user">{message.username}</span>{' '}
+            <span className="chat-content">{message.content}</span>
           </div>
         ))}
       </div>

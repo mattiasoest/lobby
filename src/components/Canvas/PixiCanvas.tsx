@@ -45,18 +45,18 @@ export function PixiCanvas({
   const runnerRef = useRef<RoomPixiRunner | null>(null);
 
   useLayoutEffect(() => {
-    const s = syncRef.current;
-    s.players = players;
-    s.localId = localId;
-    s.tileSize = tileSize;
-    s.viewCols = viewCols;
-    s.viewRows = viewRows;
-    s.worldCols = worldCols;
-    s.worldRows = worldRows;
-    s.keysDisabled = keysDisabled ?? false;
-    s.onPositionSync = onPositionSync;
-    s.localSpeechBubble = localSpeechBubble;
-    s.remoteSpeechBubbles = remoteSpeechBubbles;
+    const syncState = syncRef.current;
+    syncState.players = players;
+    syncState.localId = localId;
+    syncState.tileSize = tileSize;
+    syncState.viewCols = viewCols;
+    syncState.viewRows = viewRows;
+    syncState.worldCols = worldCols;
+    syncState.worldRows = worldRows;
+    syncState.keysDisabled = keysDisabled ?? false;
+    syncState.onPositionSync = onPositionSync;
+    syncState.localSpeechBubble = localSpeechBubble;
+    syncState.remoteSpeechBubbles = remoteSpeechBubbles;
   }, [
     players,
     localId,
@@ -74,7 +74,7 @@ export function PixiCanvas({
   const playerLayerSig = useMemo(
     () =>
       players
-        .map((p) => JSON.stringify([p.id, p.username]))
+        .map((player) => JSON.stringify([player.id, player.username]))
         .sort()
         .join('|'),
     [players],
@@ -112,18 +112,18 @@ export function PixiCanvas({
   }, [tileSize, viewCols, viewRows, worldCols, worldRows]);
 
   useEffect(() => {
-    const r = runnerRef.current;
-    if (!r || !canvasReady) return;
+    const runner = runnerRef.current;
+    if (!runner || !canvasReady) return;
     // Re-run only when the player *set* changes (IDs), tile size, or local socket id—not on every
     // positional snapshot. Rebuilding wipes remote interpolation buffers and causes jitter.
-    r.rebuildPlayerLayer(players, localId, tileSize);
+    runner.rebuildPlayerLayer(players, localId, tileSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- players omitted on purpose; playerLayerSig gates rebuilds
   }, [canvasReady, localId, playerLayerSig, tileSize]);
 
   useEffect(() => {
-    const r = runnerRef.current;
-    if (!r || !canvasReady) return;
-    r.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
+    const runner = runnerRef.current;
+    if (!runner || !canvasReady) return;
+    runner.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
   }, [canvasReady, roomId, worldSpawnPx.x, worldSpawnPx.y]);
 
   useEffect(() => {

@@ -63,7 +63,7 @@ app.post('/api/auth/dev-login', async (req, res) => {
     return;
   }
   try {
-    const r = await pool.query<{ id: string }>(
+    const insertResult = await pool.query<{ id: string }>(
       `
       INSERT INTO users (provider, provider_id, username, avatar)
       VALUES ('dev', $1, $2, NULL)
@@ -72,7 +72,7 @@ app.post('/api/auth/dev-login', async (req, res) => {
       `,
       [`dev:${username}`, username],
     );
-    const id = r.rows[0]?.id;
+    const id = insertResult.rows[0]?.id;
     if (!id) {
       res.status(500).json({ error: 'failed' });
       return;
@@ -82,9 +82,9 @@ app.post('/api/auth/dev-login', async (req, res) => {
     const accessToken = issueAccessToken({ id, username }, JWT_SECRET);
     res.cookie(REFRESH_COOKIE_NAME, raw, refreshCookieOptions());
     res.json({ accessToken });
-  } catch (e) {
-    console.error('dev-login', e);
-    const message = e instanceof Error ? e.message : 'failed';
+  } catch (error) {
+    console.error('dev-login', error);
+    const message = error instanceof Error ? error.message : 'failed';
     res.status(500).json({ error: message });
   }
 });

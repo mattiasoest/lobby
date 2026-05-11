@@ -30,7 +30,7 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
     username: string,
     avatar: string | null,
   ): Promise<SerializedUser> {
-    const r = await pool.query<{
+    const upsertResult = await pool.query<{
       id: string;
       username: string;
     }>(
@@ -44,7 +44,7 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
       `,
       [provider, providerId, username, avatar],
     );
-    const row = r.rows[0];
+    const row = upsertResult.rows[0];
     if (!row) throw new Error('Failed to persist user');
     return { id: row.id, username: row.username };
   }
@@ -63,8 +63,8 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
             const avatar = profile.photos?.[0]?.value ?? null;
             const user = await upsertUser('google', profile.id, username, avatar);
             done(null, user);
-          } catch (e) {
-            done(e as Error);
+          } catch (error) {
+            done(error as Error);
           }
         },
       ),
@@ -85,8 +85,8 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
             const avatar = profile.photos?.[0]?.value ?? null;
             const user = await upsertUser('github', String(profile.id), username, avatar);
             done(null, user);
-          } catch (e) {
-            done(e as Error);
+          } catch (error) {
+            done(error as Error);
           }
         },
       ),
@@ -121,8 +121,8 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
       async (req, res, next) => {
         try {
           await redirectWithOAuthSession(res, req.user as SerializedUser);
-        } catch (e) {
-          next(e);
+        } catch (error) {
+          next(error);
         }
       },
     );
@@ -146,8 +146,8 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
       async (req, res, next) => {
         try {
           await redirectWithOAuthSession(res, req.user as SerializedUser);
-        } catch (e) {
-          next(e);
+        } catch (error) {
+          next(error);
         }
       },
     );

@@ -1,6 +1,6 @@
 import { MAX_REMOTE_SEGMENT_MS, REMOTE_RENDER_DELAY_MAX_MS, REMOTE_RENDER_DELAY_MIN_MS } from './constants.ts';
 
-export type RemoteSample = { t: number; x: number; y: number };
+export type RemoteSample = { time: number; x: number; y: number };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -8,9 +8,9 @@ function clamp(value: number, min: number, max: number) {
 
 export function dropRemoteStaleAnchors(samples: RemoteSample[]): void {
   while (samples.length >= 2) {
-    const a = samples[0];
-    const b = samples[1];
-    if (b.t - a.t > MAX_REMOTE_SEGMENT_MS) {
+    const firstSample = samples[0];
+    const secondSample = samples[1];
+    if (secondSample.time - firstSample.time > MAX_REMOTE_SEGMENT_MS) {
       samples.shift();
     } else {
       break;
@@ -25,31 +25,31 @@ export function remoteRenderDelayMs(samples: RemoteSample[]): number {
   return REMOTE_RENDER_DELAY_MIN_MS + span * depth;
 }
 
-export function smoothstep01(t: number) {
-  const x = clamp(t, 0, 1);
-  return x * x * (3 - 2 * x);
+export function smoothstep01(unitT: number) {
+  const clampedUnit = clamp(unitT, 0, 1);
+  return clampedUnit * clampedUnit * (3 - 2 * clampedUnit);
 }
 
-export function posFromRemoteBuffer(samples: RemoteSample[], playbackT: number): { x: number; y: number } {
+export function posFromRemoteBuffer(samples: RemoteSample[], playbackTime: number): { x: number; y: number } {
   if (samples.length === 0) return { x: 0, y: 0 };
   if (samples.length === 1) return { x: samples[0].x, y: samples[0].y };
 
   const first = samples[0];
   const last = samples[samples.length - 1];
 
-  if (playbackT <= first.t) return { x: first.x, y: first.y };
-  if (playbackT >= last.t) return { x: last.x, y: last.y };
+  if (playbackTime <= first.time) return { x: first.x, y: first.y };
+  if (playbackTime >= last.time) return { x: last.x, y: last.y };
 
-  for (let i = 0; i < samples.length - 1; i++) {
-    const a = samples[i];
-    const b = samples[i + 1];
-    if (playbackT <= b.t) {
-      const span = b.t - a.t;
-      const uLin = span < 1e-6 ? 0 : clamp((playbackT - a.t) / span, 0, 1);
-      const u = smoothstep01(uLin);
+  for (let segmentIndex = 0; segmentIndex < samples.length - 1; segmentIndex++) {
+    const segmentStart = samples[segmentIndex];
+    const segmentEnd = samples[segmentIndex + 1];
+    if (playbackTime <= segmentEnd.time) {
+      const span = segmentEnd.time - segmentStart.time;
+      const linearMix = span < 1e-6 ? 0 : clamp((playbackTime - segmentStart.time) / span, 0, 1);
+      const easedMix = smoothstep01(linearMix);
       return {
-        x: a.x + (b.x - a.x) * u,
-        y: a.y + (b.y - a.y) * u,
+        x: segmentStart.x + (segmentEnd.x - segmentStart.x) * easedMix,
+        y: segmentStart.y + (segmentEnd.y - segmentStart.y) * easedMix,
       };
     }
   }
@@ -75,13 +75,19 @@ export function scrollWorldPx(
   };
 }
 
-export function clampWorldTopLeft(x: number, y: number, tileSize: number, worldCols: number, worldRows: number) {
+export function clampWorldTopLeft(
+  topLeftX: number,
+  topLeftY: number,
+  tileSize: number,
+  worldCols: number,
+  worldRows: number,
+) {
   const pad = tileSize * 0.14;
   const size = tileSize - pad * 2;
-  const w = worldCols * tileSize;
-  const h = worldRows * tileSize;
+  const worldWidth = worldCols * tileSize;
+  const worldHeight = worldRows * tileSize;
   return {
-    x: clamp(x, pad, w - pad - size),
-    y: clamp(y, pad, h - pad - size),
+    x: clamp(topLeftX, pad, worldWidth - pad - size),
+    y: clamp(topLeftY, pad, worldHeight - pad - size),
   };
 }

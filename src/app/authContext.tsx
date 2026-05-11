@@ -59,8 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearLegacyAccessToken();
   }, []);
 
-  const setToken = useCallback((t: string | null) => {
-    setTokenOverride(t);
+  const setToken = useCallback((newToken: string | null) => {
+    setTokenOverride(newToken);
   }, []);
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {

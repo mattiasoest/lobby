@@ -19,10 +19,10 @@ export function AuthCallbackPage() {
         return;
       }
 
-      const { access, rt } = fragment;
+      const { access, refreshToken } = fragment;
       let ok: boolean;
       try {
-        ok = await bindSession.mutateAsync({ access, rt });
+        ok = await bindSession.mutateAsync({ access, refreshToken });
       } catch {
         ok = false;
       }

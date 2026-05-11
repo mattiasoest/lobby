@@ -6,9 +6,9 @@ import { maskProfanity } from '../lib/profanity.js';
 const ALLOWED_ROOMS = new Set([1, 2, 3, 4]);
 
 export function messagesRouter(pool: pg.Pool, requireAuth: RequestHandler) {
-  const r = Router();
+  const router = Router();
 
-  r.get('/rooms/:roomId/messages', requireAuth, async (req, res) => {
+  router.get('/rooms/:roomId/messages', requireAuth, async (req, res) => {
     const rid = Number(req.params.roomId);
     if (!ALLOWED_ROOMS.has(rid)) {
       res.status(400).json({ error: 'invalid room' });
@@ -46,5 +46,5 @@ export function messagesRouter(pool: pg.Pool, requireAuth: RequestHandler) {
     );
   });
 
-  return r;
+  return router;
 }
