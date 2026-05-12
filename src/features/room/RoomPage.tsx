@@ -12,6 +12,7 @@ import { isTypingTarget } from '../../game/room/keyboard.ts';
 import { useAvatarColor } from '../../app/avatarColorContext.tsx';
 import { createRoomSocket } from '../../services/socket.ts';
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
+import { usernameForMentionMatch } from '../../utils/usernameForMentions.ts';
 import type { Socket } from 'socket.io-client';
 
 type PixiCanvasModule = typeof import('../../components/Canvas/PixiCanvas.tsx');
@@ -248,7 +249,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
   }, [claims, avatarRgb, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
 
   const roomUsernamesLower = useMemo(
-    () => new Set(displayPlayers.map((player) => player.username.trim().toLowerCase()).filter(Boolean)),
+    () => new Set(displayPlayers.map((player) => usernameForMentionMatch(player.username)).filter(Boolean)),
     [displayPlayers],
   );
 

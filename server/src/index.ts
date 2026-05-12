@@ -18,6 +18,7 @@ import { createRequireAuth } from './middleware/jwt.js';
 import { createAuthTokensRouter } from './routes/authTokens.js';
 import { messagesRouter } from './routes/messages.js';
 import { registerRoomNamespaces } from './sockets/roomHandler.js';
+import { collapseUsernameWhitespace } from './usernameNormalize.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const JWT_SECRET = process.env.JWT_SECRET ?? '';
@@ -57,7 +58,7 @@ app.post('/api/auth/dev-login', async (req, res) => {
     return;
   }
   const usernameRaw = typeof req.body?.username === 'string' ? req.body.username : '';
-  const username = usernameRaw.trim().slice(0, 64);
+  const username = collapseUsernameWhitespace(usernameRaw, 64);
   if (!username) {
     res.status(400).json({ error: 'username required' });
     return;

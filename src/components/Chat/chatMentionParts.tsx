@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ChatMessageDTO } from '../../types.ts';
+import { usernameForMentionMatch } from '../../utils/usernameForMentions.ts';
 
 const MENTION = /@([A-Za-z0-9_.-]{1,64})/g;
 
@@ -9,8 +10,8 @@ export function chatContentWithMentionHighlights(
   viewerUsername: string | null | undefined,
   roomUsernamesLower: ReadonlySet<string>,
 ): ReactNode[] {
-  const viewer = typeof viewerUsername === 'string' ? viewerUsername.trim().toLowerCase() : '';
-  const sender = message.username.trim().toLowerCase();
+  const viewer = typeof viewerUsername === 'string' ? usernameForMentionMatch(viewerUsername) : '';
+  const sender = usernameForMentionMatch(message.username);
   const content = message.content;
   const out: ReactNode[] = [];
 

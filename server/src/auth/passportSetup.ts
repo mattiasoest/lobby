@@ -8,6 +8,7 @@ import {
   type VerifyCallback,
 } from 'passport-google-oauth20';
 import { generateRefreshSecret, issueAccessToken, persistRefreshToken, refreshTtlMs } from './tokens.js';
+import { collapseUsernameWhitespace } from '../usernameNormalize.js';
 
 export type SerializedUser = { id: string; username: string };
 
@@ -59,7 +60,8 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
         },
         async (_accessToken: string, _refreshToken: string, profile: GoogleProfile, done: VerifyCallback) => {
           try {
-            const username = profile.displayName?.trim() || profile.emails?.[0]?.value || `Google:${profile.id}`;
+            const raw = profile.displayName?.trim() || profile.emails?.[0]?.value || `Google:${profile.id}`;
+            const username = collapseUsernameWhitespace(raw, 255) || `Google:${profile.id}`;
             const avatar = profile.photos?.[0]?.value ?? null;
             const user = await upsertUser('google', profile.id, username, avatar);
             done(null, user);
@@ -81,7 +83,8 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
         },
         async (_accessToken: string, _refreshToken: string, profile: GithubOAuthProfile, done: VerifyCallback) => {
           try {
-            const username = profile.displayName ?? profile.username ?? 'GitHub user';
+            const raw = (profile.displayName ?? profile.username ?? 'GitHub user').trim();
+            const username = collapseUsernameWhitespace(raw, 255) || 'GitHub user';
             const avatar = profile.photos?.[0]?.value ?? null;
             const user = await upsertUser('github', String(profile.id), username, avatar);
             done(null, user);

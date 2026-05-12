@@ -29,7 +29,7 @@ export function ChatBox({
   messages: ChatMessageDTO[];
   /** When set, incoming @mentions targeting this name may be highlighted (you are the receiver). */
   viewerUsername?: string | null;
-  /** Lowercased `PlayerDTO.username` values in the room; used so we only highlight mentions of people in the room roster. */
+  /** Normalized keys from `PlayerDTO.username` ({@link usernameForMentionMatch}: lowercased, no whitespace). */
   roomUsernamesLower: ReadonlySet<string>;
   onSend: (text: string) => void;
   /** Disables Pixi WASD/arrows while the composer is focused */
