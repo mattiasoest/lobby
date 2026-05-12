@@ -8,6 +8,7 @@ import {
   type RefObject,
   useState,
 } from 'react';
+import { chatContentWithMentionHighlights } from './chatMentionParts';
 import type { ChatMessageDTO } from '../../types.ts';
 
 /** Pixels from the bottom below which we treat the feed as "following" new messages. */
@@ -19,11 +20,17 @@ function isPinnedToBottom(el: HTMLDivElement): boolean {
 
 export function ChatBox({
   messages,
+  viewerUsername,
+  roomUsernamesLower,
   onSend,
   onTypingChange,
   composerRef,
 }: {
   messages: ChatMessageDTO[];
+  /** When set, incoming @mentions targeting this name may be highlighted (you are the receiver). */
+  viewerUsername?: string | null;
+  /** Lowercased `PlayerDTO.username` values in the room; used so we only highlight mentions of people in the room roster. */
+  roomUsernamesLower: ReadonlySet<string>;
   onSend: (text: string) => void;
   /** Disables Pixi WASD/arrows while the composer is focused */
   onTypingChange?: (typing: boolean) => void;
@@ -93,7 +100,9 @@ export function ChatBox({
         {ordered.map((message) => (
           <div key={message.id} className="chat-line">
             <span className="chat-user">{message.username}</span>{' '}
-            <span className="chat-content">{message.content}</span>
+            <span className="chat-content">
+              {chatContentWithMentionHighlights(message, viewerUsername, roomUsernamesLower)}
+            </span>
           </div>
         ))}
       </div>

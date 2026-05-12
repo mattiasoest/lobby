@@ -247,6 +247,11 @@ export function RoomPage({ roomId }: { roomId: number }) {
     return overridden;
   }, [claims, avatarRgb, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
 
+  const roomUsernamesLower = useMemo(
+    () => new Set(displayPlayers.map((player) => player.username.trim().toLowerCase()).filter(Boolean)),
+    [displayPlayers],
+  );
+
   const sendChat = useCallback((text: string) => {
     socketRef.current?.emit('chat:send', { content: text });
   }, []);
@@ -323,7 +328,14 @@ export function RoomPage({ roomId }: { roomId: number }) {
           </div>
           <PlayerList players={displayPlayers} />
         </div>
-        <ChatBox messages={messages} onSend={sendChat} onTypingChange={setTypingFocus} composerRef={chatComposerRef} />
+        <ChatBox
+          messages={messages}
+          viewerUsername={username}
+          roomUsernamesLower={roomUsernamesLower}
+          onSend={sendChat}
+          onTypingChange={setTypingFocus}
+          composerRef={chatComposerRef}
+        />
       </div>
     </div>
   );

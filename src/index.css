@@ -582,6 +582,21 @@ code {
   border-bottom: 1px solid var(--border);
 }
 
+.chat-content {
+  word-break: break-word;
+}
+
+.chat-mention-highlight {
+  background: color-mix(in srgb, var(--accent) 32%, var(--bg));
+  color: var(--text-h);
+  border-radius: 4px;
+  padding: 0 4px;
+  box-decoration-break: clone;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent),
+    0 0 12px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
 .chat-user {
   font-weight: 600;
   color: var(--text-h);
