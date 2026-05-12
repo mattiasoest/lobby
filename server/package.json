@@ -6,12 +6,15 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "migrate": "tsx src/migrate.ts"
+    "migrate": "tsx src/migrate.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.2",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "obscenity": "^0.4.6",
@@ -31,6 +34,7 @@
     "@types/passport-github2": "^1.2.9",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/pg": "^8.11.10",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.2",
     "typescript": "~5.7.2"
   }

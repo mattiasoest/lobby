@@ -5,6 +5,7 @@ import express from 'express';
 import { createServer } from 'node:http';
 import passport from 'passport';
 import { Server as IOServer } from 'socket.io';
+import { sql } from 'drizzle-orm';
 import { setupOAuth } from './auth/passportSetup.js';
 import {
   REFRESH_COOKIE_NAME,
@@ -13,7 +14,8 @@ import {
   persistRefreshToken,
   refreshCookieOptions,
 } from './auth/tokens.js';
-import { createPool } from './db/client.js';
+import { createDb, createPool } from './db/client.js';
+import { users } from './db/schema.js';
 import { createRequireAuth } from './middleware/jwt.js';
 import { createAuthTokensRouter } from './routes/authTokens.js';
 import { messagesRouter } from './routes/messages.js';
@@ -35,6 +37,7 @@ if (!DATABASE_URL) {
 }
 
 const pool = createPool(DATABASE_URL);
+const db = createDb(pool);
 const app = express();
 
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
@@ -42,7 +45,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(passport.initialize());
 
-setupOAuth(app, pool, JWT_SECRET, FRONTEND_URL);
+setupOAuth(app, db, JWT_SECRET, FRONTEND_URL);
 
 app.get('/api/auth/providers', (_req, res) => {
   res.json({
@@ -64,22 +67,26 @@ app.post('/api/auth/dev-login', async (req, res) => {
     return;
   }
   try {
-    const insertResult = await pool.query<{ id: string }>(
-      `
-      INSERT INTO users (provider, provider_id, username, avatar)
-      VALUES ('dev', $1, $2, NULL)
-      ON CONFLICT (provider, provider_id) DO UPDATE SET username = EXCLUDED.username
-      RETURNING id
-      `,
-      [`dev:${username}`, username],
-    );
-    const id = insertResult.rows[0]?.id;
+    const insertResult = await db
+      .insert(users)
+      .values({
+        provider: 'dev',
+        providerId: `dev:${username}`,
+        username,
+        avatar: null,
+      })
+      .onConflictDoUpdate({
+        target: [users.provider, users.providerId],
+        set: { username: sql`excluded.username` },
+      })
+      .returning({ id: users.id });
+    const id = insertResult[0]?.id;
     if (!id) {
       res.status(500).json({ error: 'failed' });
       return;
     }
     const raw = generateRefreshSecret();
-    await persistRefreshToken(pool, id, raw);
+    await persistRefreshToken(db, id, raw);
     const accessToken = issueAccessToken({ id, username }, JWT_SECRET);
     res.cookie(REFRESH_COOKIE_NAME, raw, refreshCookieOptions());
     res.json({ accessToken });
@@ -90,10 +97,10 @@ app.post('/api/auth/dev-login', async (req, res) => {
   }
 });
 
-app.use('/api/auth', createAuthTokensRouter(pool, JWT_SECRET));
+app.use('/api/auth', createAuthTokensRouter(db, JWT_SECRET));
 
 const requireAuth = createRequireAuth(JWT_SECRET);
-app.use('/api', messagesRouter(pool, requireAuth));
+app.use('/api', messagesRouter(db, requireAuth));
 
 const httpServer = createServer(app);
 const io = new IOServer(httpServer, {
@@ -101,7 +108,7 @@ const io = new IOServer(httpServer, {
   path: '/socket.io',
 });
 
-registerRoomNamespaces(io, { jwtSecret: JWT_SECRET, pool });
+registerRoomNamespaces(io, { jwtSecret: JWT_SECRET, db });
 
 httpServer.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);

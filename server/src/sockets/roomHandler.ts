@@ -1,6 +1,7 @@
 import type { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import type pg from 'pg';
+import type { AppDatabase } from '../db/client.js';
+import { messages } from '../db/schema.js';
 import { sanitizeAvatarColor } from '../avatarColor.js';
 import { maskProfanity } from '../lib/profanity.js';
 
@@ -35,8 +36,8 @@ export type PlayerPublic = {
   color: number;
 };
 
-export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; pool: pg.Pool }) {
-  const { jwtSecret, pool } = opts;
+export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db: AppDatabase }) {
+  const { jwtSecret, db } = opts;
 
   for (const roomId of ROOM_IDS) {
     const nsp = io.of(`/room-${roomId}`);
@@ -116,26 +117,30 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; po
         };
 
         try {
-          const ins = await pool.query<{
-            id: string;
-            room_id: number;
-            user_id: string;
-            content: string;
-            created_at: Date;
-          }>(
-            `INSERT INTO messages (room_id, user_id, content, content_raw) VALUES ($1, $2, $3, $4)
-             RETURNING id, room_id, user_id, content, created_at`,
-            [roomId, authedUser.sub, content, raw],
-          );
-          const row = ins.rows[0];
+          const ins = await db
+            .insert(messages)
+            .values({
+              roomId,
+              userId: authedUser.sub,
+              content,
+              contentRaw: raw,
+            })
+            .returning({
+              id: messages.id,
+              roomId: messages.roomId,
+              userId: messages.userId,
+              content: messages.content,
+              createdAt: messages.createdAt,
+            });
+          const row = ins[0];
           if (!row) return;
           msg = {
             id: row.id,
-            room_id: row.room_id,
-            user_id: row.user_id,
+            room_id: row.roomId,
+            user_id: row.userId,
             username: authedUser.username,
             content: row.content,
-            created_at: row.created_at.toISOString(),
+            created_at: row.createdAt.toISOString(),
           };
         } catch (error) {
           console.error('chat persist failed', error);

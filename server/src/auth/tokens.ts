@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
 import type { CookieOptions } from 'express';
 import jwt from 'jsonwebtoken';
-import type pg from 'pg';
+import { and, eq, gt, isNull, sql } from 'drizzle-orm';
+import type { AppDatabase } from '../db/client.js';
+import { refreshTokens, users } from '../db/schema.js';
 
 export const REFRESH_COOKIE_NAME = 'lobby_rt';
 
@@ -60,71 +62,65 @@ export function issueAccessToken(user: { id: string; username: string }, jwtSecr
 }
 
 export async function persistRefreshToken(
-  pool: pg.Pool,
+  db: AppDatabase,
   userId: string,
   raw: string,
   ttlMs: number = refreshTtlMs(),
 ): Promise<void> {
   const hash = hashRefreshToken(raw);
   const expiresAt = new Date(Date.now() + ttlMs);
-  await pool.query(
-    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-     VALUES ($1, $2, $3::timestamptz)`,
-    [userId, hash, expiresAt.toISOString()],
-  );
+  await db.insert(refreshTokens).values({
+    userId,
+    tokenHash: hash,
+    expiresAt,
+  });
 }
 
 /** Looks up refresh by plaintext, rotates to a new plaintext, returns user + newRaw. */
 export async function rotateRefreshToken(
-  pool: pg.Pool,
+  db: AppDatabase,
   presentedRaw: string,
   ttlMs: number = refreshTtlMs(),
 ): Promise<{ userId: string; username: string; newRaw: string } | null> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  return db.transaction(async (tx) => {
     const presentedHash = hashRefreshToken(presentedRaw);
-    const sel = await client.query<{
-      id: string;
-      user_id: string;
-      username: string;
-    }>(
-      `
-      SELECT rt.id, rt.user_id, u.username
-      FROM refresh_tokens rt
-      JOIN users u ON u.id = rt.user_id
-      WHERE rt.token_hash = $1
-        AND rt.revoked_at IS NULL
-        AND rt.expires_at > NOW()
-      FOR UPDATE`,
-      [presentedHash],
-    );
-    const row = sel.rows[0];
-    if (!row) {
-      await client.query('ROLLBACK');
-      return null;
-    }
-    await client.query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [row.id]);
+    const sel = await tx
+      .select({
+        id: refreshTokens.id,
+        userId: refreshTokens.userId,
+        username: users.username,
+      })
+      .from(refreshTokens)
+      .innerJoin(users, eq(refreshTokens.userId, users.id))
+      .where(
+        and(
+          eq(refreshTokens.tokenHash, presentedHash),
+          isNull(refreshTokens.revokedAt),
+          gt(refreshTokens.expiresAt, sql`NOW()`),
+        ),
+      )
+      .for('update')
+      .limit(1);
+    const row = sel[0];
+    if (!row) return null;
+    await tx
+      .update(refreshTokens)
+      .set({ revokedAt: sql`NOW()` })
+      .where(eq(refreshTokens.id, row.id));
     const newRaw = generateRefreshSecret();
     const expiresAt = new Date(Date.now() + ttlMs);
-    await client.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3::timestamptz)`,
-      [row.user_id, hashRefreshToken(newRaw), expiresAt.toISOString()],
-    );
-    await client.query('COMMIT');
-    return { userId: row.user_id, username: row.username, newRaw };
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => {});
-    throw error;
-  } finally {
-    client.release();
-  }
+    await tx.insert(refreshTokens).values({
+      userId: row.userId,
+      tokenHash: hashRefreshToken(newRaw),
+      expiresAt,
+    });
+    return { userId: row.userId, username: row.username, newRaw };
+  });
 }
 
 /** OAuth + proxied SPA: validates URL-carried refresh matches access JWT; rotates to cookie-bound secret. */
 export async function bindRefreshToCookieSession(
-  pool: pg.Pool,
+  db: AppDatabase,
   jwtSecret: string,
   accessToken: string,
   urlRefreshRaw: string,
@@ -139,47 +135,43 @@ export async function bindRefreshToCookieSession(
     return null;
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  return db.transaction(async (tx) => {
     const urlRefreshHash = hashRefreshToken(urlRefreshRaw);
-    const sel = await client.query<{ id: string; user_id: string }>(
-      `
-      SELECT id, user_id
-      FROM refresh_tokens
-      WHERE token_hash = $1
-        AND revoked_at IS NULL
-        AND expires_at > NOW()
-      FOR UPDATE`,
-      [urlRefreshHash],
-    );
-    const row = sel.rows[0];
-    if (!row || row.user_id !== sub) {
-      await client.query('ROLLBACK');
-      return null;
-    }
-    await client.query(`UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`, [row.id]);
+    const sel = await tx
+      .select({
+        id: refreshTokens.id,
+        userId: refreshTokens.userId,
+      })
+      .from(refreshTokens)
+      .where(
+        and(
+          eq(refreshTokens.tokenHash, urlRefreshHash),
+          isNull(refreshTokens.revokedAt),
+          gt(refreshTokens.expiresAt, sql`NOW()`),
+        ),
+      )
+      .for('update')
+      .limit(1);
+    const row = sel[0];
+    if (!row || row.userId !== sub) return null;
+    await tx
+      .update(refreshTokens)
+      .set({ revokedAt: sql`NOW()` })
+      .where(eq(refreshTokens.id, row.id));
     const newRaw = generateRefreshSecret();
     const expiresAt = new Date(Date.now() + ttlMs);
-    await client.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3::timestamptz)`,
-      [row.user_id, hashRefreshToken(newRaw), expiresAt.toISOString()],
-    );
-    await client.query('COMMIT');
+    await tx.insert(refreshTokens).values({
+      userId: row.userId,
+      tokenHash: hashRefreshToken(newRaw),
+      expiresAt,
+    });
     return { newRaw };
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => {});
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 }
 
-export async function revokeRefreshByRaw(pool: pg.Pool, presentedRaw: string): Promise<void> {
-  await pool.query(
-    `UPDATE refresh_tokens SET revoked_at = NOW()
-     WHERE token_hash = $1 AND revoked_at IS NULL`,
-    [hashRefreshToken(presentedRaw)],
-  );
+export async function revokeRefreshByRaw(db: AppDatabase, presentedRaw: string): Promise<void> {
+  await db
+    .update(refreshTokens)
+    .set({ revokedAt: sql`NOW()` })
+    .where(and(eq(refreshTokens.tokenHash, hashRefreshToken(presentedRaw)), isNull(refreshTokens.revokedAt)));
 }

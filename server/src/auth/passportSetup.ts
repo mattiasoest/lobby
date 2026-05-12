@@ -1,5 +1,4 @@
 import type { Express } from 'express';
-import type pg from 'pg';
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import {
@@ -7,6 +6,9 @@ import {
   type Profile as GoogleProfile,
   type VerifyCallback,
 } from 'passport-google-oauth20';
+import { sql } from 'drizzle-orm';
+import type { AppDatabase } from '../db/client.js';
+import { users } from '../db/schema.js';
 import { generateRefreshSecret, issueAccessToken, persistRefreshToken, refreshTtlMs } from './tokens.js';
 import { collapseUsernameWhitespace } from '../usernameNormalize.js';
 
@@ -19,7 +21,7 @@ type GithubOAuthProfile = {
   photos?: Array<{ value: string }>;
 };
 
-export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, frontendUrl: string) {
+export function setupOAuth(app: Express, db: AppDatabase, jwtSecret: string, frontendUrl: string) {
   const googleId = process.env.GOOGLE_CLIENT_ID;
   const googleSecret = process.env.GOOGLE_CLIENT_SECRET;
   const ghId = process.env.GITHUB_CLIENT_ID;
@@ -31,21 +33,18 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
     username: string,
     avatar: string | null,
   ): Promise<SerializedUser> {
-    const upsertResult = await pool.query<{
-      id: string;
-      username: string;
-    }>(
-      `
-      INSERT INTO users (provider, provider_id, username, avatar)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (provider, provider_id) DO UPDATE SET
-        username = EXCLUDED.username,
-        avatar = COALESCE(EXCLUDED.avatar, users.avatar)
-      RETURNING id, username
-      `,
-      [provider, providerId, username, avatar],
-    );
-    const row = upsertResult.rows[0];
+    const upsertResult = await db
+      .insert(users)
+      .values({ provider, providerId, username, avatar })
+      .onConflictDoUpdate({
+        target: [users.provider, users.providerId],
+        set: {
+          username: sql`excluded.username`,
+          avatar: sql`COALESCE(excluded.avatar, ${users.avatar})`,
+        },
+      })
+      .returning({ id: users.id, username: users.username });
+    const row = upsertResult[0];
     if (!row) throw new Error('Failed to persist user');
     return { id: row.id, username: row.username };
   }
@@ -98,7 +97,7 @@ export function setupOAuth(app: Express, pool: pg.Pool, jwtSecret: string, front
 
   async function redirectWithOAuthSession(res: import('express').Response, user: SerializedUser): Promise<void> {
     const raw = generateRefreshSecret();
-    await persistRefreshToken(pool, user.id, raw, refreshTtlMs());
+    await persistRefreshToken(db, user.id, raw, refreshTtlMs());
     const access = issueAccessToken({ id: user.id, username: user.username }, jwtSecret);
     const base = frontendUrl.replace(/\/$/, '');
     const hash = `access=${encodeURIComponent(access)}&rt=${encodeURIComponent(raw)}`;

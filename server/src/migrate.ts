@@ -1,8 +1,10 @@
-import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
-import pg from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { createPool } from './db/client.js';
+import * as schema from './db/schema.js';
 
 dotenv.config();
 
@@ -15,10 +17,9 @@ async function main() {
     process.exit(1);
   }
 
-  const pool = new pg.Pool({ connectionString: url });
-  const sqlPath = join(__dirname, '../db/migrations/001_init.sql');
-  const sql = readFileSync(sqlPath, 'utf-8');
-  await pool.query(sql);
+  const pool = createPool(url);
+  const db = drizzle(pool, { schema });
+  await migrate(db, { migrationsFolder: join(__dirname, '../db/drizzle') });
   await pool.end();
   console.log('Migrations applied');
 }

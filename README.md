@@ -32,7 +32,7 @@ npm run migrate
 cd ..
 ```
 
-`migrate` applies `server/db/migrations/001_init.sql`. If you use your own Postgres instance, create a database and user that match your `DATABASE_URL`, then run the same migrate command.
+`migrate` runs [Drizzle ORM](https://orm.drizzle.team) migrations from `server/db/drizzle` (tracked in `__drizzle_migrations`). If you use your own Postgres instance, create a database and user that match your `DATABASE_URL`, then run the same migrate command. To change the schema, edit `server/src/db/schema.ts` and run `npm run db:generate` in the `server` directory to emit a new SQL migration.
 
 ## 3. Environment variables
 

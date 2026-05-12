@@ -1,11 +1,13 @@
 import { Router } from 'express';
-import type pg from 'pg';
 import type { RequestHandler } from 'express';
+import { eq, asc } from 'drizzle-orm';
+import type { AppDatabase } from '../db/client.js';
+import { messages, users } from '../db/schema.js';
 import { maskProfanity } from '../lib/profanity.js';
 
 const ALLOWED_ROOMS = new Set([1, 2, 3, 4]);
 
-export function messagesRouter(pool: pg.Pool, requireAuth: RequestHandler) {
+export function messagesRouter(db: AppDatabase, requireAuth: RequestHandler) {
   const router = Router();
 
   router.get('/rooms/:roomId/messages', requireAuth, async (req, res) => {
@@ -15,33 +17,29 @@ export function messagesRouter(pool: pg.Pool, requireAuth: RequestHandler) {
       return;
     }
 
-    const result = await pool.query<{
-      id: string;
-      room_id: number;
-      user_id: string;
-      content: string;
-      created_at: Date;
-      username: string;
-    }>(
-      `
-      SELECT m.id, m.room_id, m.user_id, m.content, m.created_at, u.username
-      FROM messages m
-      JOIN users u ON u.id = m.user_id
-      WHERE m.room_id = $1
-      ORDER BY m.created_at ASC
-      LIMIT 500
-      `,
-      [rid],
-    );
+    const result = await db
+      .select({
+        id: messages.id,
+        roomId: messages.roomId,
+        userId: messages.userId,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        username: users.username,
+      })
+      .from(messages)
+      .innerJoin(users, eq(messages.userId, users.id))
+      .where(eq(messages.roomId, rid))
+      .orderBy(asc(messages.createdAt))
+      .limit(500);
 
     res.json(
-      result.rows.map((row) => ({
+      result.map((row) => ({
         id: row.id,
-        room_id: row.room_id,
-        user_id: row.user_id,
+        room_id: row.roomId,
+        user_id: row.userId,
         content: maskProfanity(row.content),
         username: row.username,
-        created_at: row.created_at.toISOString(),
+        created_at: row.createdAt.toISOString(),
       })),
     );
   });

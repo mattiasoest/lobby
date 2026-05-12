@@ -1,5 +1,4 @@
 import express, { Router } from 'express';
-import type pg from 'pg';
 import { readCookie } from '../http/cookieHeader.js';
 import {
   REFRESH_COOKIE_NAME,
@@ -10,8 +9,9 @@ import {
   revokeRefreshByRaw,
   rotateRefreshToken,
 } from '../auth/tokens.js';
+import type { AppDatabase } from '../db/client.js';
 
-export function createAuthTokensRouter(pool: pg.Pool, jwtSecret: string) {
+export function createAuthTokensRouter(db: AppDatabase, jwtSecret: string) {
   const router = Router();
 
   router.post('/session', express.json(), async (req, res): Promise<void> => {
@@ -27,7 +27,7 @@ export function createAuthTokensRouter(pool: pg.Pool, jwtSecret: string) {
       return;
     }
     try {
-      const bound = await bindRefreshToCookieSession(pool, jwtSecret, access, bodyRt);
+      const bound = await bindRefreshToCookieSession(db, jwtSecret, access, bodyRt);
       if (!bound) {
         res.status(401).json({ error: 'invalid_session' });
         return;
@@ -47,7 +47,7 @@ export function createAuthTokensRouter(pool: pg.Pool, jwtSecret: string) {
       return;
     }
     try {
-      const rotated = await rotateRefreshToken(pool, raw);
+      const rotated = await rotateRefreshToken(db, raw);
       if (!rotated) {
         res.clearCookie(REFRESH_COOKIE_NAME, clearRefreshCookieOptions());
         res.status(401).json({ error: 'invalid_refresh' });
@@ -64,7 +64,7 @@ export function createAuthTokensRouter(pool: pg.Pool, jwtSecret: string) {
 
   router.post('/logout', async (req, res): Promise<void> => {
     const raw = readCookie(req, REFRESH_COOKIE_NAME);
-    if (raw) await revokeRefreshByRaw(pool, raw);
+    if (raw) await revokeRefreshByRaw(db, raw);
     res.clearCookie(REFRESH_COOKIE_NAME, clearRefreshCookieOptions());
     res.status(204).end();
   });
