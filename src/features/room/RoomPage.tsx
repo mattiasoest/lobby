@@ -18,8 +18,8 @@ import type { Socket } from 'socket.io-client';
 type PixiCanvasModule = typeof import('../../components/Canvas/PixiCanvas.tsx');
 
 const TILE = 32;
-const VIEW_COLS = 24;
-const VIEW_ROWS = 16;
+const VIEW_COLS = 32;
+const VIEW_ROWS = 20;
 const WORLD_COLS = 48;
 const WORLD_ROWS = 32;
 
@@ -293,50 +293,53 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
       <div className="room-shell">
         <div className="room-stage">
-          <div
-            className="pixi-mount-host"
-            style={{
-              position: 'relative',
-              width: canvasViewBox.width,
-              height: canvasViewBox.height,
-            }}
-            aria-busy={showRoomCanvasLoader}
-            aria-label="Room canvas"
-          >
-            {PixiRoomCanvas && (
-              <PixiRoomCanvas
-                tileSize={TILE}
-                viewCols={VIEW_COLS}
-                viewRows={VIEW_ROWS}
-                worldCols={WORLD_COLS}
-                worldRows={WORLD_ROWS}
-                worldSpawnPx={spawnPx}
-                players={displayPlayers}
-                localId={socketId}
-                roomId={roomId}
-                localSpeechBubble={localSpeechBubble}
-                remoteSpeechBubbles={remoteSpeechBubbles}
-                keysDisabled={typingFocus}
-                onPositionSync={handlePositionSync}
-                onCanvasReady={handlePixiCanvasReady}
+          <div className="room-canvas-bleed">
+            <div
+              className="pixi-mount-host"
+              style={{
+                position: 'relative',
+                width: canvasViewBox.width,
+                height: canvasViewBox.height,
+              }}
+              aria-busy={showRoomCanvasLoader}
+              aria-label="Room canvas"
+            >
+              {PixiRoomCanvas && (
+                <PixiRoomCanvas
+                  tileSize={TILE}
+                  viewCols={VIEW_COLS}
+                  viewRows={VIEW_ROWS}
+                  worldCols={WORLD_COLS}
+                  worldRows={WORLD_ROWS}
+                  worldSpawnPx={spawnPx}
+                  players={displayPlayers}
+                  localId={socketId}
+                  roomId={roomId}
+                  localSpeechBubble={localSpeechBubble}
+                  remoteSpeechBubbles={remoteSpeechBubbles}
+                  keysDisabled={typingFocus}
+                  onPositionSync={handlePositionSync}
+                  onCanvasReady={handlePixiCanvasReady}
+                />
+              )}
+              {showRoomCanvasLoader && (
+                <div className="pixi-mount-bootstrap-overlay">
+                  <CanvasLoadingFallback />
+                </div>
+              )}
+              <ChatBox
+                className="chat--canvas-hud"
+                messages={messages}
+                viewerUsername={username}
+                roomUsernamesLower={roomUsernamesLower}
+                onSend={sendChat}
+                onTypingChange={setTypingFocus}
+                composerRef={chatComposerRef}
               />
-            )}
-            {showRoomCanvasLoader && (
-              <div className="pixi-mount-bootstrap-overlay">
-                <CanvasLoadingFallback {...canvasViewBox} />
-              </div>
-            )}
+            </div>
           </div>
           <PlayerList players={displayPlayers} />
         </div>
-        <ChatBox
-          messages={messages}
-          viewerUsername={username}
-          roomUsernamesLower={roomUsernamesLower}
-          onSend={sendChat}
-          onTypingChange={setTypingFocus}
-          composerRef={chatComposerRef}
-        />
       </div>
     </div>
   );

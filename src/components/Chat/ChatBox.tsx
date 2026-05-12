@@ -25,6 +25,7 @@ export function ChatBox({
   onSend,
   onTypingChange,
   composerRef,
+  className,
 }: {
   messages: ChatMessageDTO[];
   /** When set, incoming @mentions targeting this name may be highlighted (you are the receiver). */
@@ -35,6 +36,7 @@ export function ChatBox({
   /** Disables Pixi WASD/arrows while the composer is focused */
   onTypingChange?: (typing: boolean) => void;
   composerRef?: RefObject<HTMLInputElement | null>;
+  className?: string;
 }) {
   const [text, setText] = useState('');
 
@@ -94,8 +96,7 @@ export function ChatBox({
   );
 
   return (
-    <div className="chat">
-      <h3 className="chat-title">Chat</h3>
+    <div className={['chat', className].filter(Boolean).join(' ')} role="region" aria-label="Chat">
       <div ref={feedRef} className="chat-feed" aria-live="polite" onScroll={onFeedScroll}>
         {ordered.map((message) => (
           <div key={message.id} className="chat-line">

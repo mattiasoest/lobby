@@ -1,15 +1,12 @@
-import type { CanvasLoaderLayout } from './canvasLoaderLayout.ts';
-
-export type CanvasLoadingFallbackProps = CanvasLoaderLayout;
-
 /**
  * Canvas loading shell — same component for lazy-chunk Suspense and Pixi init overlay so visuals stay identical.
+ * Fills the sized mount host (aspect-ratio layout).
  */
-export function CanvasLoadingFallback({ width, height }: CanvasLoadingFallbackProps) {
+export function CanvasLoadingFallback() {
   return (
     <div
       className="pixi-mount pixi-mount--fallback"
-      style={{ width, height }}
+      style={{ width: '100%', height: '100%' }}
       aria-busy="true"
       aria-live="polite"
       aria-label="Loading room canvas"

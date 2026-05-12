@@ -138,6 +138,7 @@ export function PixiCanvas({
   }, [canvasReady, localId, localSpeechBubble, remoteSpeechBubbles]);
 
   useEffect(() => {
+    if (!canvasReady) return;
     onCanvasReady?.(canvasReady);
   }, [canvasReady, onCanvasReady]);
 

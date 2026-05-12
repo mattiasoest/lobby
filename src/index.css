@@ -10,6 +10,7 @@
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --page-gutter-x: clamp(16px, 4vw, 32px);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -54,7 +55,7 @@
   max-width: 1320px;
   width: 100%;
   margin: 0 auto;
-  padding: 0 clamp(16px, 4vw, 32px);
+  padding: 0 var(--page-gutter-x);
   text-align: start;
   min-height: 100svh;
   display: flex;
@@ -409,19 +410,19 @@ code {
 
 .room-shell {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(260px, 1fr);
+  grid-template-columns: 1fr;
   gap: 16px;
-}
-
-@media (max-width: 900px) {
-  .room-shell {
-    grid-template-columns: 1fr;
-  }
 }
 
 .room-stage {
   display: grid;
   gap: 12px;
+}
+
+/* Canvas row stays within #root max-width; no viewport breakout. */
+.room-canvas-bleed {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Sized shell so lazy-loaded Pixi can show the same loader until WebGL init finishes (avoids empty flash). */
@@ -443,7 +444,9 @@ code {
 }
 
 .pixi-mount canvas {
-  width: min(100%, 100%);
+  display: block;
+  width: 100%;
+  height: 100%;
   border-radius: 10px;
   border: 1px solid var(--border);
 }
@@ -534,6 +537,47 @@ code {
   gap: 8px;
   min-height: 480px;
   max-height: 640px;
+}
+
+/* In-canvas HUD: bottom-left stack like typical game chat */
+.chat--canvas-hud {
+  position: absolute;
+  z-index: 3;
+  left: 10px;
+  bottom: 10px;
+  width: min(330px, calc(100% - 20px));
+  max-width: calc(100% - 20px);
+  min-height: 0;
+  max-height: min(calc(280px * 1.05), calc(100% - 20px));
+  box-sizing: border-box;
+  padding: 10px 12px;
+  gap: 6px;
+  background: color-mix(in srgb, var(--bg) 52%, transparent);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+}
+
+.chat--canvas-hud .chat-feed {
+  flex: 1 1 auto;
+  min-height: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.chat--canvas-hud .chat-line {
+  padding: 2px 0;
+}
+
+.chat--canvas-hud .chat-compose input {
+  font-size: 0.88rem;
+  padding: 6px 8px;
+}
+
+.chat--canvas-hud .chat-compose button {
+  padding-inline: 10px;
+  font-size: 0.85rem;
 }
 
 .chat-feed {
