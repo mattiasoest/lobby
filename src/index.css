@@ -61,6 +61,7 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 body {
@@ -122,6 +123,7 @@ code {
   flex-direction: column;
   gap: 16px;
   flex: 1;
+  min-width: 0;
 }
 
 .chrome-header {
@@ -164,6 +166,7 @@ code {
 
 .chrome-body {
   flex: 1;
+  min-width: 0;
 }
 
 .auth-page {
@@ -401,6 +404,7 @@ code {
 .room-page {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .room-header {
@@ -412,22 +416,30 @@ code {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
+  min-width: 0;
 }
 
 .room-stage {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 /* Canvas row stays within #root max-width; no viewport breakout. */
 .room-canvas-bleed {
   width: 100%;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 /* Sized shell so lazy-loaded Pixi can show the same loader until WebGL init finishes (avoids empty flash). */
 .pixi-mount-host {
   position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  /* When max-width caps the host, split leftover row space evenly (same visual margin L/R). */
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .pixi-mount.pixi-mount__surface {

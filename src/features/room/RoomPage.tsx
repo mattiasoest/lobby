@@ -298,7 +298,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
               className="pixi-mount-host"
               style={{
                 position: 'relative',
-                width: canvasViewBox.width,
+                width: '100%',
+                maxWidth: WORLD_COLS * TILE,
                 height: canvasViewBox.height,
               }}
               aria-busy={showRoomCanvasLoader}

@@ -3,6 +3,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { RoomPixiRunner, createInitialSyncState, type RoomCanvasSyncState } from '../../game/room/index.ts';
 import type { PlayerDTO } from '../../types.ts';
 
+/** Whole-tile columns from inner host width (no CSS scale). */
+const MIN_LAYOUT_VIEW_COLS = 1;
+
 export type PixiCanvasProps = {
   tileSize: number;
   viewCols: number;
@@ -43,13 +46,33 @@ export function PixiCanvas({
   const mountRef = useRef<HTMLDivElement>(null);
   const syncRef = useRef<RoomCanvasSyncState>(createInitialSyncState());
   const runnerRef = useRef<RoomPixiRunner | null>(null);
+  /** Width in whole tiles — buffer is `layoutViewCols * tileSize` px (no CSS bitmap scale). */
+  const [layoutViewCols, setLayoutViewCols] = useState(viewCols);
+  useLayoutEffect(() => {
+    const mount = mountRef.current;
+    const host = mount?.closest('.pixi-mount-host');
+    if (!host) return;
+
+    const measure = () => {
+      const style = getComputedStyle(host);
+      const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+      const aw = Math.max(0, host.clientWidth - padX);
+      const cols = aw < tileSize ? 1 : Math.min(worldCols, Math.max(MIN_LAYOUT_VIEW_COLS, Math.floor(aw / tileSize)));
+      setLayoutViewCols(cols);
+    };
+
+    measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, [tileSize, worldCols]);
 
   useLayoutEffect(() => {
     const syncState = syncRef.current;
     syncState.players = players;
     syncState.localId = localId;
     syncState.tileSize = tileSize;
-    syncState.viewCols = viewCols;
+    syncState.viewCols = layoutViewCols;
     syncState.viewRows = viewRows;
     syncState.worldCols = worldCols;
     syncState.worldRows = worldRows;
@@ -61,7 +84,7 @@ export function PixiCanvas({
     players,
     localId,
     tileSize,
-    viewCols,
+    layoutViewCols,
     viewRows,
     worldCols,
     worldRows,
@@ -91,7 +114,7 @@ export function PixiCanvas({
     const runner = new RoomPixiRunner({
       mount,
       syncRef,
-      dimensions: { tileSize, viewCols, viewRows, worldCols, worldRows },
+      dimensions: { tileSize, viewCols: layoutViewCols, viewRows, worldCols, worldRows },
       worldSpawnPx,
       grassTextureSrc: grassBg,
       onBootstrapComplete: () => {
@@ -109,7 +132,7 @@ export function PixiCanvas({
       runnerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- worldSpawnPx only used for init; changing it must not recreate runner
-  }, [tileSize, viewCols, viewRows, worldCols, worldRows]);
+  }, [tileSize, layoutViewCols, viewRows, worldCols, worldRows]);
 
   useEffect(() => {
     const runner = runnerRef.current;
@@ -142,5 +165,23 @@ export function PixiCanvas({
     onCanvasReady?.(canvasReady);
   }, [canvasReady, onCanvasReady]);
 
-  return <div ref={mountRef} className="pixi-mount pixi-mount__surface" />;
+  const frameW = layoutViewCols * tileSize;
+  const frameH = viewRows * tileSize;
+
+  return (
+    <div
+      className="pixi-canvas-frame"
+      style={{
+        width: frameW,
+        maxWidth: '100%',
+        minWidth: 0,
+        marginLeft: 'auto',
+        marginRight: 'auto',
+        height: frameH,
+        boxSizing: 'border-box',
+      }}
+    >
+      <div ref={mountRef} className="pixi-mount pixi-mount__surface" />
+    </div>
+  );
 }
