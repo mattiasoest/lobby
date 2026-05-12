@@ -4,13 +4,15 @@ import { useAuth } from '../../app/authContext.tsx';
 import { CanvasLoadingFallback } from '../../components/Canvas/CanvasLoadingFallback.tsx';
 import { canvasViewPixels } from '../../components/Canvas/canvasLoaderLayout.ts';
 import { ChatBox } from '../../components/Chat/ChatBox.tsx';
-import { PlayerList } from '../../components/UI/PlayerList.tsx';
+import { RoomPlayerList } from '../../components/UI/RoomPlayerList.tsx';
+import { createPlayerListPositionStore } from '../../components/UI/playerListPositionStore.ts';
 import { queryKeys } from '../../query/keys.ts';
 import { queryClient } from '../../query/queryClient.ts';
 import { useRoomMessagesQuery } from '../../query/hooks.ts';
 import { isTypingTarget } from '../../game/room/keyboard.ts';
 import { useAvatarColor } from '../../app/avatarColorContext.tsx';
 import { createRoomSocket } from '../../services/socket.ts';
+import { createInitialSyncState, type RoomCanvasSyncState } from '../../game/room/index.ts';
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import { usernameForMentionMatch } from '../../utils/usernameForMentions.ts';
 import type { Socket } from 'socket.io-client';
@@ -43,11 +45,45 @@ function jitterAroundWorldSpawn() {
   };
 }
 
+const EMPTY_ROOM_MESSAGES: ChatMessageDTO[] = [];
+
+function rosterStructureKey(players: PlayerDTO[]): string {
+  if (players.length === 0) return '';
+  return [...players]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((p) => `${p.id}\0${p.username}\0${p.userId}\0${p.color}`)
+    .join('|');
+}
+
+/** Until the server echoes our socket id, the ticker still needs a local row (see {@link syncRef}). */
+function withGhostPlayerIfNeeded(
+  server: PlayerDTO[],
+  socketId: string | null,
+  spawnPx: { x: number; y: number },
+  username: string | null | undefined,
+  claims: ReturnType<typeof decodeJwtPayload>,
+  avatarRgb: number,
+): PlayerDTO[] {
+  if (!socketId || server.some((p) => p.id === socketId)) return server;
+  const ghostUserId = typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : (socketId ?? 'local');
+  return [
+    ...server,
+    {
+      id: socketId,
+      username: username ?? claims?.username ?? 'You',
+      x: spawnPx.x,
+      y: spawnPx.y,
+      userId: ghostUserId,
+      color: avatarRgb,
+    },
+  ];
+}
+
 export function RoomPage({ roomId }: { roomId: number }) {
   const { token, username } = useAuth();
   const { avatarRgb } = useAvatarColor();
   const messagesQuery = useRoomMessagesQuery(roomId, token);
-  const messages = messagesQuery.data ?? [];
+  const messages = messagesQuery.data ?? EMPTY_ROOM_MESSAGES;
 
   const socketRef = useRef<Socket | null>(null);
 
@@ -66,6 +102,19 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const selfUserIdRef = useRef<string>('');
   /** Messages from others before roster lists their socket id yet (latest per user id) */
   const pendingRemoteSpeechRef = useRef<Map<string, ChatMessageDTO>>(new Map());
+  const syncRef = useRef<RoomCanvasSyncState>(createInitialSyncState());
+  const rosterStructureKeyRef = useRef<string>('');
+  const listDepsRef = useRef({
+    spawnPx: { x: 0, y: 0 },
+    username: null as string | null | undefined,
+    claims: null as ReturnType<typeof decodeJwtPayload>,
+    avatarRgb: 0,
+  });
+
+  const playerListStore = useMemo(() => {
+    void roomId;
+    return createPlayerListPositionStore();
+  }, [roomId]);
 
   const spawnPx = useMemo(() => {
     // Spawn coordinates do not use room geometry (same WORLD_* everywhere). We still key this memo on
@@ -76,13 +125,13 @@ export function RoomPage({ roomId }: { roomId: number }) {
     return jitterAroundWorldSpawn();
   }, [roomId]);
 
-  /** Throttled sidebar position (~30 Hz from canvas), seeded from spawn */
-  const [prevRoomId, setPrevRoomId] = useState(roomId);
-  const [localListPos, setLocalListPos] = useState(spawnPx);
-  if (roomId !== prevRoomId) {
-    setPrevRoomId(roomId);
-    setLocalListPos(spawnPx);
-  }
+  useEffect(() => {
+    rosterStructureKeyRef.current = '';
+    syncRef.current.players = [];
+    queueMicrotask(() => {
+      setServerPlayers([]);
+    });
+  }, [roomId]);
 
   const claims = useMemo(() => decodeJwtPayload(token), [token]);
 
@@ -111,7 +160,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
   useLayoutEffect(() => {
     serverPlayersRef.current = serverPlayers;
     selfUserIdRef.current = typeof claims?.sub === 'string' ? claims.sub : '';
-  }, [serverPlayers, claims]);
+    listDepsRef.current = { spawnPx, username, claims, avatarRgb };
+  }, [serverPlayers, claims, spawnPx, username, avatarRgb]);
 
   useEffect(() => {
     if (!token) return;
@@ -160,7 +210,15 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
     function handlePlayers(payload: PlayerDTO[]) {
       serverPlayersRef.current = payload;
-      setServerPlayers(payload);
+      const sid = sock.id ?? null;
+      const merged = withGhostPlayerIfNeeded(payload, sid, spawnPx, username, claims, avatarRgb);
+      syncRef.current.players = merged;
+      playerListStore.publish(merged.map((p) => ({ ...p })));
+      const nextKey = rosterStructureKey(payload);
+      if (nextKey !== rosterStructureKeyRef.current) {
+        rosterStructureKeyRef.current = nextKey;
+        setServerPlayers(payload);
+      }
       flushPendingRemoteSpeech(payload);
     }
 
@@ -195,6 +253,11 @@ export function RoomPage({ roomId }: { roomId: number }) {
         y: spawnPx.y,
         color: avatarRgb,
       });
+      const sid = sock.id ?? null;
+      if (sid) {
+        const merged = withGhostPlayerIfNeeded(serverPlayersRef.current, sid, spawnPx, username, claims, avatarRgb);
+        playerListStore.publish(merged.map((p) => ({ ...p })));
+      }
     });
 
     sock.on('disconnect', () => {
@@ -218,35 +281,37 @@ export function RoomPage({ roomId }: { roomId: number }) {
       setSocketConnected(false);
       setSocketId(null);
     };
-  }, [avatarRgb, roomId, spawnPx.x, spawnPx.y, token]);
+  }, [avatarRgb, claims, playerListStore, roomId, spawnPx, token, username]);
 
-  const handlePositionSync = useCallback((pos: { x: number; y: number }) => {
-    setLocalListPos(pos);
-    const sock = socketRef.current;
-    if (!sock?.connected) return;
-    sock.emit('player:move', pos);
-  }, []);
+  const handlePositionSync = useCallback(
+    (pos: { x: number; y: number }) => {
+      const sock = socketRef.current;
+      if (!sock?.connected) return;
+      sock.emit('player:move', pos);
+      const sid = sock.id ?? null;
+      if (!sid) return;
+      const { spawnPx: sp, username: un, claims: cl, avatarRgb: rgb } = listDepsRef.current;
+      const server = serverPlayersRef.current;
+      let merged = withGhostPlayerIfNeeded(server, sid, sp, un, cl, rgb);
+      merged = merged.map((p) => (p.id === sid ? { ...p, x: pos.x, y: pos.y } : p));
+      playerListStore.publish(merged.map((p) => ({ ...p })));
+    },
+    [playerListStore],
+  );
 
-  const displayPlayers = useMemo(() => {
-    const overridden = serverPlayers.map((player) =>
-      socketId && player.id === socketId ? { ...player, x: localListPos.x, y: localListPos.y } : player,
-    );
-
-    const ghostUserId = typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : (socketId ?? 'local');
-
-    if (socketId && !overridden.some((player) => player.id === socketId)) {
-      overridden.push({
-        id: socketId,
-        username: username ?? claims?.username ?? 'You',
-        x: localListPos.x,
-        y: localListPos.y,
-        userId: ghostUserId,
-        color: avatarRgb,
-      });
-    }
-
-    return overridden;
-  }, [claims, avatarRgb, localListPos.x, localListPos.y, serverPlayers, socketId, username]);
+  /** Roster for layer rebuilds / UI; live positions for the canvas come from {@link syncRef}. */
+  const displayPlayers = useMemo(
+    () =>
+      withGhostPlayerIfNeeded(
+        serverPlayers.map((p) => ({ ...p })),
+        socketId,
+        spawnPx,
+        username,
+        claims,
+        avatarRgb,
+      ),
+    [avatarRgb, claims, serverPlayers, socketId, spawnPx, username],
+  );
 
   const roomUsernamesLower = useMemo(
     () => new Set(displayPlayers.map((player) => usernameForMentionMatch(player.username)).filter(Boolean)),
@@ -307,6 +372,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
             >
               {PixiRoomCanvas && (
                 <PixiRoomCanvas
+                  syncRef={syncRef}
                   tileSize={TILE}
                   viewCols={VIEW_COLS}
                   viewRows={VIEW_ROWS}
@@ -339,7 +405,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
               />
             </div>
           </div>
-          <PlayerList players={displayPlayers} />
+          <RoomPlayerList store={playerListStore} />
         </div>
       </div>
     </div>

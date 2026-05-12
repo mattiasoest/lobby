@@ -203,7 +203,9 @@ export class RoomPixiRunner {
         local.y = clampedTopLeft.y;
       }
 
-      const startedMove = len > 0 && !this.localWasMovingRef;
+      const wasMoving = this.localWasMovingRef;
+      const startedMove = len > 0 && !wasMoving;
+      const stoppedMove = len === 0 && wasMoving;
       this.localWasMovingRef = len > 0;
 
       const playerList = syncState.players;
@@ -338,7 +340,9 @@ export class RoomPixiRunner {
         }
       }
 
-      if (startedMove || now - this.lastSyncAtRef >= SYNC_MS) {
+      /** Throttled (~{@link SYNC_MS}) position sync to React + socket only while moving, not every tick while idle. */
+      const throttleMoving = len > 0 && now - this.lastSyncAtRef >= SYNC_MS;
+      if (startedMove || stoppedMove || throttleMoving) {
         this.lastSyncAtRef = now;
         syncState.onPositionSync({ x: local.x, y: local.y });
       }

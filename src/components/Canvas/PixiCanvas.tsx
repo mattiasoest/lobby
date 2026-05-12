@@ -1,12 +1,14 @@
 import grassBg from '../../assets/bg/grass.jpg';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { RoomPixiRunner, createInitialSyncState, type RoomCanvasSyncState } from '../../game/room/index.ts';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { RoomPixiRunner, type RoomCanvasSyncState } from '../../game/room/index.ts';
 import type { PlayerDTO } from '../../types.ts';
 
 /** Whole-tile columns from inner host width (no CSS scale). */
 const MIN_LAYOUT_VIEW_COLS = 1;
 
 export type PixiCanvasProps = {
+  /** Shared with {@link RoomPage}: socket updates `players` here; React props are for structure/rebuilds only. */
+  syncRef: RefObject<RoomCanvasSyncState>;
   tileSize: number;
   viewCols: number;
   viewRows: number;
@@ -27,7 +29,8 @@ export type PixiCanvasProps = {
 /**
  * React mount + prop sync for the room Pixi stack. Game loop and scene graph live in {@link RoomPixiRunner}.
  */
-export function PixiCanvas({
+const PixiCanvasInner = memo(function PixiCanvas({
+  syncRef,
   tileSize,
   viewCols,
   viewRows,
@@ -44,7 +47,6 @@ export function PixiCanvas({
   onCanvasReady,
 }: PixiCanvasProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const syncRef = useRef<RoomCanvasSyncState>(createInitialSyncState());
   const runnerRef = useRef<RoomPixiRunner | null>(null);
   /** Width in whole tiles — buffer is `layoutViewCols * tileSize` px (no CSS bitmap scale). */
   const [layoutViewCols, setLayoutViewCols] = useState(viewCols);
@@ -58,7 +60,7 @@ export function PixiCanvas({
       const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
       const aw = Math.max(0, host.clientWidth - padX);
       const cols = aw < tileSize ? 1 : Math.min(worldCols, Math.max(MIN_LAYOUT_VIEW_COLS, Math.floor(aw / tileSize)));
-      setLayoutViewCols(cols);
+      setLayoutViewCols((prev) => (prev === cols ? prev : cols));
     };
 
     measure();
@@ -69,7 +71,8 @@ export function PixiCanvas({
 
   useLayoutEffect(() => {
     const syncState = syncRef.current;
-    syncState.players = players;
+    if (!syncState) return;
+    // `players` is owned by RoomPage's socket handler for live coords — do not overwrite here.
     syncState.localId = localId;
     syncState.tileSize = tileSize;
     syncState.viewCols = layoutViewCols;
@@ -81,7 +84,7 @@ export function PixiCanvas({
     syncState.localSpeechBubble = localSpeechBubble;
     syncState.remoteSpeechBubbles = remoteSpeechBubbles;
   }, [
-    players,
+    syncRef,
     localId,
     tileSize,
     layoutViewCols,
@@ -110,7 +113,6 @@ export function PixiCanvas({
     let cancelled = false;
     const mount = mountRef.current;
     if (!mount) return;
-
     const runner = new RoomPixiRunner({
       mount,
       syncRef,
@@ -184,4 +186,6 @@ export function PixiCanvas({
       <div ref={mountRef} className="pixi-mount pixi-mount__surface" />
     </div>
   );
-}
+});
+
+export const PixiCanvas = PixiCanvasInner;
