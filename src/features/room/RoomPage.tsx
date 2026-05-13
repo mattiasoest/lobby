@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { decodeJwtPayload } from '../../app/store.ts';
 import { useAuth } from '../../app/authContext.tsx';
 import { CanvasLoadingFallback } from '../../components/Canvas/CanvasLoadingFallback.tsx';
@@ -17,7 +17,9 @@ import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import { usernameForMentionMatch } from '../../utils/usernameForMentions.ts';
 import type { Socket } from 'socket.io-client';
 
-type PixiCanvasModule = typeof import('../../components/Canvas/PixiCanvas.tsx');
+const LazyPixiRoomCanvas = lazy(() =>
+  import('../../components/Canvas/PixiCanvas.tsx').then((m) => ({ default: m.PixiCanvas })),
+);
 
 const TILE = 32;
 const VIEW_COLS = 32;
@@ -137,25 +139,14 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const canvasViewBox = useMemo(() => canvasViewPixels(TILE, VIEW_COLS, VIEW_ROWS), []);
 
-  const [pixiMod, setPixiMod] = useState<PixiCanvasModule | null>(null);
   const [pixiCanvasReady, setPixiCanvasReady] = useState(false);
-
-  /** Lazy Pixi chunk — paired with `pixiCanvasReady` so one loader covers fetch + WebGL init (no Suspense handoff). */
-  useEffect(() => {
-    let cancelled = false;
-    void import('../../components/Canvas/PixiCanvas.tsx').then((pixiModule: PixiCanvasModule) => {
-      if (!cancelled) setPixiMod(pixiModule);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handlePixiCanvasReady = useCallback((ready: boolean) => {
     setPixiCanvasReady(ready);
   }, []);
 
-  const showRoomCanvasLoader = !pixiMod || !pixiCanvasReady;
+  /** Chunk load is covered by Suspense (`lazy`); WebGL bootstrap uses `pixiCanvasReady`. One overlay until both complete. */
+  const showRoomCanvasLoader = !pixiCanvasReady;
 
   useLayoutEffect(() => {
     serverPlayersRef.current = serverPlayers;
@@ -345,8 +336,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const PixiRoomCanvas = pixiMod?.PixiCanvas;
-
   return (
     <div className="room-page">
       <header className="room-header">
@@ -370,8 +359,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
               aria-busy={showRoomCanvasLoader}
               aria-label="Room canvas"
             >
-              {PixiRoomCanvas && (
-                <PixiRoomCanvas
+              <Suspense fallback={null}>
+                <LazyPixiRoomCanvas
                   syncRef={syncRef}
                   tileSize={TILE}
                   viewCols={VIEW_COLS}
@@ -388,7 +377,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
                   onPositionSync={handlePositionSync}
                   onCanvasReady={handlePixiCanvasReady}
                 />
-              )}
+              </Suspense>
               {showRoomCanvasLoader && (
                 <div className="pixi-mount-bootstrap-overlay">
                   <CanvasLoadingFallback />
