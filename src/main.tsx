@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
@@ -11,7 +11,15 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <Suspense
+          fallback={
+            <div className="auth-page">
+              <p className="muted">Loading…</p>
+            </div>
+          }
+        >
+          <RouterProvider router={router} />
+        </Suspense>
       </AuthProvider>
     </QueryClientProvider>
   </StrictMode>,
