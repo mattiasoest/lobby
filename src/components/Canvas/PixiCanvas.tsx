@@ -118,6 +118,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
       syncRef,
       dimensions: { tileSize, viewCols: layoutViewCols, viewRows, worldCols, worldRows },
       worldSpawnPx,
+      roomId,
       grassTextureSrc: grassBg,
       onBootstrapComplete: () => {
         if (!cancelled) setCanvasReady(true);
@@ -134,7 +135,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
       runnerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- worldSpawnPx only used for init; changing it must not recreate runner
-  }, [tileSize, layoutViewCols, viewRows, worldCols, worldRows]);
+  }, [tileSize, layoutViewCols, viewRows, worldCols, worldRows, roomId]);
 
   useEffect(() => {
     const runner = runnerRef.current;

@@ -32,6 +32,7 @@ import {
   scrollWorldPx,
   type RemoteSample,
 } from './worldMath.ts';
+import { createViewportRain, rainEnabledForRoomId, type ViewportRainApi } from './roomRain.ts';
 
 export type RoomPixiRunnerOptions = {
   mount: HTMLElement;
@@ -44,6 +45,7 @@ export type RoomPixiRunnerOptions = {
     worldRows: number;
   };
   worldSpawnPx: { x: number; y: number };
+  roomId: number;
   /** Resolved asset URL (e.g. Vite import). */
   grassTextureSrc: string;
   onBootstrapComplete?: () => void;
@@ -64,6 +66,7 @@ export class RoomPixiRunner {
   /** Avatar + name label; position is world top-left of the avatar quad. */
   private playerRootByIdRef = new Map<string, Container>();
   private tickerFn: ((ticker: Ticker) => void) | null = null;
+  private viewportRain: ViewportRainApi | null = null;
 
   private keysInternal = createMoveKeysState();
   private localPxRef = { x: 0, y: 0 };
@@ -159,6 +162,10 @@ export class RoomPixiRunner {
     world.addChild(speechBubbleRoot);
 
     app.stage.addChild(world);
+
+    if (rainEnabledForRoomId(this.opts.roomId)) {
+      this.viewportRain = createViewportRain(viewPixelW, viewPixelH, app.stage);
+    }
 
     const spawn = clampWorldTopLeft(worldSpawnPx.x, worldSpawnPx.y, tileSize, worldCols, worldRows);
     this.localPxRef = { ...spawn };
@@ -346,6 +353,8 @@ export class RoomPixiRunner {
         this.lastSyncAtRef = now;
         syncState.onPositionSync({ x: local.x, y: local.y });
       }
+
+      this.viewportRain?.update(ticker.deltaMS);
     };
 
     this.tickerFn = tickRun;
@@ -507,6 +516,9 @@ export class RoomPixiRunner {
     window.removeEventListener('keydown', this.keyDown);
     window.removeEventListener('keyup', this.keyUp);
     window.removeEventListener('blur', this.blur);
+
+    this.viewportRain?.destroy();
+    this.viewportRain = null;
 
     const app = this.app;
     if (app?.ticker && this.tickerFn) {
