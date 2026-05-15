@@ -1,4 +1,6 @@
 import grassBg from '../../assets/bg/grass.jpg';
+import characterIdleSpriteSrc from '../../assets/bg/character/Idle.png';
+import characterWalkSpriteSrc from '../../assets/bg/character/Walk.png';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { RoomPixiRunner, type RoomCanvasSyncState } from '../../game/room/index.ts';
 import type { PlayerDTO } from '../../types.ts';
@@ -120,6 +122,10 @@ const PixiCanvasInner = memo(function PixiCanvas({
       worldSpawnPx,
       roomId,
       grassTextureSrc: grassBg,
+      characterTextureSrc: {
+        idle: characterIdleSpriteSrc,
+        walk: characterWalkSpriteSrc,
+      },
       onBootstrapComplete: () => {
         if (!cancelled) setCanvasReady(true);
       },

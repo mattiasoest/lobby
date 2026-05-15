@@ -23,6 +23,12 @@ import {
   type SpeechBubbleLayout,
 } from './speechBubble.ts';
 import { avatarColorOrFallback } from './playerColor.ts';
+import {
+  PlayerAvatar,
+  loadCharacterTextures,
+  spriteOverhangForTileSize,
+  type CharacterTextureSet,
+} from './playerAvatar.ts';
 import type { RoomCanvasSyncState } from './syncState.ts';
 import {
   clampWorldTopLeft,
@@ -48,6 +54,11 @@ export type RoomPixiRunnerOptions = {
   roomId: number;
   /** Resolved asset URL (e.g. Vite import). */
   grassTextureSrc: string;
+  /** Character spritesheet URLs (Vite imports). */
+  characterTextureSrc: {
+    idle: string;
+    walk: string;
+  };
   onBootstrapComplete?: () => void;
 };
 
@@ -65,6 +76,10 @@ export class RoomPixiRunner {
   private speechBubbleLayoutRef = new Map<string, SpeechBubbleLayout>();
   /** Avatar + name label; position is world top-left of the avatar quad. */
   private playerRootByIdRef = new Map<string, Container>();
+  private playerAvatarByIdRef = new Map<string, PlayerAvatar>();
+  /** Last rendered world position per player; used to derive velocity for the avatar animation. */
+  private prevRenderedPxRef = new Map<string, { x: number; y: number }>();
+  private characterTextures: CharacterTextureSet | null = null;
   private tickerFn: ((ticker: Ticker) => void) | null = null;
   private viewportRain: ViewportRainApi | null = null;
 
@@ -106,6 +121,7 @@ export class RoomPixiRunner {
       dimensions: { tileSize, viewCols, viewRows, worldCols, worldRows },
       worldSpawnPx,
       grassTextureSrc,
+      characterTextureSrc,
       onBootstrapComplete,
     } = this.opts;
 
@@ -134,23 +150,23 @@ export class RoomPixiRunner {
     const world = new Container();
     this.worldRef = world;
 
-    let grassTexture;
-    try {
-      grassTexture = await Assets.load(grassTextureSrc);
-    } catch {
-      grassTexture = null;
+    const [grassResult, characterResult] = await Promise.all([
+      Assets.load(grassTextureSrc).catch(() => null),
+      loadCharacterTextures(characterTextureSrc.idle, characterTextureSrc.walk),
+    ]);
+    const grassTexture = grassResult ?? null;
+    this.characterTextures = characterResult;
+    if (this.cancelBootstrap) {
+      await app.destroy();
+      return;
     }
-    if (!this.cancelBootstrap && grassTexture) {
+    if (grassTexture) {
       const grass = new TilingSprite({
         texture: grassTexture,
         width: worldPixelW,
         height: worldPixelH,
       });
       world.addChild(grass);
-    }
-    if (this.cancelBootstrap) {
-      await app.destroy();
-      return;
     }
 
     const layer = new Container();
@@ -319,6 +335,9 @@ export class RoomPixiRunner {
         worldContainer.position.set(-left, -top);
       }
 
+      const spriteOverhang = spriteOverhangForTileSize(tileSize);
+      const dtSec = Math.max(dt, 1e-4);
+      const dtMs = ticker.deltaMS;
       for (const player of playerList) {
         const root = this.playerRootByIdRef.get(player.id);
         if (!root) continue;
@@ -326,6 +345,26 @@ export class RoomPixiRunner {
         const pos = isLocal ? local : this.remotePxRef.get(player.id);
         if (!pos) continue;
         root.position.set(pos.x, pos.y);
+
+        const avatar = this.playerAvatarByIdRef.get(player.id);
+        if (avatar) {
+          const prev = this.prevRenderedPxRef.get(player.id);
+          let vxPxS = 0;
+          let vyPxS = 0;
+          if (prev) {
+            vxPxS = (pos.x - prev.x) / dtSec;
+            vyPxS = (pos.y - prev.y) / dtSec;
+          }
+          avatar.update(dtMs, vxPxS, vyPxS);
+          this.prevRenderedPxRef.set(player.id, { x: pos.x, y: pos.y });
+        }
+      }
+
+      // Drop prev-position cache for players that have left.
+      const activeIds = new Set<string>();
+      for (const player of playerList) activeIds.add(player.id);
+      for (const id of [...this.prevRenderedPxRef.keys()]) {
+        if (!activeIds.has(id)) this.prevRenderedPxRef.delete(id);
       }
 
       const speechWorld = this.speechBubbleWorldRef;
@@ -343,7 +382,10 @@ export class RoomPixiRunner {
             continue;
           }
           group.visible = true;
-          group.position.set(pos.x + size / 2 - bubbleWidth / 2, pos.y - SPEECH_BAND_ABOVE_AVATAR_PX - bubbleHeight);
+          group.position.set(
+            pos.x + size / 2 - bubbleWidth / 2,
+            pos.y - spriteOverhang - SPEECH_BAND_ABOVE_AVATAR_PX - bubbleHeight,
+          );
         }
       }
 
@@ -386,6 +428,8 @@ export class RoomPixiRunner {
       layer.removeChildAt(idx).destroy({ children: true });
     }
     this.playerRootByIdRef.clear();
+    this.playerAvatarByIdRef.clear();
+    this.prevRenderedPxRef.clear();
     this.remotePxRef.clear();
     this.remoteSampleBufRef.clear();
     this.lastServerSnapRef.clear();
@@ -395,14 +439,28 @@ export class RoomPixiRunner {
 
     const pad = tileSize * 0.14;
     const size = tileSize - pad * 2;
+    const spriteOverhang = spriteOverhangForTileSize(tileSize);
     const tSeed = performance.now();
+    const characterTextures = this.characterTextures;
 
     for (const player of players) {
       const root = new Container();
-      const graphic = new Graphics();
       const isLocal = !!localId && player.id === localId;
-      graphic.rect(0, 0, size, size);
-      graphic.fill({ color: avatarColorOrFallback(player.id, player.color) });
+
+      if (characterTextures) {
+        const avatar = new PlayerAvatar(characterTextures, tileSize);
+        // Offset sprite container so the 32×32 art aligns with the full tileSize tile
+        // (root.position is the inner padded quad's top-left).
+        avatar.view.position.set(-pad, -pad);
+        root.addChild(avatar.view);
+        this.playerAvatarByIdRef.set(player.id, avatar);
+      } else {
+        // Texture load failed — fall back to the original colored block.
+        const graphic = new Graphics();
+        graphic.rect(0, 0, size, size);
+        graphic.fill({ color: avatarColorOrFallback(player.id, player.color) });
+        root.addChild(graphic);
+      }
 
       const nameLabel = new Text({
         text: player.username || 'Player',
@@ -415,9 +473,8 @@ export class RoomPixiRunner {
         },
       });
       nameLabel.anchor.set(0.5, 1);
-      nameLabel.position.set(size / 2, -PLAYER_NAME_LABEL_BOTTOM_GAP_PX);
+      nameLabel.position.set(size / 2, -spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX);
 
-      root.addChild(graphic);
       root.addChild(nameLabel);
 
       let px = player.x;
@@ -432,6 +489,7 @@ export class RoomPixiRunner {
         this.lastServerSnapRef.set(player.id, { x: player.x, y: player.y });
       }
       root.position.set(px, py);
+      this.prevRenderedPxRef.set(player.id, { x: px, y: py });
       this.playerRootByIdRef.set(player.id, root);
       layer.addChild(root);
     }
@@ -453,6 +511,7 @@ export class RoomPixiRunner {
     this.remoteTargetPrevRef.clear();
     this.remoteSpeedSmoothedRef.clear();
     this.remoteBurstUntilRef.clear();
+    this.prevRenderedPxRef.clear();
     this.localWasMovingRef = false;
     this.lastSyncAtRef = 0;
 
@@ -526,12 +585,15 @@ export class RoomPixiRunner {
     }
     this.tickerFn = null;
     this.playerRootByIdRef.clear();
+    this.playerAvatarByIdRef.clear();
+    this.prevRenderedPxRef.clear();
     this.remotePxRef.clear();
     this.remoteSampleBufRef.clear();
     this.lastServerSnapRef.clear();
     this.remoteTargetPrevRef.clear();
     this.remoteSpeedSmoothedRef.clear();
     this.remoteBurstUntilRef.clear();
+    this.characterTextures = null;
     this.layerRef = null;
     this.speechBubbleWorldRef = null;
     this.speechBubbleLayoutRef.clear();
