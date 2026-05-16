@@ -18,6 +18,13 @@ const WALK_FPS = 9;
  */
 const MOTION_THRESHOLD_PX_S = 6;
 
+/**
+ * When horizontal and vertical speed are both meaningful (diagonal), always pick left/right
+ * animation so facing does not flicker between side and front/back when |vx| ≈ |vy|.
+ * Ratio = min(|vx|,|vy|) / max(|vx|,|vy|); at 1.0 both axes match (e.g. normalized diagonal).
+ */
+const DIAGONAL_AXIS_BLEND_MIN = 0.72;
+
 export type CharacterDirection = 'front' | 'back' | 'left' | 'right';
 
 /** Source row indices in each spritesheet. `left` reuses the `right` row and renders flipped. */
@@ -131,8 +138,15 @@ export class PlayerAvatar {
     const moving = speed > MOTION_THRESHOLD_PX_S;
 
     if (moving) {
-      // Prefer horizontal facing on diagonals so side-view reads better than back/front on slants.
-      if (Math.abs(vx) >= Math.abs(vy)) {
+      const ax = Math.abs(vx);
+      const ay = Math.abs(vy);
+      const maxAxis = Math.max(ax, ay);
+      const minAxis = Math.min(ax, ay);
+      const blendedAxes = maxAxis > 1e-6 && minAxis / maxAxis >= DIAGONAL_AXIS_BLEND_MIN;
+
+      if (blendedAxes) {
+        this.direction = vx >= 0 ? 'right' : 'left';
+      } else if (ax >= ay) {
         this.direction = vx >= 0 ? 'right' : 'left';
       } else {
         this.direction = vy >= 0 ? 'front' : 'back';
