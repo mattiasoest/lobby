@@ -6,6 +6,12 @@ export const SYNC_MS = 1000 / POSITION_SYNC_HZ;
 export const MOVE_PX_PER_SEC = 110;
 
 /**
+ * Stage scale for the scrolling world (rain stays unscaled on stage).
+ * Values above 1 zoom in so 32×32 tiles and characters read larger in the canvas.
+ */
+export const ROOM_CAMERA_ZOOM = 2.4;
+
+/**
  * Playback delay bounds: shallow buffers use the min so motion starts sooner;
  * once depth builds, ramp toward max for steadier bracketing.
  */

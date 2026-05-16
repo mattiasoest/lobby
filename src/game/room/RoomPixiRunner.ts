@@ -4,6 +4,7 @@ import type { PlayerDTO } from '../../types.ts';
 import {
   MAX_REMOTE_SAMPLES,
   MOVE_PX_PER_SEC,
+  ROOM_CAMERA_ZOOM,
   REMOTE_BURST_DELAY_SHAVE_MS,
   REMOTE_BURST_DURATION_MS,
   REMOTE_BURST_IDLE_SPEED_PX_S,
@@ -177,7 +178,10 @@ export class RoomPixiRunner {
     this.speechBubbleWorldRef = speechBubbleRoot;
     world.addChild(speechBubbleRoot);
 
-    app.stage.addChild(world);
+    const viewRoot = new Container();
+    viewRoot.scale.set(ROOM_CAMERA_ZOOM, ROOM_CAMERA_ZOOM);
+    viewRoot.addChild(world);
+    app.stage.addChild(viewRoot);
 
     if (rainEnabledForRoomId(this.opts.roomId)) {
       this.viewportRain = createViewportRain(viewPixelW, viewPixelH, app.stage);
@@ -199,8 +203,8 @@ export class RoomPixiRunner {
       const size = tileSize - pad * 2;
       const worldW = worldCols * tileSize;
       const worldH = worldRows * tileSize;
-      const viewW = viewCols * tileSize;
-      const viewH = viewRows * tileSize;
+      const viewW = (viewCols * tileSize) / ROOM_CAMERA_ZOOM;
+      const viewH = (viewRows * tileSize) / ROOM_CAMERA_ZOOM;
 
       const moveKeys = this.keysInternal;
       let vx = 0;
@@ -406,8 +410,8 @@ export class RoomPixiRunner {
       this.localPxRef.x,
       this.localPxRef.y,
       size0,
-      viewPixelW,
-      viewPixelH,
+      viewPixelW / ROOM_CAMERA_ZOOM,
+      viewPixelH / ROOM_CAMERA_ZOOM,
       worldPixelW,
       worldPixelH,
     );
@@ -525,8 +529,8 @@ export class RoomPixiRunner {
         loc.x,
         loc.y,
         size,
-        viewCols * tileSize,
-        viewRows * tileSize,
+        (viewCols * tileSize) / ROOM_CAMERA_ZOOM,
+        (viewRows * tileSize) / ROOM_CAMERA_ZOOM,
         worldCols * tileSize,
         worldRows * tileSize,
       );
