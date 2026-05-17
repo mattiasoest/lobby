@@ -30,6 +30,7 @@ import {
   spriteOverhangForTileSize,
   type CharacterTextureSet,
 } from './playerAvatar.ts';
+import { ROOM_PIXEL_FACE_SPECS, ROOM_PIXEL_FONT_STACK, roomWorldCanvasTextOptions } from './pixelTypography.ts';
 import type { RoomCanvasSyncState } from './syncState.ts';
 import {
   clampWorldTopLeft,
@@ -125,6 +126,10 @@ export class RoomPixiRunner {
       characterTextureSrc,
       onBootstrapComplete,
     } = this.opts;
+
+    await Promise.all(ROOM_PIXEL_FACE_SPECS.map((spec) => document.fonts.load(spec))).catch(() => {
+      /** Remote fonts blocked or offline — labels fall back to generic monospace stack. */
+    });
 
     const viewPixelW = viewCols * tileSize;
     const viewPixelH = viewRows * tileSize;
@@ -386,8 +391,9 @@ export class RoomPixiRunner {
             continue;
           }
           group.visible = true;
+          const bubbleCenterX = this.characterTextures ? size / 2 - pad : size / 2;
           group.position.set(
-            pos.x + size / 2 - bubbleWidth / 2,
+            pos.x + bubbleCenterX - bubbleWidth / 2,
             pos.y - spriteOverhang - SPEECH_BAND_ABOVE_AVATAR_PX - bubbleHeight,
           );
         }
@@ -468,16 +474,21 @@ export class RoomPixiRunner {
 
       const nameLabel = new Text({
         text: player.username || 'Player',
+        ...roomWorldCanvasTextOptions(),
         style: {
-          fontFamily: 'system-ui, "Segoe UI", Roboto, sans-serif',
+          fontFamily: ROOM_PIXEL_FONT_STACK,
           fontSize: 11,
-          fill: 0xf9fafb,
-          stroke: { color: 0x111827, width: 3 },
+          letterSpacing: 0,
+          lineHeight: 14,
+          fill: 0xf8fafc,
+          stroke: { color: 0x0f172a, width: 3 },
           align: 'center',
         },
       });
       nameLabel.anchor.set(0.5, 1);
-      nameLabel.position.set(size / 2, -spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX);
+      // Sprite view is shifted left by pad; sprite center world-x is size/2 - pad (Graphic fallback stays size/2).
+      const nameCenterX = characterTextures ? size / 2 - pad : size / 2;
+      nameLabel.position.set(nameCenterX, -spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX);
 
       root.addChild(nameLabel);
 

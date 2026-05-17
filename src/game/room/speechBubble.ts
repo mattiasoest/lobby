@@ -1,4 +1,5 @@
 import { Container, Graphics, Text } from 'pixi.js';
+import { ROOM_PIXEL_FONT_STACK, roomWorldCanvasTextOptions } from './pixelTypography.ts';
 
 const SPEECH_TAIL_H = 7;
 const SPEECH_PAD = 10;
@@ -6,8 +7,8 @@ const SPEECH_RADIUS = 8;
 const SPEECH_WRAP = 204;
 /** Bottom of name label relative to avatar top-left; must match {@link PLAYER_NAME_LABEL_BOTTOM_GAP_PX} in RoomPixiRunner. */
 export const PLAYER_NAME_LABEL_BOTTOM_GAP_PX = 3;
-/** Nominal single-line height for fontSize 11 player name (RoomPixiRunner). */
-export const PLAYER_NAME_LABEL_TEXT_HEIGHT_PX = 15;
+/** Nominal single-line height for pixel-font player names (RoomPixiRunner). */
+export const PLAYER_NAME_LABEL_TEXT_HEIGHT_PX = 14;
 /** Tail-to-name: vertical gap between bubble bottom and top of name glyphs. */
 export const SPEECH_CLEAR_BELOW_BUBBLE_PX = 4;
 /**
@@ -29,13 +30,15 @@ export type SpeechBubbleLayout = {
 export function createSpeechBubbleGroup(trimmed: string): SpeechBubbleLayout {
   const label = new Text({
     text: trimmed,
+    ...roomWorldCanvasTextOptions(),
     style: {
-      fontFamily: 'system-ui, "Segoe UI", Roboto, sans-serif',
+      fontFamily: ROOM_PIXEL_FONT_STACK,
       fontSize: 13,
+      letterSpacing: 0,
+      lineHeight: 18,
       fill: 0x0f172a,
       wordWrap: true,
       wordWrapWidth: SPEECH_WRAP,
-      lineHeight: 17,
     },
   });
 
