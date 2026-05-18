@@ -41,7 +41,7 @@ import {
   type RemoteSample,
 } from './worldMath.ts';
 import { createViewportRain, rainEnabledForRoomId, type ViewportRainApi } from './roomRain.ts';
-import { Animal, animalHomeAnchors, loadAnimalTextures, type AnimalTextureMap } from './animals.ts';
+import { Animal, animalHomeAnchors, animalSeedBase, loadAnimalTextures, type AnimalTextureMap } from './animals.ts';
 
 export type RoomPixiRunnerOptions = {
   mount: HTMLElement;
@@ -368,7 +368,7 @@ export class RoomPixiRunner {
       const animalList = this.animalsRef;
       if (animalList.length > 0) {
         for (const animal of animalList) {
-          animal.update(dtMs, tileSize, worldCols, worldRows, now);
+          animal.update();
         }
       }
       for (const player of playerList) {
@@ -469,11 +469,27 @@ export class RoomPixiRunner {
     const { tileSize, worldCols, worldRows } = this.opts.dimensions;
     const homes = animalHomeAnchors(this.opts.roomId, tileSize, worldCols, worldRows);
 
-    const bull = new Animal(textures.bull, tileSize, homes.bull.x, homes.bull.y);
+    const bull = new Animal(
+      textures.bull,
+      tileSize,
+      worldCols,
+      worldRows,
+      homes.bull.x,
+      homes.bull.y,
+      animalSeedBase(this.opts.roomId, 'bull'),
+    );
     animalLayer.addChild(bull.view);
     this.animalsRef.push(bull);
 
-    const cow = new Animal(textures.cow, tileSize, homes.cow.x, homes.cow.y);
+    const cow = new Animal(
+      textures.cow,
+      tileSize,
+      worldCols,
+      worldRows,
+      homes.cow.x,
+      homes.cow.y,
+      animalSeedBase(this.opts.roomId, 'cow'),
+    );
     animalLayer.addChild(cow.view);
     this.animalsRef.push(cow);
   }

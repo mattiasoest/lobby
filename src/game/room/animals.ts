@@ -9,7 +9,7 @@ export const ANIMAL_FRAMES_PER_ROW = 4;
 /** Walk-cycle playback rate. Slower than the player walk so animals look heavier. */
 const ANIMAL_WALK_FPS = 6;
 
-/** Wander movement speed (px/s). Roughly a quarter of {@link MOVE_PX_PER_SEC}. */
+/** Wander movement speed (px/s). Roughly a quarter of the player MOVE_PX_PER_SEC. */
 const ANIMAL_MOVE_PX_PER_SEC = 26;
 
 /** Idle pause range between wander legs. */
@@ -19,8 +19,8 @@ const PAUSE_MAX_MS = 4200;
 /** Max distance (px) a new wander target can be from the animal's home anchor. */
 const WANDER_RADIUS_PX = 192;
 
-/** Distance² (px²) at which the animal considers itself "arrived" at its target. */
-const ARRIVE_EPS_SQ = 4;
+/** Number of randomized legs in the precomputed tour (excluding the home-return corrections). */
+const TOUR_LEG_COUNT = 120;
 
 /** Source row indices inside an animal spritesheet. */
 const SHEET_ROW_LEFT = 0;
@@ -29,6 +29,8 @@ const SHEET_ROW_UP = 2;
 
 export type AnimalKind = 'bull' | 'cow';
 export type AnimalDirection = 'left' | 'right' | 'down' | 'up';
+
+const KIND_SEED_SALT: Record<AnimalKind, number> = { bull: 0x6b75_6c00, cow: 0x636f_7700 };
 
 export type AnimalTextureSet = {
   /** Used for left, and flipped horizontally for right. */
@@ -81,43 +83,86 @@ export async function loadAnimalTextures(bullSrc: string, cowSrc: string): Promi
   return { bull, cow };
 }
 
-type AnimalState = 'walk' | 'idle';
+/** FNV-1a 32-bit hash; deterministic across JS runtimes. */
+function fnv1aHash(...values: number[]): number {
+  let h = 0x811c9dc5;
+  for (const v of values) {
+    const x = v | 0;
+    h = Math.imul(h ^ (x & 0xff), 0x01000193);
+    h = Math.imul(h ^ ((x >>> 8) & 0xff), 0x01000193);
+    h = Math.imul(h ^ ((x >>> 16) & 0xff), 0x01000193);
+    h = Math.imul(h ^ ((x >>> 24) & 0xff), 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** Mulberry32 PRNG; emits floats in [0,1). */
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** One walk leg in the precomputed tour. Cumulative ms from cycle start. */
+type AnimalLeg = {
+  /** Cycle-phase ms when the walk begins (after the preceding pause). */
+  startMs: number;
+  /** Cycle-phase ms when the destination is reached. */
+  arriveMs: number;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  direction: AnimalDirection;
+};
 
 /**
  * Decorative wandering animal. Owns a {@link Container} (`view`) that callers parent into the
- * animal layer. The animal walks toward random targets within {@link WANDER_RADIUS_PX} of its
- * home anchor, pausing briefly between legs.
+ * animal layer. Position, direction, and walk frame are pure functions of wall-clock time
+ * (`Date.now()`) and a per-animal seed: every client in the room renders the same state at the
+ * same moment, with no server input required.
  *
- * Position tracking uses the same coordinate convention as players: `(x, y)` is the world
- * top-left of the inner padded quad (see {@link clampWorldTopLeft}).
+ * Position uses the same coordinate convention as players: `(x, y)` is the world top-left of
+ * the inner padded quad (see {@link clampWorldTopLeft}).
  */
 export class Animal {
   readonly view: Container;
   private readonly sprite: Sprite;
   private readonly textures: AnimalTextureSet;
-
-  private direction: AnimalDirection = 'down';
-  private state: AnimalState = 'idle';
-  private frameIndex = 0;
-  private frameTimerMs = 0;
-
   private readonly homeX: number;
   private readonly homeY: number;
+
+  /** Precomputed tour; the animal cycles through this forever in lockstep with wall-clock. */
+  private readonly legs: AnimalLeg[];
+  /** Total length (ms) of one tour cycle including pauses; cycle phase = `Date.now() % cycleMs`. */
+  private readonly cycleMs: number;
+  /** Linear-scan cache for findLeg; valid index into {@link legs}. */
+  private cachedLegIdx = 0;
+
   private x: number;
   private y: number;
-  private targetX: number;
-  private targetY: number;
-  /** Wall-clock ms at which the current idle pause ends (`0` = not paused yet). */
-  private pauseUntilMs = 0;
+  private direction: AnimalDirection = 'down';
+  private frameIndex = 0;
 
-  constructor(textures: AnimalTextureSet, tileSize: number, homeX: number, homeY: number) {
+  constructor(
+    textures: AnimalTextureSet,
+    tileSize: number,
+    worldCols: number,
+    worldRows: number,
+    homeX: number,
+    homeY: number,
+    seedBase: number,
+  ) {
     this.textures = textures;
     this.homeX = homeX;
     this.homeY = homeY;
     this.x = homeX;
     this.y = homeY;
-    this.targetX = homeX;
-    this.targetY = homeY;
 
     const view = new Container();
     const sprite = new Sprite(textures.down[0]);
@@ -136,71 +181,53 @@ export class Animal {
 
     this.sprite = sprite;
     this.view = view;
+
+    const { legs, cycleMs } = buildAnimalTour(seedBase, tileSize, worldCols, worldRows, homeX, homeY);
+    this.legs = legs;
+    this.cycleMs = cycleMs;
+
     this.applyFrame();
   }
 
   /**
-   * Drive wander AI + animation. `tileSize`/`worldCols`/`worldRows` clamp targets so the
-   * animal can actually reach them, and `now` (performance.now) gates pause durations.
+   * Compute position/direction/frame for the current wall-clock instant. Stateless beyond the
+   * cached leg index, which is only an optimization (recovers correctly after a wrap or a long
+   * pause).
    */
-  update(dtMs: number, tileSize: number, worldCols: number, worldRows: number, now: number): void {
-    const dx = this.targetX - this.x;
-    const dy = this.targetY - this.y;
-    const distSq = dx * dx + dy * dy;
+  update(): void {
+    const phaseMs = Date.now() % this.cycleMs;
+    const legs = this.legs;
 
-    if (distSq <= ARRIVE_EPS_SQ) {
-      this.state = 'idle';
-      if (this.pauseUntilMs === 0) {
-        this.pauseUntilMs = now + PAUSE_MIN_MS + Math.random() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
-      } else if (now >= this.pauseUntilMs) {
-        // 4-directional wander: each leg moves on a single axis so the animal never walks
-        // diagonally. The non-chosen axis keeps the animal's current value; the chosen axis
-        // picks a value within ±WANDER_RADIUS_PX of home so the animal stays tethered.
-        const horizontal = Math.random() < 0.5;
-        const homeAxis = horizontal ? this.homeX : this.homeY;
-        const newAxisPos = homeAxis + (Math.random() * 2 - 1) * WANDER_RADIUS_PX;
-        const rawX = horizontal ? newAxisPos : this.x;
-        const rawY = horizontal ? this.y : newAxisPos;
-        const clamped = clampWorldTopLeft(rawX, rawY, tileSize, worldCols, worldRows);
-        this.targetX = clamped.x;
-        this.targetY = clamped.y;
-        this.pauseUntilMs = 0;
-      }
+    let idx = this.cachedLegIdx;
+    if (idx < 0 || idx >= legs.length) idx = 0;
+    if (phaseMs < legs[idx].startMs) idx = 0;
+    while (idx + 1 < legs.length && phaseMs >= legs[idx + 1].startMs) idx += 1;
+    this.cachedLegIdx = idx;
+
+    const leg = legs[idx];
+
+    if (phaseMs < leg.startMs) {
+      // Before the first leg of the cycle: paused at home, facing down (initial state).
+      this.x = this.homeX;
+      this.y = this.homeY;
+      this.direction = 'down';
+      this.frameIndex = 0;
+    } else if (phaseMs < leg.arriveMs) {
+      const span = Math.max(1, leg.arriveMs - leg.startMs);
+      const u = (phaseMs - leg.startMs) / span;
+      this.x = leg.fromX + (leg.toX - leg.fromX) * u;
+      this.y = leg.fromY + (leg.toY - leg.fromY) * u;
+      this.direction = leg.direction;
+      this.frameIndex = Math.floor(((phaseMs - leg.startMs) * ANIMAL_WALK_FPS) / 1000);
     } else {
-      const dist = Math.sqrt(distSq);
-      const dt = dtMs / 1000;
-      const step = Math.min(ANIMAL_MOVE_PX_PER_SEC * dt, dist);
-      this.x += (dx / dist) * step;
-      this.y += (dy / dist) * step;
-
-      const clamped = clampWorldTopLeft(this.x, this.y, tileSize, worldCols, worldRows);
-      this.x = clamped.x;
-      this.y = clamped.y;
-
-      const ax = Math.abs(dx);
-      const ay = Math.abs(dy);
-      if (ax >= ay) {
-        this.direction = dx >= 0 ? 'right' : 'left';
-      } else {
-        this.direction = dy >= 0 ? 'down' : 'up';
-      }
-      this.state = 'walk';
-    }
-
-    this.view.position.set(this.x, this.y);
-
-    if (this.state === 'walk') {
-      const msPerFrame = 1000 / ANIMAL_WALK_FPS;
-      this.frameTimerMs += dtMs;
-      while (this.frameTimerMs >= msPerFrame) {
-        this.frameTimerMs -= msPerFrame;
-        this.frameIndex += 1;
-      }
-    } else {
-      this.frameTimerMs = 0;
+      // Past arrival: paused at this leg's destination until the next leg's start.
+      this.x = leg.toX;
+      this.y = leg.toY;
+      this.direction = leg.direction;
       this.frameIndex = 0;
     }
 
+    this.view.position.set(this.x, this.y);
     this.applyFrame();
   }
 
@@ -239,6 +266,74 @@ export class Animal {
 }
 
 /**
+ * Build a deterministic, seamlessly looping wander tour. The tour ends with up to two
+ * axis-aligned corrective legs back to home so cycle wraparound is invisible.
+ *
+ * Every leg is single-axis (horizontal OR vertical), satisfying the "no diagonal" constraint.
+ */
+function buildAnimalTour(
+  seedBase: number,
+  tileSize: number,
+  worldCols: number,
+  worldRows: number,
+  homeX: number,
+  homeY: number,
+): { legs: AnimalLeg[]; cycleMs: number } {
+  const prng = mulberry32(seedBase);
+  const legs: AnimalLeg[] = [];
+  let cx = homeX;
+  let cy = homeY;
+  let cumMs = 0;
+
+  const pushLeg = (toX: number, toY: number, pauseMs: number): void => {
+    cumMs += pauseMs;
+    const startMs = cumMs;
+    const dx = toX - cx;
+    const dy = toY - cy;
+    const dist = Math.hypot(dx, dy);
+    const travelMs = (dist / ANIMAL_MOVE_PX_PER_SEC) * 1000;
+    const arriveMs = startMs + Math.max(travelMs, 1);
+
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    const direction: AnimalDirection = ax >= ay ? (dx >= 0 ? 'right' : 'left') : dy >= 0 ? 'down' : 'up';
+
+    legs.push({ startMs, arriveMs, fromX: cx, fromY: cy, toX, toY, direction });
+    cumMs = arriveMs;
+    cx = toX;
+    cy = toY;
+  };
+
+  for (let i = 0; i < TOUR_LEG_COUNT; i++) {
+    const pauseMs = PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
+
+    // 4-directional wander: pick an axis, then a target within ±WANDER_RADIUS_PX of home on
+    // that axis. The other axis keeps the animal's current value so movement stays axis-pure.
+    const horizontal = prng() < 0.5;
+    const homeAxis = horizontal ? homeX : homeY;
+    const newAxisPos = homeAxis + (prng() * 2 - 1) * WANDER_RADIUS_PX;
+    const rawX = horizontal ? newAxisPos : cx;
+    const rawY = horizontal ? cy : newAxisPos;
+    const clamped = clampWorldTopLeft(rawX, rawY, tileSize, worldCols, worldRows);
+
+    pushLeg(clamped.x, clamped.y, pauseMs);
+  }
+
+  // Corrective legs back to home so the cycle wraps cleanly. Each leg is single-axis.
+  if (Math.abs(cx - homeX) > 1e-3) {
+    pushLeg(homeX, cy, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
+  }
+  if (Math.abs(cy - homeY) > 1e-3) {
+    pushLeg(cx, homeY, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
+  }
+
+  // Final pause at home before the cycle restarts.
+  cumMs += PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
+
+  return { legs, cycleMs: cumMs };
+}
+
+/**
  * Deterministic per-room placement for the bull + cow. Same `roomId` always yields the same
  * spawn anchors so a player revisiting a room sees the animals in familiar starting positions.
  */
@@ -254,15 +349,10 @@ export function animalHomeAnchors(
   const cy = worldH / 2;
   const radius = Math.min(worldW, worldH) * 0.28;
 
-  const seedRand = (salt: number) => {
-    let h = ((roomId | 0) * 374761393 + salt * 668265263) >>> 0;
-    h = ((h ^ (h >>> 13)) * 1274126177) >>> 0;
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-  };
-
-  const bullAngle = seedRand(1) * Math.PI * 2;
+  const anglePrng = mulberry32(fnv1aHash(roomId, 0xa11_face));
+  const bullAngle = anglePrng() * Math.PI * 2;
   // Place the cow roughly opposite the bull (±~17°) so they don't overlap on spawn.
-  const cowAngle = bullAngle + Math.PI + (seedRand(2) - 0.5) * 0.6;
+  const cowAngle = bullAngle + Math.PI + (anglePrng() - 0.5) * 0.6;
 
   const bullRaw = { x: cx + Math.cos(bullAngle) * radius, y: cy + Math.sin(bullAngle) * radius };
   const cowRaw = { x: cx + Math.cos(cowAngle) * radius, y: cy + Math.sin(cowAngle) * radius };
@@ -271,4 +361,9 @@ export function animalHomeAnchors(
     bull: clampWorldTopLeft(bullRaw.x, bullRaw.y, tileSize, worldCols, worldRows),
     cow: clampWorldTopLeft(cowRaw.x, cowRaw.y, tileSize, worldCols, worldRows),
   };
+}
+
+/** Seed for the per-animal PRNG; stable across processes for the same `(roomId, kind)`. */
+export function animalSeedBase(roomId: number, kind: AnimalKind): number {
+  return fnv1aHash(roomId, KIND_SEED_SALT[kind]);
 }
