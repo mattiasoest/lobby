@@ -41,6 +41,7 @@ import {
   type RemoteSample,
 } from './worldMath.ts';
 import { createViewportRain, rainEnabledForRoomId, type ViewportRainApi } from './roomRain.ts';
+import { Animal, animalHomeAnchors, loadAnimalTextures, type AnimalTextureMap } from './animals.ts';
 
 export type RoomPixiRunnerOptions = {
   mount: HTMLElement;
@@ -61,6 +62,11 @@ export type RoomPixiRunnerOptions = {
     idle: string;
     walk: string;
   };
+  /** Animal spritesheet URLs (Vite imports). */
+  animalTextureSrc: {
+    bull: string;
+    cow: string;
+  };
   onBootstrapComplete?: () => void;
 };
 
@@ -74,6 +80,9 @@ export class RoomPixiRunner {
   private app: Application | null = null;
   private worldRef: Container | null = null;
   private layerRef: Container | null = null;
+  private animalLayerRef: Container | null = null;
+  private animalsRef: Animal[] = [];
+  private animalTextures: AnimalTextureMap | null = null;
   private speechBubbleWorldRef: Container | null = null;
   private speechBubbleLayoutRef = new Map<string, SpeechBubbleLayout>();
   /** Avatar + name label; position is world top-left of the avatar quad. */
@@ -124,6 +133,7 @@ export class RoomPixiRunner {
       worldSpawnPx,
       grassTextureSrc,
       characterTextureSrc,
+      animalTextureSrc,
       onBootstrapComplete,
     } = this.opts;
 
@@ -156,12 +166,14 @@ export class RoomPixiRunner {
     const world = new Container();
     this.worldRef = world;
 
-    const [grassResult, characterResult] = await Promise.all([
+    const [grassResult, characterResult, animalResult] = await Promise.all([
       Assets.load(grassTextureSrc).catch(() => null),
       loadCharacterTextures(characterTextureSrc.idle, characterTextureSrc.walk),
+      loadAnimalTextures(animalTextureSrc.bull, animalTextureSrc.cow),
     ]);
     const grassTexture = grassResult ?? null;
     this.characterTextures = characterResult;
+    this.animalTextures = animalResult;
     if (this.cancelBootstrap) {
       await app.destroy();
       return;
@@ -174,6 +186,11 @@ export class RoomPixiRunner {
       });
       world.addChild(grass);
     }
+
+    const animalLayer = new Container();
+    this.animalLayerRef = animalLayer;
+    world.addChild(animalLayer);
+    this.spawnAnimals();
 
     const layer = new Container();
     this.layerRef = layer;
@@ -347,6 +364,13 @@ export class RoomPixiRunner {
       const spriteOverhang = spriteOverhangForTileSize(tileSize);
       const dtSec = Math.max(dt, 1e-4);
       const dtMs = ticker.deltaMS;
+
+      const animalList = this.animalsRef;
+      if (animalList.length > 0) {
+        for (const animal of animalList) {
+          animal.update(dtMs, tileSize, worldCols, worldRows, now);
+        }
+      }
       for (const player of playerList) {
         const root = this.playerRootByIdRef.get(player.id);
         if (!root) continue;
@@ -428,6 +452,30 @@ export class RoomPixiRunner {
     window.addEventListener('blur', this.blur);
 
     onBootstrapComplete?.();
+  }
+
+  /**
+   * Populate the animal layer with one bull + one cow at deterministic per-room positions.
+   * Safe to call when {@link animalTextures} failed to load — simply does nothing.
+   */
+  private spawnAnimals(): void {
+    const animalLayer = this.animalLayerRef;
+    const textures = this.animalTextures;
+    if (!animalLayer || !textures) return;
+
+    for (const animal of this.animalsRef) animal.destroy();
+    this.animalsRef = [];
+
+    const { tileSize, worldCols, worldRows } = this.opts.dimensions;
+    const homes = animalHomeAnchors(this.opts.roomId, tileSize, worldCols, worldRows);
+
+    const bull = new Animal(textures.bull, tileSize, homes.bull.x, homes.bull.y);
+    animalLayer.addChild(bull.view);
+    this.animalsRef.push(bull);
+
+    const cow = new Animal(textures.cow, tileSize, homes.cow.x, homes.cow.y);
+    animalLayer.addChild(cow.view);
+    this.animalsRef.push(cow);
   }
 
   rebuildPlayerLayer(players: PlayerDTO[], localId: string | null, tileSize: number): void {
@@ -609,6 +657,10 @@ export class RoomPixiRunner {
     this.remoteSpeedSmoothedRef.clear();
     this.remoteBurstUntilRef.clear();
     this.characterTextures = null;
+    for (const animal of this.animalsRef) animal.destroy();
+    this.animalsRef = [];
+    this.animalTextures = null;
+    this.animalLayerRef = null;
     this.layerRef = null;
     this.speechBubbleWorldRef = null;
     this.speechBubbleLayoutRef.clear();
