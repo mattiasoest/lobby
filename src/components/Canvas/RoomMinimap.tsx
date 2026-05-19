@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import { drawMinimap, MINIMAP_HEIGHT, MINIMAP_WIDTH } from '../../game/room/minimap.ts';
 import type { RoomCanvasSyncState } from '../../game/room/syncState.ts';
+import { Minimap } from '../../game/room/Minimap.ts';
 
 export type RoomMinimapProps = {
   syncRef: RefObject<RoomCanvasSyncState>;
@@ -14,6 +14,7 @@ export type RoomMinimapProps = {
  */
 export function RoomMinimap({ syncRef, active }: RoomMinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const minimapRef = useRef(new Minimap());
 
   useEffect(() => {
     if (!active) return;
@@ -25,7 +26,7 @@ export function RoomMinimap({ syncRef, active }: RoomMinimapProps) {
       if (canvas && snapshot) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          drawMinimap(ctx, snapshot, MINIMAP_WIDTH, MINIMAP_HEIGHT);
+          minimapRef.current.draw(ctx, snapshot);
         }
       }
       rafId = requestAnimationFrame(paint);
@@ -35,5 +36,13 @@ export function RoomMinimap({ syncRef, active }: RoomMinimapProps) {
     return () => cancelAnimationFrame(rafId);
   }, [active, syncRef]);
 
-  return <canvas ref={canvasRef} className="room-minimap" width={MINIMAP_WIDTH} height={MINIMAP_HEIGHT} aria-hidden />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="room-minimap"
+      width={Minimap.DEFAULT_WIDTH}
+      height={Minimap.DEFAULT_HEIGHT}
+      aria-hidden
+    />
+  );
 }
