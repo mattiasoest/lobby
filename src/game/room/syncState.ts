@@ -1,4 +1,5 @@
 import type { PlayerDTO } from '../../types.ts';
+import type { MinimapSnapshot } from './minimap.ts';
 
 export type RoomCanvasSyncState = {
   players: PlayerDTO[];
@@ -12,6 +13,8 @@ export type RoomCanvasSyncState = {
   onPositionSync: (pos: { x: number; y: number }) => void;
   localSpeechBubble: string | null;
   remoteSpeechBubbles: ReadonlyMap<string, string>;
+  /** Updated each Pixi tick by {@link RoomPixiRunner}; read by the minimap overlay. */
+  minimapSnapshot: MinimapSnapshot | null;
 };
 
 export function createInitialSyncState(): RoomCanvasSyncState {
@@ -27,5 +30,6 @@ export function createInitialSyncState(): RoomCanvasSyncState {
     onPositionSync: () => {},
     localSpeechBubble: null,
     remoteSpeechBubbles: new Map(),
+    minimapSnapshot: null,
   };
 }

@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { decodeJwtPayload } from '../../app/store.ts';
 import { useAuth } from '../../app/authContext.tsx';
 import { CanvasLoadingFallback } from '../../components/Canvas/CanvasLoadingFallback.tsx';
+import { RoomMinimap } from '../../components/Canvas/RoomMinimap.tsx';
 import { canvasViewPixels } from '../../components/Canvas/canvasLoaderLayout.ts';
 import { ChatBox } from '../../components/Chat/ChatBox.tsx';
 import { RoomPlayerList } from '../../components/UI/RoomPlayerList.tsx';
@@ -130,6 +131,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
   useEffect(() => {
     rosterStructureKeyRef.current = '';
     syncRef.current.players = [];
+    syncRef.current.minimapSnapshot = null;
     queueMicrotask(() => {
       setServerPlayers([]);
     });
@@ -383,6 +385,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
                   <CanvasLoadingFallback />
                 </div>
               )}
+              {pixiCanvasReady && <RoomMinimap syncRef={syncRef} active={pixiCanvasReady} />}
               <ChatBox
                 className="chat--canvas-hud"
                 messages={messages}

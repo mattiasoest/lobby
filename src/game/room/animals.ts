@@ -131,6 +131,7 @@ type AnimalLeg = {
  * the inner padded quad (see {@link clampWorldTopLeft}).
  */
 export class Animal {
+  readonly kind: AnimalKind;
   readonly view: Container;
   private readonly sprite: Sprite;
   private readonly textures: AnimalTextureSet;
@@ -150,6 +151,7 @@ export class Animal {
   private frameIndex = 0;
 
   constructor(
+    kind: AnimalKind,
     textures: AnimalTextureSet,
     tileSize: number,
     worldCols: number,
@@ -158,6 +160,7 @@ export class Animal {
     homeY: number,
     seedBase: number,
   ) {
+    this.kind = kind;
     this.textures = textures;
     this.homeX = homeX;
     this.homeY = homeY;
@@ -229,6 +232,11 @@ export class Animal {
 
     this.view.position.set(this.x, this.y);
     this.applyFrame();
+  }
+
+  /** World top-left of the inner padded quad (same convention as players). */
+  getPosition(): { x: number; y: number } {
+    return { x: this.x, y: this.y };
   }
 
   private applyFrame(): void {

@@ -42,6 +42,7 @@ import {
 } from './worldMath.ts';
 import { createViewportRain, rainEnabledForRoomId, type ViewportRainApi } from './roomRain.ts';
 import { Animal, animalHomeAnchors, animalSeedBase, loadAnimalTextures, type AnimalTextureMap } from './animals.ts';
+import type { MinimapSnapshot } from './minimap.ts';
 
 export type RoomPixiRunnerOptions = {
   mount: HTMLElement;
@@ -355,10 +356,14 @@ export class RoomPixiRunner {
         }
       }
 
+      let viewLeft = 0;
+      let viewTop = 0;
       const worldContainer = this.worldRef;
       if (worldContainer) {
-        const { left, top } = scrollWorldPx(local.x, local.y, size, viewW, viewH, worldW, worldH);
-        worldContainer.position.set(-left, -top);
+        const scrolled = scrollWorldPx(local.x, local.y, size, viewW, viewH, worldW, worldH);
+        viewLeft = scrolled.left;
+        viewTop = scrolled.top;
+        worldContainer.position.set(-viewLeft, -viewTop);
       }
 
       const spriteOverhang = spriteOverhangForTileSize(tileSize);
@@ -430,6 +435,37 @@ export class RoomPixiRunner {
         syncState.onPositionSync({ x: local.x, y: local.y });
       }
 
+      const avatarCenter = (topLeftX: number, topLeftY: number) => ({
+        x: topLeftX + size / 2,
+        y: topLeftY + size / 2,
+      });
+      const minimapPlayers = [];
+      for (const player of playerList) {
+        const isLocalPlayer = !!localId && player.id === localId;
+        const pos = isLocalPlayer ? local : this.remotePxRef.get(player.id);
+        if (!pos) continue;
+        const center = avatarCenter(pos.x, pos.y);
+        minimapPlayers.push({
+          id: player.id,
+          x: center.x,
+          y: center.y,
+          color: avatarColorOrFallback(player.id, player.color),
+          isLocal: isLocalPlayer,
+        });
+      }
+      const minimapAnimals = animalList.map((animal) => {
+        const pos = animal.getPosition();
+        const center = avatarCenter(pos.x, pos.y);
+        return { kind: animal.kind, x: center.x, y: center.y };
+      });
+      syncState.minimapSnapshot = {
+        worldW,
+        worldH,
+        viewport: { x: viewLeft, y: viewTop, w: viewW, h: viewH },
+        players: minimapPlayers,
+        animals: minimapAnimals,
+      } satisfies MinimapSnapshot;
+
       this.viewportRain?.update(ticker.deltaMS);
     };
 
@@ -470,6 +506,7 @@ export class RoomPixiRunner {
     const homes = animalHomeAnchors(this.opts.roomId, tileSize, worldCols, worldRows);
 
     const bull = new Animal(
+      'bull',
       textures.bull,
       tileSize,
       worldCols,
@@ -482,6 +519,7 @@ export class RoomPixiRunner {
     this.animalsRef.push(bull);
 
     const cow = new Animal(
+      'cow',
       textures.cow,
       tileSize,
       worldCols,
@@ -677,6 +715,7 @@ export class RoomPixiRunner {
     this.animalsRef = [];
     this.animalTextures = null;
     this.animalLayerRef = null;
+    this.opts.syncRef.current.minimapSnapshot = null;
     this.layerRef = null;
     this.speechBubbleWorldRef = null;
     this.speechBubbleLayoutRef.clear();
