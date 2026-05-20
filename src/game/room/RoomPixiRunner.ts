@@ -41,6 +41,7 @@ import {
   type RemoteSample,
 } from './worldMath.ts';
 import { createViewportRain, rainEnabledForRoomId, type ViewportRainApi } from './roomRain.ts';
+import { createWorldSnow, snowEnabledForRoomId, type WorldSnowApi } from './roomSnow.ts';
 import { Animal, animalHomeAnchors, animalSeedBase, loadAnimalTextures, type AnimalTextureMap } from './animals.ts';
 import type { MinimapSnapshot } from './Minimap.ts';
 
@@ -94,6 +95,7 @@ export class RoomPixiRunner {
   private characterTextures: CharacterTextureSet | null = null;
   private tickerFn: ((ticker: Ticker) => void) | null = null;
   private viewportRain: ViewportRainApi | null = null;
+  private worldSnow: WorldSnowApi | null = null;
 
   private keysInternal = createMoveKeysState();
   private localPxRef = { x: 0, y: 0 };
@@ -196,6 +198,15 @@ export class RoomPixiRunner {
     const layer = new Container();
     this.layerRef = layer;
     world.addChild(layer);
+
+    // Weather lives inside `world` so flake positions are world coordinates and the camera
+    // walks through them. Inserted before speech bubbles so chat stays readable.
+    const weatherWorld = new Container();
+    weatherWorld.eventMode = 'none';
+    world.addChild(weatherWorld);
+    if (snowEnabledForRoomId(this.opts.roomId)) {
+      this.worldSnow = createWorldSnow(weatherWorld);
+    }
 
     const speechBubbleRoot = new Container();
     this.speechBubbleWorldRef = speechBubbleRoot;
@@ -467,6 +478,7 @@ export class RoomPixiRunner {
       } satisfies MinimapSnapshot;
 
       this.viewportRain?.update(ticker.deltaMS);
+      this.worldSnow?.update(ticker.deltaMS, { left: viewLeft, top: viewTop, w: viewW, h: viewH });
     };
 
     this.tickerFn = tickRun;
@@ -695,6 +707,8 @@ export class RoomPixiRunner {
 
     this.viewportRain?.destroy();
     this.viewportRain = null;
+    this.worldSnow?.destroy();
+    this.worldSnow = null;
 
     const app = this.app;
     if (app?.ticker && this.tickerFn) {
