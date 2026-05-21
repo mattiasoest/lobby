@@ -23,8 +23,8 @@ const LazyPixiRoomCanvas = lazy(() =>
 );
 
 const TILE = 32;
-const VIEW_COLS = 32;
-const VIEW_ROWS = 20;
+const VIEW_COLS = 30;
+const VIEW_ROWS = 18;
 const WORLD_COLS = 48;
 const WORLD_ROWS = 32;
 
