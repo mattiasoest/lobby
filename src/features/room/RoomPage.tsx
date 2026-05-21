@@ -341,10 +341,10 @@ export function RoomPage({ roomId }: { roomId: number }) {
   return (
     <div className="room-page">
       <header className="room-header">
-        <h2>Room {roomId}</h2>
         <p className="muted">
           {socketConnected ? 'Connected' : 'Connecting…'} {socketId ? `· Socket ${socketId.slice(0, 6)}` : ''}
         </p>
+        <h2>Room {roomId}</h2>
       </header>
 
       <div className="room-shell">
