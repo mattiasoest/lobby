@@ -1,4 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ROOM_IDS } from '../../app/constants.ts';
 import { decodeJwtPayload } from '../../app/store.ts';
 import { useAuth } from '../../app/authContext.tsx';
 import { CanvasLoadingFallback } from '../../components/Canvas/CanvasLoadingFallback.tsx';
@@ -340,16 +342,27 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   return (
     <div className="room-page">
-      <header className="room-header">
-        <p className="muted">
-          {socketConnected ? 'Connected' : 'Connecting…'} {socketId ? `· Socket ${socketId.slice(0, 6)}` : ''}
-        </p>
-        <h2>Room {roomId}</h2>
-      </header>
-
       <div className="room-shell">
         <div className="room-stage">
           <div className="room-canvas-bleed">
+            <div className="room-switcher-bar">
+              <p className="muted room-connection-status">
+                {socketConnected ? 'Connected' : 'Connecting…'}
+                {socketId ? ` · Socket ${socketId.slice(0, 6)}` : ''}
+              </p>
+              <nav className="room-switcher" aria-label="Switch room">
+                {ROOM_IDS.map((id) => (
+                  <Link
+                    key={id}
+                    to={`/room/${id}`}
+                    className={`room-switcher-btn${id === roomId ? ' room-switcher-btn--active' : ''}`}
+                    aria-current={id === roomId ? 'page' : undefined}
+                  >
+                    Room {id}
+                  </Link>
+                ))}
+              </nav>
+            </div>
             <div
               className="pixi-mount-host"
               style={{
