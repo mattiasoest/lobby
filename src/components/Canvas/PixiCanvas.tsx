@@ -1,6 +1,6 @@
 import grassBg from '../../assets/bg/grass.jpg';
-import characterIdleSpriteSrc from '../../assets/bg/character/Idle.png';
-import characterWalkSpriteSrc from '../../assets/bg/character/Walk.png';
+import characterIdleSpriteSrc from '../../assets/character/idle.png';
+import characterWalkSpriteSrc from '../../assets/character/walk.png';
 import bullSpriteSrc from '../../assets/entities/bull.png';
 import cowSpriteSrc from '../../assets/entities/cow.png';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
