@@ -81,14 +81,16 @@ export class RoomPixiRunner {
   private cancelBootstrap = false;
   private app: Application | null = null;
   private worldRef: Container | null = null;
-  private layerRef: Container | null = null;
+  private playerBodyLayerRef: Container | null = null;
+  private playerNameLayerRef: Container | null = null;
   private animalLayerRef: Container | null = null;
   private animalsRef: Animal[] = [];
   private animalTextures: AnimalTextureMap | null = null;
   private speechBubbleWorldRef: Container | null = null;
   private speechBubbleLayoutRef = new Map<string, SpeechBubbleLayout>();
-  /** Avatar + name label; position is world top-left of the avatar quad. */
+  /** Avatar body; position is world top-left of the avatar quad. */
   private playerRootByIdRef = new Map<string, Container>();
+  private playerNameLabelByIdRef = new Map<string, Text>();
   private playerAvatarByIdRef = new Map<string, PlayerAvatar>();
   /** Last rendered world position per player; used to derive velocity for the avatar animation. */
   private prevRenderedPxRef = new Map<string, { x: number; y: number }>();
@@ -195,9 +197,10 @@ export class RoomPixiRunner {
     world.addChild(animalLayer);
     this.spawnAnimals();
 
-    const layer = new Container();
-    this.layerRef = layer;
-    world.addChild(layer);
+    const playerBodyLayer = new Container();
+    playerBodyLayer.sortableChildren = true;
+    this.playerBodyLayerRef = playerBodyLayer;
+    world.addChild(playerBodyLayer);
 
     // Weather lives inside `world` so flake positions are world coordinates and the camera
     // walks through them. Inserted before speech bubbles so chat stays readable.
@@ -207,6 +210,11 @@ export class RoomPixiRunner {
     if (snowEnabledForRoomId(this.opts.roomId)) {
       this.worldSnow = createWorldSnow(weatherWorld);
     }
+
+    const playerNameLayer = new Container();
+    playerNameLayer.sortableChildren = true;
+    this.playerNameLayerRef = playerNameLayer;
+    world.addChild(playerNameLayer);
 
     const speechBubbleRoot = new Container();
     this.speechBubbleWorldRef = speechBubbleRoot;
@@ -387,6 +395,11 @@ export class RoomPixiRunner {
           animal.update();
         }
       }
+      const nameCenterX = this.characterTextures ? size / 2 - pad : size / 2;
+      const nameLabelY = -spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX;
+      const playerBodyLayer = this.playerBodyLayerRef;
+      const playerNameLayer = this.playerNameLayerRef;
+
       for (const player of playerList) {
         const root = this.playerRootByIdRef.get(player.id);
         if (!root) continue;
@@ -394,6 +407,13 @@ export class RoomPixiRunner {
         const pos = isLocal ? local : this.remotePxRef.get(player.id);
         if (!pos) continue;
         root.position.set(pos.x, pos.y);
+        root.zIndex = pos.y;
+
+        const nameLabel = this.playerNameLabelByIdRef.get(player.id);
+        if (nameLabel) {
+          nameLabel.position.set(pos.x + nameCenterX, pos.y + nameLabelY);
+          nameLabel.zIndex = pos.y;
+        }
 
         const avatar = this.playerAvatarByIdRef.get(player.id);
         if (avatar) {
@@ -408,6 +428,9 @@ export class RoomPixiRunner {
           this.prevRenderedPxRef.set(player.id, { x: pos.x, y: pos.y });
         }
       }
+
+      playerBodyLayer?.sortChildren();
+      playerNameLayer?.sortChildren();
 
       // Drop prev-position cache for players that have left.
       const activeIds = new Set<string>();
@@ -545,13 +568,18 @@ export class RoomPixiRunner {
   }
 
   rebuildPlayerLayer(players: PlayerDTO[], localId: string | null, tileSize: number): void {
-    const layer = this.layerRef;
-    if (!layer) return;
+    const bodyLayer = this.playerBodyLayerRef;
+    const nameLayer = this.playerNameLayerRef;
+    if (!bodyLayer || !nameLayer) return;
 
-    for (let idx = layer.children.length - 1; idx >= 0; idx -= 1) {
-      layer.removeChildAt(idx).destroy({ children: true });
+    for (let idx = bodyLayer.children.length - 1; idx >= 0; idx -= 1) {
+      bodyLayer.removeChildAt(idx).destroy({ children: true });
+    }
+    for (let idx = nameLayer.children.length - 1; idx >= 0; idx -= 1) {
+      nameLayer.removeChildAt(idx).destroy({ children: true });
     }
     this.playerRootByIdRef.clear();
+    this.playerNameLabelByIdRef.clear();
     this.playerAvatarByIdRef.clear();
     this.prevRenderedPxRef.clear();
     this.remotePxRef.clear();
@@ -602,9 +630,6 @@ export class RoomPixiRunner {
       nameLabel.anchor.set(0.5, 1);
       // Sprite view is shifted left by pad; sprite center world-x is size/2 - pad (Graphic fallback stays size/2).
       const nameCenterX = characterTextures ? size / 2 - pad : size / 2;
-      nameLabel.position.set(nameCenterX, -spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX);
-
-      root.addChild(nameLabel);
 
       let px = player.x;
       let py = player.y;
@@ -618,10 +643,18 @@ export class RoomPixiRunner {
         this.lastServerSnapRef.set(player.id, { x: player.x, y: player.y });
       }
       root.position.set(px, py);
+      root.zIndex = py;
+      nameLabel.position.set(px + nameCenterX, py - spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX);
+      nameLabel.zIndex = py;
       this.prevRenderedPxRef.set(player.id, { x: px, y: py });
       this.playerRootByIdRef.set(player.id, root);
-      layer.addChild(root);
+      this.playerNameLabelByIdRef.set(player.id, nameLabel);
+      bodyLayer.addChild(root);
+      nameLayer.addChild(nameLabel);
     }
+
+    bodyLayer.sortChildren();
+    nameLayer.sortChildren();
   }
 
   applyRoomSpawn(worldSpawnX: number, worldSpawnY: number): void {
@@ -716,6 +749,7 @@ export class RoomPixiRunner {
     }
     this.tickerFn = null;
     this.playerRootByIdRef.clear();
+    this.playerNameLabelByIdRef.clear();
     this.playerAvatarByIdRef.clear();
     this.prevRenderedPxRef.clear();
     this.remotePxRef.clear();
@@ -730,7 +764,8 @@ export class RoomPixiRunner {
     this.animalTextures = null;
     this.animalLayerRef = null;
     this.opts.syncRef.current.minimapSnapshot = null;
-    this.layerRef = null;
+    this.playerBodyLayerRef = null;
+    this.playerNameLayerRef = null;
     this.speechBubbleWorldRef = null;
     this.speechBubbleLayoutRef.clear();
     this.worldRef = null;
