@@ -1,10 +1,12 @@
 import grassBg from '../../assets/bg/grass.jpg';
+import snowBg from '../../assets/bg/snow256x.jpg';
 import characterIdleSpriteSrc from '../../assets/character/idle.png';
 import characterWalkSpriteSrc from '../../assets/character/walk.png';
 import bullSpriteSrc from '../../assets/entities/bull.png';
 import cowSpriteSrc from '../../assets/entities/cow.png';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { RoomPixiRunner, type RoomCanvasSyncState } from '../../game/room/index.ts';
+import { backgroundTextureSrcForRoomId } from '../../game/room/roomBackground.ts';
 import type { PlayerDTO } from '../../types.ts';
 
 /** Whole-tile columns from inner host width (no CSS scale). */
@@ -123,7 +125,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
       dimensions: { tileSize, viewCols: layoutViewCols, viewRows, worldCols, worldRows },
       worldSpawnPx,
       roomId,
-      grassTextureSrc: grassBg,
+      grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, snowBg),
       characterTextureSrc: {
         idle: characterIdleSpriteSrc,
         walk: characterWalkSpriteSrc,

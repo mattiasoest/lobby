@@ -42,6 +42,7 @@ import {
 } from './worldMath.ts';
 import { createViewportRain, rainEnabledForRoomId, type ViewportRainApi } from './roomRain.ts';
 import { createWorldSnow, snowEnabledForRoomId, type WorldSnowApi } from './roomSnow.ts';
+import { backgroundColorForRoomId } from './roomBackground.ts';
 import { Animal, animalHomeAnchors, animalSeedBase, loadAnimalTextures, type AnimalTextureMap } from './animals.ts';
 import type { MinimapSnapshot } from './Minimap.ts';
 
@@ -155,7 +156,7 @@ export class RoomPixiRunner {
     await app.init({
       width: viewPixelW,
       height: viewPixelH,
-      backgroundColor: 0x1a2e1a,
+      backgroundColor: backgroundColorForRoomId(this.opts.roomId),
       antialias: true,
     });
     if (this.cancelBootstrap) {
