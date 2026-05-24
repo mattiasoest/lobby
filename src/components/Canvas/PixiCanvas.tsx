@@ -1,5 +1,5 @@
 import grassBg from '../../assets/bg/grass.jpg';
-import snowBg from '../../assets/bg/snow256x.jpg';
+import snowBg from '../../assets/bg/snow.jpg';
 import characterIdleSpriteSrc from '../../assets/character/idle.png';
 import characterWalkSpriteSrc from '../../assets/character/walk.png';
 import bullSpriteSrc from '../../assets/entities/bull.png';
