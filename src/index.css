@@ -177,14 +177,22 @@ code {
 
 .login-page {
   min-height: calc(100svh - 48px);
-  padding: 32px 0;
+  padding: clamp(48px, 10vh, 88px) var(--page-gutter-x) 32px;
+  place-items: start center;
+  align-content: start;
 }
 
 .login-shell {
-  width: min(520px, 100%);
+  width: min(400px, 100%);
   display: grid;
   gap: 20px;
   justify-items: center;
+  padding: 2.5rem 2rem 2rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  box-sizing: border-box;
 }
 
 .login-title {
