@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { bootstrapServerSession, clearSessionBootstrapCache } from '../features/auth/oauthBootstrap.ts';
 import type { ProvidersResponse } from '../services/messagesApi.ts';
-import { devLogin, fetchProviders, fetchRoomMessages } from '../services/messagesApi.ts';
+import { devLogin, fetchProviders, fetchRoomMessages, guestLogin } from '../services/messagesApi.ts';
 import { queryKeys } from './keys.ts';
 
 export function useAuthProvidersQuery() {
@@ -26,6 +26,17 @@ export function useDevLoginMutation(opts: { setToken: (token: string) => void })
   const navigate = useNavigate();
   return useMutation({
     mutationFn: (username: string) => devLogin(username),
+    onSuccess: (accessToken) => {
+      opts.setToken(accessToken);
+      navigate('/lobby', { replace: true });
+    },
+  });
+}
+
+export function useGuestLoginMutation(opts: { setToken: (token: string) => void }) {
+  const navigate = useNavigate();
+  return useMutation({
+    mutationFn: () => guestLogin(),
     onSuccess: (accessToken) => {
       opts.setToken(accessToken);
       navigate('/lobby', { replace: true });

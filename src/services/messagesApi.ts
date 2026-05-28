@@ -10,6 +10,7 @@ export type ProvidersResponse = {
   google: boolean;
   github: boolean;
   dev: boolean;
+  guest: boolean;
 };
 
 export function fetchProviders(): Promise<ProvidersResponse> {
@@ -27,6 +28,32 @@ export async function devLogin(username: string): Promise<string> {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ username }),
+    });
+  } catch {
+    throw new Error('Could not reach the API (is `npm run dev` running in /server on port 3001?).');
+  }
+  const text = await res.text();
+  let data: { accessToken?: string; error?: string };
+  try {
+    data = JSON.parse(text) as { accessToken?: string; error?: string };
+  } catch {
+    throw new Error(
+      text.trim()
+        ? `Unexpected response (${res.status}): ${text.slice(0, 160)}`
+        : `Unexpected empty response (${res.status}).`,
+    );
+  }
+  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  if (!data.accessToken) throw new Error('missing access token');
+  return data.accessToken;
+}
+
+export async function guestLogin(): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(apiUrl('/api/auth/guest-login'), {
+      method: 'POST',
+      credentials: 'include',
     });
   } catch {
     throw new Error('Could not reach the API (is `npm run dev` running in /server on port 3001?).');

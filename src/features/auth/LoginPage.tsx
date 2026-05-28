@@ -1,6 +1,6 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../app/authContext.tsx';
-import { useAuthProvidersQuery, useDevLoginMutation } from '../../query/hooks.ts';
+import { useAuthProvidersQuery, useDevLoginMutation, useGuestLoginMutation } from '../../query/hooks.ts';
 import { apiUrl } from '../../services/apiOrigin.ts';
 import { useCallback, useState } from 'react';
 
@@ -38,6 +38,17 @@ function GitHubIcon() {
   );
 }
 
+function GuestIcon() {
+  return (
+    <svg className="login-provider-icon login-provider-icon--mono" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2.25c-3.5 0-9 1.75-9 5.25v1.5h18v-1.5c0-3.5-5.5-5.25-9-5.25z"
+      />
+    </svg>
+  );
+}
+
 function formatLoginError(paramError: string | null, mutationError: unknown, localError: string | null): string | null {
   if (localError) return localError;
   if (paramError) {
@@ -55,14 +66,15 @@ export function LoginPage() {
 
   const providersQuery = useAuthProvidersQuery();
   const devLoginMut = useDevLoginMutation({ setToken });
+  const guestLoginMut = useGuestLoginMutation({ setToken });
   const providers = providersQuery.isError
-    ? { google: false, github: false, dev: false }
+    ? { google: false, github: false, dev: false, guest: false }
     : (providersQuery.data ?? null);
   const [devName, setDevName] = useState('explorer');
   const [error, setError] = useState<string | null>(null);
 
   const paramError = search.get('error');
-  const displayError = formatLoginError(paramError, devLoginMut.error, error);
+  const displayError = formatLoginError(paramError, devLoginMut.error ?? guestLoginMut.error, error);
 
   const startGoogle = useCallback(() => {
     window.location.href = apiUrl('/api/auth/google');
@@ -77,7 +89,12 @@ export function LoginPage() {
     devLoginMut.mutate(devName.trim() || 'explorer');
   }, [devLoginMut, devName]);
 
-  const providerCount = [providers?.google, providers?.github].filter(Boolean).length;
+  const handleGuestLogin = useCallback(() => {
+    setError(null);
+    guestLoginMut.mutate();
+  }, [guestLoginMut]);
+
+  const providerCount = [providers?.google, providers?.github, providers?.guest].filter(Boolean).length;
 
   if (!sessionReady) {
     return (
@@ -113,10 +130,22 @@ export function LoginPage() {
                 <span>Sign in with GitHub</span>
               </button>
             ) : null}
+
+            {providers?.guest ? (
+              <button
+                type="button"
+                className="login-provider login-provider--guest"
+                disabled={guestLoginMut.isPending}
+                onClick={handleGuestLogin}
+              >
+                <GuestIcon />
+                <span>{guestLoginMut.isPending ? 'Signing in…' : 'Continue as guest'}</span>
+              </button>
+            ) : null}
           </div>
         ) : null}
 
-        {!providers?.google && !providers?.github && !providers?.dev && providers !== null ? (
+        {!providers?.google && !providers?.github && !providers?.guest && !providers?.dev && providers !== null ? (
           <p className="login-empty">No sign-in providers are configured.</p>
         ) : null}
 

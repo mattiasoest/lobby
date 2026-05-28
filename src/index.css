@@ -300,6 +300,21 @@ code {
   background: #2f363d;
 }
 
+.login-provider--guest {
+  background: var(--social-bg);
+  color: var(--text-h);
+  border: 1px solid var(--border);
+}
+
+.login-provider--guest:not(:disabled):hover {
+  filter: brightness(0.97);
+}
+
+.login-provider--guest:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .login-dev {
   width: 100%;
   max-width: 280px;

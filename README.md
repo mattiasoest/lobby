@@ -1,6 +1,6 @@
 # Lobby
 
-Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **PostgreSQL**, and **Socket.IO** for presence/chat-style features. Auth uses a **short-lived access JWT in memory** (React state). A **rotating refresh token** lives in an **httpOnly cookie** on `/api/auth`; the app calls **`POST /api/auth/refresh`** on startup to restore access in new tabs without keeping the JWT in `localStorage` (legacy `lobby_token` is cleared on boot). Optional **Google/GitHub OAuth** and a **dev login** shortcut round out local development.
+Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **PostgreSQL**, and **Socket.IO** for presence/chat-style features. Auth uses a **short-lived access JWT in memory** (React state). A **rotating refresh token** lives in an **httpOnly cookie** on `/api/auth`; the app calls **`POST /api/auth/refresh`** on startup to restore access in new tabs without keeping the JWT in `localStorage` (legacy `lobby_token` is cleared on boot). Optional **Google/GitHub OAuth**, a one-click **guest login**, and a **dev login** shortcut round out the sign-in options.
 
 ## Prerequisites
 
@@ -48,6 +48,7 @@ Create `server/.env` (see values below). The server **exits on startup** if `JWT
 | `FRONTEND_URL`                              | recommended | Origin of the Vite app for CORS (default `http://localhost:5173`)                                                             |
 | `SERVER_PUBLIC_URL`                         | for OAuth   | Public URL of this API (default `http://localhost:3001`); used in OAuth callback URLs                                         |
 | `ALLOW_DEV_LOGIN`                           | optional    | Set to `1` to enable **POST `/api/auth/dev-login`** and the dev login button on the sign-in page. **Turn off in production.** |
+| `ALLOW_GUEST_LOGIN`                         | optional    | Set to `0` to disable **POST `/api/auth/guest-login`** and the “Continue as guest” button. Defaults **on**.                   |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional    | Enable “Continue with Google” when both are set                                                                               |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional    | Enable “Continue with GitHub” when both are set                                                                               |
 
@@ -101,9 +102,10 @@ Use the **Vite dev URL** (`http://localhost:5173`) so API routes are proxied. Op
 
 ## Sign-in options
 
-1. **Dev login** — With `ALLOW_DEV_LOGIN=1`, use the dev section on `/login` to pick a display name. The API returns a short-lived **`accessToken`** (JSON) and sets the **httpOnly refresh cookie**; the client keeps the access token in memory only.
-2. **Google** — Enable when **`GOOGLE_CLIENT_ID`** and **`GOOGLE_CLIENT_SECRET`** are both set in `server/.env` (see below).
-3. **GitHub** — Enable when **`GITHUB_CLIENT_ID`** and **`GITHUB_CLIENT_SECRET`** are both set in `server/.env` (see below).
+1. **Guest login** — One click on **Continue as guest** creates a fresh anonymous account with a server-generated display name like `Guest-a3f2c1` (6 hex chars). Each click makes a brand-new account; the session then survives reloads via the refresh cookie like any other user. Disable with `ALLOW_GUEST_LOGIN=0`.
+2. **Dev login** — With `ALLOW_DEV_LOGIN=1`, use the dev section on `/login` to pick a display name. The API returns a short-lived **`accessToken`** (JSON) and sets the **httpOnly refresh cookie**; the client keeps the access token in memory only.
+3. **Google** — Enable when **`GOOGLE_CLIENT_ID`** and **`GOOGLE_CLIENT_SECRET`** are both set in `server/.env` (see below).
+4. **GitHub** — Enable when **`GITHUB_CLIENT_ID`** and **`GITHUB_CLIENT_SECRET`** are both set in `server/.env` (see below).
 
 After a successful OAuth flow, the API redirects the browser to **`{FRONTEND_URL}/auth/callback#access=...&rt=...`**. The SPA reads the hash, calls **`POST /api/auth/session`** to install the refresh cookie, then keeps **`access`** in memory. Load the app from **`FRONTEND_URL`** (e.g. `http://localhost:5173` in dev) so that route runs correctly.
 
@@ -182,7 +184,7 @@ Output is in `dist/`. Serving that static build still expects an API behind the 
 - **“Could not reach the API” on dev login** — API not running or wrong port; ensure `npm run dev` (or `dev:server`) is up and `VITE_PROXY_TARGET` matches if you changed the API port.
 - **`[vite] ws proxy error` / `ECONNRESET`** — Usually fixed here by not proxying Socket.IO; the client talks to the API host in dev. If you still see it, confirm the API is up before opening a room and that `VITE_PROXY_TARGET` matches `PORT` / `SERVER_PUBLIC_URL`.
 - **Database errors on login** — Postgres not running, wrong `DATABASE_URL`, or migrations not applied (`cd server && npm run migrate`).
-- **No sign-in methods** — Enable at least one of: `ALLOW_DEV_LOGIN=1`, Google credentials, or GitHub credentials.
+- **No sign-in methods** — Enable at least one of: leave `ALLOW_GUEST_LOGIN` unset (or `=1`), set `ALLOW_DEV_LOGIN=1`, or configure Google / GitHub credentials.
 - **“The redirect_uri is not associated with this application” (GitHub) / `redirect_uri_mismatch` (Google)** — Almost always: the **Authorization callback** / **Authorized redirect URI** in the provider still points at the **wrong host or port**. It must be the **API** URL (`http://localhost:3001/api/auth/github/callback` or `.../google/callback` with default settings), not `http://localhost:5173/...`. Copy-paste from the table above; save the app in GitHub/Google; ensure **`SERVER_PUBLIC_URL`** matches (no trailing slash). If you regenerated a GitHub **Client secret**, update `server/.env` and restart the server.
 - **Google “Access blocked” / consent screen** — Complete the OAuth consent screen and, if the app is in testing, add your Google account as a test user.
 

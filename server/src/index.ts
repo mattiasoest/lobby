@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
@@ -52,7 +53,43 @@ app.get('/api/auth/providers', (_req, res) => {
     google: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     github: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
     dev: process.env.ALLOW_DEV_LOGIN === '1',
+    guest: process.env.ALLOW_GUEST_LOGIN !== '0',
   });
+});
+
+app.post('/api/auth/guest-login', async (_req, res) => {
+  if (process.env.ALLOW_GUEST_LOGIN === '0') {
+    res.status(403).json({ error: 'disabled' });
+    return;
+  }
+  try {
+    const guestId = crypto.randomUUID();
+    const suffix = crypto.randomBytes(3).toString('hex');
+    const username = `Guest-${suffix}`;
+    const insertResult = await db
+      .insert(users)
+      .values({
+        provider: 'guest',
+        providerId: `guest:${guestId}`,
+        username,
+        avatar: null,
+      })
+      .returning({ id: users.id, username: users.username });
+    const row = insertResult[0];
+    if (!row) {
+      res.status(500).json({ error: 'failed' });
+      return;
+    }
+    const raw = generateRefreshSecret();
+    await persistRefreshToken(db, row.id, raw);
+    const accessToken = issueAccessToken({ id: row.id, username: row.username }, JWT_SECRET);
+    res.cookie(REFRESH_COOKIE_NAME, raw, refreshCookieOptions());
+    res.json({ accessToken });
+  } catch (error) {
+    console.error('guest-login', error);
+    const message = error instanceof Error ? error.message : 'failed';
+    res.status(500).json({ error: message });
+  }
 });
 
 app.post('/api/auth/dev-login', async (req, res) => {
