@@ -1,4 +1,5 @@
 import type { AnimalKind } from './animals.ts';
+import { rgbIntToCssHex } from './playerColor.ts';
 
 export type MinimapPlayer = {
   id: string;
@@ -69,7 +70,7 @@ export class Minimap {
 
     for (const player of snap.players) {
       if (player.isLocal) continue;
-      ctx.fillStyle = '#22c55e';
+      ctx.fillStyle = rgbIntToCssHex(player.color);
       ctx.beginPath();
       ctx.arc(player.x * scaleX, player.y * scaleY, 3, 0, Math.PI * 2);
       ctx.fill();

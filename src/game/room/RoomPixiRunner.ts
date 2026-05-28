@@ -23,7 +23,7 @@ import {
   createSpeechBubbleGroup,
   type SpeechBubbleLayout,
 } from './speechBubble.ts';
-import { avatarColorOrFallback } from './playerColor.ts';
+import { avatarMinimapColor } from './avatars.ts';
 import {
   PlayerAvatar,
   loadCharacterTextures,
@@ -512,7 +512,7 @@ export class RoomPixiRunner {
           id: player.id,
           x: center.x,
           y: center.y,
-          color: avatarColorOrFallback(player.id, player.color),
+          color: avatarMinimapColor(player.avatarId),
           isLocal: isLocalPlayer,
         });
       }
@@ -696,7 +696,7 @@ export class RoomPixiRunner {
         // Texture load failed — fall back to the original colored block.
         const graphic = new Graphics();
         graphic.rect(0, 0, size, size);
-        graphic.fill({ color: avatarColorOrFallback(player.id, player.color) });
+        graphic.fill({ color: avatarMinimapColor(player.avatarId) });
         root.addChild(graphic);
       }
 

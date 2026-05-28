@@ -9,6 +9,7 @@ export const users = pgTable(
     providerId: varchar('provider_id', { length: 255 }).notNull(),
     username: varchar('username', { length: 255 }).notNull(),
     avatar: text('avatar'),
+    avatarId: varchar('avatar_id', { length: 64 }).notNull().default('default'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [unique('users_provider_provider_id_unique').on(t.provider, t.providerId)],

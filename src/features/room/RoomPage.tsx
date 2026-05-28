@@ -13,7 +13,7 @@ import { queryKeys } from '../../query/keys.ts';
 import { queryClient } from '../../query/queryClient.ts';
 import { useRoomMessagesQuery } from '../../query/hooks.ts';
 import { isTypingTarget } from '../../game/room/keyboard.ts';
-import { useAvatarColor } from '../../app/avatarColorContext.tsx';
+import { useAvatar } from '../../app/avatarContext.tsx';
 import { createRoomSocket } from '../../services/socket.ts';
 import { createInitialSyncState, type RoomCanvasSyncState } from '../../game/room/index.ts';
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
@@ -56,7 +56,7 @@ function rosterStructureKey(players: PlayerDTO[]): string {
   if (players.length === 0) return '';
   return [...players]
     .sort((a, b) => a.id.localeCompare(b.id))
-    .map((p) => `${p.id}\0${p.username}\0${p.userId}\0${p.color}`)
+    .map((p) => `${p.id}\0${p.username}\0${p.userId}\0${p.avatarId}`)
     .join('|');
 }
 
@@ -67,7 +67,7 @@ function withGhostPlayerIfNeeded(
   spawnPx: { x: number; y: number },
   username: string | null | undefined,
   claims: ReturnType<typeof decodeJwtPayload>,
-  avatarRgb: number,
+  avatarId: string,
 ): PlayerDTO[] {
   if (!socketId || server.some((p) => p.id === socketId)) return server;
   const ghostUserId = typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : (socketId ?? 'local');
@@ -79,14 +79,14 @@ function withGhostPlayerIfNeeded(
       x: spawnPx.x,
       y: spawnPx.y,
       userId: ghostUserId,
-      color: avatarRgb,
+      avatarId,
     },
   ];
 }
 
 export function RoomPage({ roomId }: { roomId: number }) {
   const { token, username } = useAuth();
-  const { avatarRgb } = useAvatarColor();
+  const { avatarId } = useAvatar();
   const messagesQuery = useRoomMessagesQuery(roomId, token);
   const messages = messagesQuery.data ?? EMPTY_ROOM_MESSAGES;
 
@@ -113,7 +113,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     spawnPx: { x: 0, y: 0 },
     username: null as string | null | undefined,
     claims: null as ReturnType<typeof decodeJwtPayload>,
-    avatarRgb: 0,
+    avatarId: 'default',
   });
 
   const playerListStore = useMemo(() => {
@@ -155,8 +155,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
   useLayoutEffect(() => {
     serverPlayersRef.current = serverPlayers;
     selfUserIdRef.current = typeof claims?.sub === 'string' ? claims.sub : '';
-    listDepsRef.current = { spawnPx, username, claims, avatarRgb };
-  }, [serverPlayers, claims, spawnPx, username, avatarRgb]);
+    listDepsRef.current = { spawnPx, username, claims, avatarId };
+  }, [serverPlayers, claims, spawnPx, username, avatarId]);
 
   useEffect(() => {
     if (!token) return;
@@ -206,7 +206,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     function handlePlayers(payload: PlayerDTO[]) {
       serverPlayersRef.current = payload;
       const sid = sock.id ?? null;
-      const merged = withGhostPlayerIfNeeded(payload, sid, spawnPx, username, claims, avatarRgb);
+      const merged = withGhostPlayerIfNeeded(payload, sid, spawnPx, username, claims, avatarId);
       syncRef.current.players = merged;
       playerListStore.publish(merged.map((p) => ({ ...p })));
       const nextKey = rosterStructureKey(payload);
@@ -246,11 +246,10 @@ export function RoomPage({ roomId }: { roomId: number }) {
       sock.emit('player:join', {
         x: spawnPx.x,
         y: spawnPx.y,
-        color: avatarRgb,
       });
       const sid = sock.id ?? null;
       if (sid) {
-        const merged = withGhostPlayerIfNeeded(serverPlayersRef.current, sid, spawnPx, username, claims, avatarRgb);
+        const merged = withGhostPlayerIfNeeded(serverPlayersRef.current, sid, spawnPx, username, claims, avatarId);
         playerListStore.publish(merged.map((p) => ({ ...p })));
       }
     });
@@ -276,7 +275,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
       setSocketConnected(false);
       setSocketId(null);
     };
-  }, [avatarRgb, claims, playerListStore, roomId, spawnPx, token, username]);
+  }, [avatarId, claims, playerListStore, roomId, spawnPx, token, username]);
 
   const handlePositionSync = useCallback(
     (pos: { x: number; y: number }) => {
@@ -285,9 +284,9 @@ export function RoomPage({ roomId }: { roomId: number }) {
       sock.emit('player:move', pos);
       const sid = sock.id ?? null;
       if (!sid) return;
-      const { spawnPx: sp, username: un, claims: cl, avatarRgb: rgb } = listDepsRef.current;
+      const { spawnPx: sp, username: un, claims: cl, avatarId: aid } = listDepsRef.current;
       const server = serverPlayersRef.current;
-      let merged = withGhostPlayerIfNeeded(server, sid, sp, un, cl, rgb);
+      let merged = withGhostPlayerIfNeeded(server, sid, sp, un, cl, aid);
       merged = merged.map((p) => (p.id === sid ? { ...p, x: pos.x, y: pos.y } : p));
       playerListStore.publish(merged.map((p) => ({ ...p })));
     },
@@ -303,9 +302,9 @@ export function RoomPage({ roomId }: { roomId: number }) {
         spawnPx,
         username,
         claims,
-        avatarRgb,
+        avatarId,
       ),
-    [avatarRgb, claims, serverPlayers, socketId, spawnPx, username],
+    [avatarId, claims, serverPlayers, socketId, spawnPx, username],
   );
 
   const roomUsernamesLower = useMemo(

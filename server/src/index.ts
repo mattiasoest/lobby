@@ -19,6 +19,7 @@ import { createDb, createPool } from './db/client.js';
 import { users } from './db/schema.js';
 import { createRequireAuth } from './middleware/jwt.js';
 import { createAuthTokensRouter } from './routes/authTokens.js';
+import { meRouter } from './routes/me.js';
 import { messagesRouter } from './routes/messages.js';
 import { registerRoomNamespaces } from './sockets/roomHandler.js';
 import { collapseUsernameWhitespace } from './usernameNormalize.js';
@@ -137,6 +138,7 @@ app.post('/api/auth/dev-login', async (req, res) => {
 app.use('/api/auth', createAuthTokensRouter(db, JWT_SECRET));
 
 const requireAuth = createRequireAuth(JWT_SECRET);
+app.use('/api', meRouter(db, requireAuth));
 app.use('/api', messagesRouter(db, requireAuth));
 
 const httpServer = createServer(app);

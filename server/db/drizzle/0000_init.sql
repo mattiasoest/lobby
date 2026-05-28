@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS "users" (
 	"provider_id" varchar(255) NOT NULL,
 	"username" varchar(255) NOT NULL,
 	"avatar" text,
+	"avatar_id" varchar(64) DEFAULT 'default' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "users_provider_provider_id_unique" UNIQUE("provider","provider_id")
 );--> statement-breakpoint

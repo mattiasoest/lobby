@@ -226,6 +226,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "avatar_id": {
+          "name": "avatar_id",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'default'"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",

@@ -1,8 +1,9 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { bootstrapServerSession, clearSessionBootstrapCache } from '../features/auth/oauthBootstrap.ts';
 import type { ProvidersResponse } from '../services/messagesApi.ts';
 import { devLogin, fetchProviders, fetchRoomMessages, guestLogin } from '../services/messagesApi.ts';
+import { fetchMe, updateAvatar } from '../services/meApi.ts';
 import { queryKeys } from './keys.ts';
 
 export function useAuthProvidersQuery() {
@@ -19,6 +20,24 @@ export function useRoomMessagesQuery(roomId: number, token: string | null) {
     queryKey: queryKeys.rooms.messages(roomId),
     queryFn: () => fetchRoomMessages(roomId, token as string),
     enabled,
+  });
+}
+
+export function useMeQuery(token: string | null) {
+  return useQuery({
+    queryKey: queryKeys.me,
+    queryFn: () => fetchMe(token as string),
+    enabled: !!token,
+  });
+}
+
+export function useUpdateAvatarMutation(token: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (avatarId: string) => updateAvatar(token as string, avatarId),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.me, data);
+    },
   });
 }
 

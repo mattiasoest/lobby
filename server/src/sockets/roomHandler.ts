@@ -1,8 +1,9 @@
 import type { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
+import { eq } from 'drizzle-orm';
+import { sanitizeAvatarId } from '../avatars.js';
 import type { AppDatabase } from '../db/client.js';
-import { messages } from '../db/schema.js';
-import { sanitizeAvatarColor } from '../avatarColor.js';
+import { messages, users } from '../db/schema.js';
 import { maskProfanity } from '../lib/profanity.js';
 
 const TILE_PX = 32;
@@ -33,7 +34,7 @@ export type PlayerPublic = {
   x: number;
   y: number;
   userId: string;
-  color: number;
+  avatarId: string;
 };
 
 export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db: AppDatabase }) {
@@ -72,17 +73,27 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db
     };
 
     nsp.on('connection', (socket) => {
-      socket.on('player:join', (payload: { x: number; y: number; color?: number }) => {
+      socket.on('player:join', async (payload: { x: number; y: number }) => {
         const authedUser = socket.data.user as { sub: string; username: string };
         const clampedPosition = clampPlayerPx(payload.x, payload.y);
-        const color = sanitizeAvatarColor(payload.color);
+        let avatarId = sanitizeAvatarId(undefined);
+        try {
+          const rows = await db
+            .select({ avatarId: users.avatarId })
+            .from(users)
+            .where(eq(users.id, authedUser.sub))
+            .limit(1);
+          avatarId = sanitizeAvatarId(rows[0]?.avatarId);
+        } catch (error) {
+          console.error('player:join avatar lookup failed', error);
+        }
         players.set(socket.id, {
           id: socket.id,
           username: authedUser.username,
           x: clampedPosition.x,
           y: clampedPosition.y,
           userId: authedUser.sub,
-          color,
+          avatarId,
         });
         broadcastPlayers();
       });
