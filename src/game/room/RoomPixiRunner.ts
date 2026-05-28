@@ -86,7 +86,6 @@ export class RoomPixiRunner {
   private worldRef: Container | null = null;
   private playerBodyLayerRef: Container | null = null;
   private playerNameLayerRef: Container | null = null;
-  private animalLayerRef: Container | null = null;
   private animalsRef: Animal[] = [];
   private animalTextures: AnimalTextureMap | null = null;
   private speechBubbleWorldRef: Container | null = null;
@@ -194,15 +193,11 @@ export class RoomPixiRunner {
       world.addChild(grass);
     }
 
-    const animalLayer = new Container();
-    this.animalLayerRef = animalLayer;
-    world.addChild(animalLayer);
-    this.spawnAnimals();
-
     const playerBodyLayer = new Container();
     playerBodyLayer.sortableChildren = true;
     this.playerBodyLayerRef = playerBodyLayer;
     world.addChild(playerBodyLayer);
+    this.spawnAnimals();
 
     // Weather lives inside `world` so flake positions are world coordinates and the camera
     // walks through them. Inserted before speech bubbles so chat stays readable.
@@ -254,9 +249,12 @@ export class RoomPixiRunner {
       const dt = ticker.deltaMS / 1000;
 
       const animalList = this.animalsRef;
+      const playerBodyLayer = this.playerBodyLayerRef;
       if (animalList.length > 0) {
         for (const animal of animalList) {
           animal.update(playerPositions, dt);
+          const animalPos = animal.getPosition();
+          animal.view.zIndex = animalPos.y;
         }
       }
 
@@ -428,7 +426,6 @@ export class RoomPixiRunner {
 
       const nameCenterX = this.characterTextures ? size / 2 - pad : size / 2;
       const nameLabelY = -spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX;
-      const playerBodyLayer = this.playerBodyLayerRef;
       const playerNameLayer = this.playerNameLayerRef;
 
       for (const player of playerList) {
@@ -615,9 +612,9 @@ export class RoomPixiRunner {
    * Safe to call when {@link animalTextures} failed to load — simply does nothing.
    */
   private spawnAnimals(): void {
-    const animalLayer = this.animalLayerRef;
+    const bodyLayer = this.playerBodyLayerRef;
     const textures = this.animalTextures;
-    if (!animalLayer || !textures) return;
+    if (!bodyLayer || !textures) return;
 
     for (const animal of this.animalsRef) animal.destroy();
     this.animalsRef = [];
@@ -635,7 +632,8 @@ export class RoomPixiRunner {
       homes.bull.y,
       animalSeedBase(this.opts.roomId, 'bull'),
     );
-    animalLayer.addChild(bull.view);
+    bull.view.zIndex = homes.bull.y;
+    bodyLayer.addChild(bull.view);
     this.animalsRef.push(bull);
 
     const cow = new Animal(
@@ -648,8 +646,10 @@ export class RoomPixiRunner {
       homes.cow.y,
       animalSeedBase(this.opts.roomId, 'cow'),
     );
-    animalLayer.addChild(cow.view);
+    cow.view.zIndex = homes.cow.y;
+    bodyLayer.addChild(cow.view);
     this.animalsRef.push(cow);
+    bodyLayer.sortChildren();
   }
 
   rebuildPlayerLayer(players: PlayerDTO[], localId: string | null, tileSize: number): void {
@@ -657,8 +657,9 @@ export class RoomPixiRunner {
     const nameLayer = this.playerNameLayerRef;
     if (!bodyLayer || !nameLayer) return;
 
-    for (let idx = bodyLayer.children.length - 1; idx >= 0; idx -= 1) {
-      bodyLayer.removeChildAt(idx).destroy({ children: true });
+    for (const root of [...this.playerRootByIdRef.values()]) {
+      bodyLayer.removeChild(root);
+      root.destroy({ children: true });
     }
     for (let idx = nameLayer.children.length - 1; idx >= 0; idx -= 1) {
       nameLayer.removeChildAt(idx).destroy({ children: true });
@@ -848,7 +849,6 @@ export class RoomPixiRunner {
     for (const animal of this.animalsRef) animal.destroy();
     this.animalsRef = [];
     this.animalTextures = null;
-    this.animalLayerRef = null;
     this.opts.syncRef.current.minimapSnapshot = null;
     this.playerBodyLayerRef = null;
     this.playerNameLayerRef = null;
