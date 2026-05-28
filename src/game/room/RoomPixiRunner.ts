@@ -23,7 +23,7 @@ import {
   createSpeechBubbleGroup,
   type SpeechBubbleLayout,
 } from './speechBubble.ts';
-import { avatarMinimapColor } from './avatars.ts';
+import { avatarMinimapColor, sanitizeAvatarId } from './avatars.ts';
 import {
   PlayerAvatar,
   loadCharacterTextures,
@@ -69,11 +69,8 @@ export type RoomPixiRunnerOptions = {
   roomId: number;
   /** Resolved asset URL (e.g. Vite import). */
   grassTextureSrc: string;
-  /** Character spritesheet URLs (Vite imports). */
-  characterTextureSrc: {
-    idle: string;
-    walk: string;
-  };
+  /** Character spritesheet URLs keyed by avatar id (Vite imports). */
+  characterTextureSrcByAvatarId: Record<string, { idle: string; walk: string }>;
   /** Animal spritesheet URLs (Vite imports). */
   animalTextureSrc: {
     bull: string;
@@ -104,7 +101,7 @@ export class RoomPixiRunner {
   private playerAvatarByIdRef = new Map<string, PlayerAvatar>();
   /** Last rendered world position per player; used to derive velocity for the avatar animation. */
   private prevRenderedPxRef = new Map<string, { x: number; y: number }>();
-  private characterTextures: CharacterTextureSet | null = null;
+  private characterTexturesByAvatarId = new Map<string, CharacterTextureSet>();
   private tickerFn: ((ticker: Ticker) => void) | null = null;
   private worldRain: WorldRainApi | null = null;
   private worldSnow: WorldSnowApi | null = null;
@@ -147,7 +144,7 @@ export class RoomPixiRunner {
       dimensions: { tileSize, viewCols, viewRows, worldCols, worldRows },
       worldSpawnPx,
       grassTextureSrc,
-      characterTextureSrc,
+      characterTextureSrcByAvatarId,
       animalTextureSrc,
       onBootstrapComplete,
     } = this.opts;
@@ -180,13 +177,21 @@ export class RoomPixiRunner {
     const world = new Container();
     this.worldRef = world;
 
-    const [grassResult, characterResult, animalResult] = await Promise.all([
+    const characterLoadEntries = Object.entries(characterTextureSrcByAvatarId);
+    const [grassResult, characterResults, animalResult] = await Promise.all([
       Assets.load(grassTextureSrc).catch(() => null),
-      loadCharacterTextures(characterTextureSrc.idle, characterTextureSrc.walk),
+      Promise.all(
+        characterLoadEntries.map(async ([avatarId, src]) => {
+          const textures = await loadCharacterTextures(src.idle, src.walk);
+          return [avatarId, textures] as const;
+        }),
+      ),
       loadAnimalTextures(animalTextureSrc.bull, animalTextureSrc.cow, animalTextureSrc.deer),
     ]);
     const grassTexture = grassResult ?? null;
-    this.characterTextures = characterResult;
+    this.characterTexturesByAvatarId = new Map(
+      characterResults.flatMap(([avatarId, textures]) => (textures ? [[avatarId, textures]] : [])),
+    );
     this.animalTextures = animalResult;
     if (this.cancelBootstrap) {
       await app.destroy();
@@ -432,7 +437,8 @@ export class RoomPixiRunner {
       const dtSec = Math.max(dt, 1e-4);
       const dtMs = ticker.deltaMS;
 
-      const nameCenterX = this.characterTextures ? size / 2 - pad : size / 2;
+      const useSpriteLayout = this.characterTexturesByAvatarId.size > 0;
+      const nameCenterX = useSpriteLayout ? size / 2 - pad : size / 2;
       const nameLabelY = -spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX;
       const playerNameLayer = this.playerNameLayerRef;
 
@@ -490,7 +496,7 @@ export class RoomPixiRunner {
             continue;
           }
           group.visible = true;
-          const bubbleCenterX = this.characterTextures ? size / 2 - pad : size / 2;
+          const bubbleCenterX = useSpriteLayout ? size / 2 - pad : size / 2;
           group.position.set(
             pos.x + bubbleCenterX - bubbleWidth / 2,
             pos.y - spriteOverhang - SPEECH_BAND_ABOVE_AVATAR_PX - bubbleHeight,
@@ -706,14 +712,15 @@ export class RoomPixiRunner {
     const size = tileSize - pad * 2;
     const spriteOverhang = spriteOverhangForTileSize(tileSize);
     const tSeed = performance.now();
-    const characterTextures = this.characterTextures;
+    const useSpriteLayout = this.characterTexturesByAvatarId.size > 0;
 
     for (const player of players) {
       const root = new Container();
       const isLocal = !!localId && player.id === localId;
+      const playerTextures = this.characterTexturesByAvatarId.get(sanitizeAvatarId(player.avatarId));
 
-      if (characterTextures) {
-        const avatar = new PlayerAvatar(characterTextures, tileSize);
+      if (playerTextures) {
+        const avatar = new PlayerAvatar(playerTextures, tileSize);
         // Offset sprite container so the 32×32 art aligns with the full tileSize tile
         // (root.position is the inner padded quad's top-left).
         avatar.view.position.set(-pad, -pad);
@@ -742,7 +749,7 @@ export class RoomPixiRunner {
       });
       nameLabel.anchor.set(0.5, 1);
       // Sprite view is shifted left by pad; sprite center world-x is size/2 - pad (Graphic fallback stays size/2).
-      const nameCenterX = characterTextures ? size / 2 - pad : size / 2;
+      const nameCenterX = useSpriteLayout ? size / 2 - pad : size / 2;
 
       let px = player.x;
       let py = player.y;
@@ -872,7 +879,7 @@ export class RoomPixiRunner {
     this.remoteTargetPrevRef.clear();
     this.remoteSpeedSmoothedRef.clear();
     this.remoteBurstUntilRef.clear();
-    this.characterTextures = null;
+    this.characterTexturesByAvatarId.clear();
     for (const animal of this.animalsRef) animal.destroy();
     this.animalsRef = [];
     this.animalTextures = null;

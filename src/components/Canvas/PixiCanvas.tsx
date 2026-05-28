@@ -1,13 +1,12 @@
 import grassBg from '../../assets/bg/grass.jpg';
 import snowBg from '../../assets/bg/snow.jpg';
-import characterIdleSpriteSrc from '../../assets/character/idle.png';
-import characterWalkSpriteSrc from '../../assets/character/walk.png';
 import bullSpriteSrc from '../../assets/entities/bull/bull.png';
 import cowSpriteSrc from '../../assets/entities/cow/cow.png';
 import deerIdleSpriteSrc from '../../assets/entities/deer/deer_idle.png';
 import deerWalkSpriteSrc from '../../assets/entities/deer/deer_walk.png';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { RoomPixiRunner, type RoomCanvasSyncState } from '../../game/room/index.ts';
+import { AVATAR_CHARACTER_TEXTURES } from '../../game/room/avatars.ts';
 import { backgroundTextureSrcForRoomId } from '../../game/room/roomBackground.ts';
 import type { PlayerDTO } from '../../types.ts';
 
@@ -108,7 +107,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
   const playerLayerSig = useMemo(
     () =>
       players
-        .map((player) => JSON.stringify([player.id, player.username]))
+        .map((player) => JSON.stringify([player.id, player.username, player.avatarId]))
         .sort()
         .join('|'),
     [players],
@@ -128,10 +127,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
       worldSpawnPx,
       roomId,
       grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, snowBg),
-      characterTextureSrc: {
-        idle: characterIdleSpriteSrc,
-        walk: characterWalkSpriteSrc,
-      },
+      characterTextureSrcByAvatarId: AVATAR_CHARACTER_TEXTURES,
       animalTextureSrc: {
         bull: bullSpriteSrc,
         cow: cowSpriteSrc,

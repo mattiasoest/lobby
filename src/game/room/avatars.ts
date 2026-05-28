@@ -1,7 +1,21 @@
-import idlePng from '../../assets/character/idle.png';
+import defaultIdlePng from '../../assets/character/default/idle.png';
+import defaultWalkPng from '../../assets/character/default/walk.png';
+import option1IdlePng from '../../assets/character/option1/idle.png';
+import option1WalkPng from '../../assets/character/option1/walk.png';
 
 export const DEFAULT_AVATAR_ID = 'default';
+export const OPTION1_AVATAR_ID = 'option1';
 export const CHARACTER_FRAME_SIZE = 32;
+
+export type AvatarCharacterTextures = {
+  idle: string;
+  walk: string;
+};
+
+export const AVATAR_CHARACTER_TEXTURES: Record<string, AvatarCharacterTextures> = {
+  [DEFAULT_AVATAR_ID]: { idle: defaultIdlePng, walk: defaultWalkPng },
+  [OPTION1_AVATAR_ID]: { idle: option1IdlePng, walk: option1WalkPng },
+};
 
 export type AvatarOption = {
   id: string;
@@ -19,9 +33,15 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
     label: 'Traveler',
     unlocked: true,
     minimapColor: 0x3b82f6,
-    preview: { sheetSrc: idlePng, col: 0, row: 0 },
+    preview: { sheetSrc: defaultIdlePng, col: 0, row: 0 },
   },
-  { id: 'locked-2', label: '???', unlocked: false, minimapColor: 0x64748b },
+  {
+    id: OPTION1_AVATAR_ID,
+    label: 'Explorer',
+    unlocked: true,
+    minimapColor: 0xf97316,
+    preview: { sheetSrc: option1IdlePng, col: 0, row: 0 },
+  },
   { id: 'locked-3', label: '???', unlocked: false, minimapColor: 0x64748b },
   { id: 'locked-4', label: '???', unlocked: false, minimapColor: 0x64748b },
   { id: 'locked-5', label: '???', unlocked: false, minimapColor: 0x64748b },
@@ -47,6 +67,10 @@ export function sanitizeAvatarId(raw: unknown): string {
 
 export function avatarMinimapColor(id: string): number {
   return getAvatarOption(sanitizeAvatarId(id))?.minimapColor ?? 0x3b82f6;
+}
+
+export function characterTexturesForAvatarId(id: string): AvatarCharacterTextures | undefined {
+  return AVATAR_CHARACTER_TEXTURES[sanitizeAvatarId(id)];
 }
 
 /** Idle sheet is 4 cols × 3 rows; scale display size to frame size for CSS spritesheet crop. */
