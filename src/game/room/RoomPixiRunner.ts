@@ -45,7 +45,14 @@ import {
 } from './worldMath.ts';
 import { createWorldRain, rainEnabledForRoomId, type WorldRainApi } from './roomRain.ts';
 import { createWorldSnow, snowEnabledForRoomId, type WorldSnowApi } from './roomSnow.ts';
-import { Animal, animalHomeAnchors, animalSeedBase, loadAnimalTextures, type AnimalTextureMap } from './animals.ts';
+import {
+  Animal,
+  animalHomeAnchors,
+  animalSeedBase,
+  DEER_COUNT,
+  loadAnimalTextures,
+  type AnimalTextureMap,
+} from './animals.ts';
 import type { MinimapSnapshot } from './Minimap.ts';
 
 export type RoomPixiRunnerOptions = {
@@ -71,6 +78,7 @@ export type RoomPixiRunnerOptions = {
   animalTextureSrc: {
     bull: string;
     cow: string;
+    deer: { idle: string; walk: string };
   };
   onBootstrapComplete?: () => void;
 };
@@ -175,7 +183,7 @@ export class RoomPixiRunner {
     const [grassResult, characterResult, animalResult] = await Promise.all([
       Assets.load(grassTextureSrc).catch(() => null),
       loadCharacterTextures(characterTextureSrc.idle, characterTextureSrc.walk),
-      loadAnimalTextures(animalTextureSrc.bull, animalTextureSrc.cow),
+      loadAnimalTextures(animalTextureSrc.bull, animalTextureSrc.cow, animalTextureSrc.deer),
     ]);
     const grassTexture = grassResult ?? null;
     this.characterTextures = characterResult;
@@ -608,8 +616,8 @@ export class RoomPixiRunner {
   }
 
   /**
-   * Populate the animal layer with one bull + one cow at deterministic per-room positions.
-   * Safe to call when {@link animalTextures} failed to load — simply does nothing.
+   * Populate the animal layer with one bull, one cow, and {@link DEER_COUNT} deer at deterministic
+   * per-room positions. Safe to call when {@link animalTextures} failed to load — does nothing.
    */
   private spawnAnimals(): void {
     const actorLayer = this.actorLayerRef;
@@ -649,6 +657,25 @@ export class RoomPixiRunner {
     cow.view.zIndex = homes.cow.y;
     actorLayer.addChild(cow.view);
     this.animalsRef.push(cow);
+
+    for (let i = 0; i < DEER_COUNT; i++) {
+      const home = homes.deer[i];
+      if (!home) continue;
+      const deer = new Animal(
+        'deer',
+        textures.deer,
+        tileSize,
+        worldCols,
+        worldRows,
+        home.x,
+        home.y,
+        animalSeedBase(this.opts.roomId, 'deer', i),
+      );
+      deer.view.zIndex = home.y;
+      actorLayer.addChild(deer.view);
+      this.animalsRef.push(deer);
+    }
+
     actorLayer.sortChildren();
   }
 

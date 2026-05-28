@@ -5,9 +5,13 @@ import { clampWorldTopLeft, entityCollidesWithAny } from './worldMath.ts';
 export const ANIMAL_FRAME_SIZE = 32;
 /** Each row holds 4 frames (sheet is 128×96 → 4 cols × 3 rows). */
 export const ANIMAL_FRAMES_PER_ROW = 4;
+/** Deer idle sheet has 2 frames per row (sheet is 64×96 → 2 cols × 3 rows). */
+const DEER_IDLE_FRAMES_PER_ROW = 2;
 
 /** Walk-cycle playback rate. Slower than the player walk so animals look heavier. */
 const ANIMAL_WALK_FPS = 6;
+/** Deer idle animation playback rate — gentle, calm bobbing. */
+const DEER_IDLE_FPS = 3;
 
 /** Wander movement speed (px/s). Roughly a quarter of the player MOVE_PX_PER_SEC. */
 const ANIMAL_MOVE_PX_PER_SEC = 26;
@@ -26,16 +30,27 @@ const SHEET_ROW_LEFT = 0;
 const SHEET_ROW_DOWN = 1;
 const SHEET_ROW_UP = 2;
 
-export type AnimalKind = 'bull' | 'cow';
+export type AnimalKind = 'bull' | 'cow' | 'deer';
 export type AnimalDirection = 'left' | 'right' | 'down' | 'up';
 
-const KIND_SEED_SALT: Record<AnimalKind, number> = { bull: 0x6b75_6c00, cow: 0x636f_7700 };
+/** Number of deer instances spawned per room (same sprites, distinct homes and wander tours). */
+export const DEER_COUNT = 3;
+
+const KIND_SEED_SALT: Record<AnimalKind, number> = {
+  bull: 0x6b75_6c00,
+  cow: 0x636f_7700,
+  deer: 0x6465_6572,
+};
 
 export type AnimalTextureSet = {
   /** Used for left, and flipped horizontally for right. */
   left: Texture[];
   down: Texture[];
   up: Texture[];
+  /** Optional idle frames (deer only). When present, shown during pauses instead of walk frame 0. */
+  idleLeft?: Texture[];
+  idleDown?: Texture[];
+  idleUp?: Texture[];
 };
 
 export type AnimalTextureMap = Record<AnimalKind, AnimalTextureSet>;
@@ -72,14 +87,41 @@ async function loadOneAnimalSheet(src: string): Promise<AnimalTextureSet | null>
   }
 }
 
+/** Load deer's separate idle + walk spritesheets and merge into one texture set. */
+async function loadDeerTextures(idleSrc: string, walkSrc: string): Promise<AnimalTextureSet | null> {
+  try {
+    const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
+    idleBase.source.scaleMode = 'nearest';
+    walkBase.source.scaleMode = 'nearest';
+    return {
+      left: sliceRow(walkBase, SHEET_ROW_LEFT, ANIMAL_FRAMES_PER_ROW),
+      down: sliceRow(walkBase, SHEET_ROW_DOWN, ANIMAL_FRAMES_PER_ROW),
+      up: sliceRow(walkBase, SHEET_ROW_UP, ANIMAL_FRAMES_PER_ROW),
+      idleLeft: sliceRow(idleBase, SHEET_ROW_LEFT, DEER_IDLE_FRAMES_PER_ROW),
+      idleDown: sliceRow(idleBase, SHEET_ROW_DOWN, DEER_IDLE_FRAMES_PER_ROW),
+      idleUp: sliceRow(idleBase, SHEET_ROW_UP, DEER_IDLE_FRAMES_PER_ROW),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Load bull + cow spritesheets in parallel. Returns `null` if either fails
+ * Load bull, cow, and deer spritesheets in parallel. Returns `null` if any fails
  * (caller skips spawning animals; the room still renders).
  */
-export async function loadAnimalTextures(bullSrc: string, cowSrc: string): Promise<AnimalTextureMap | null> {
-  const [bull, cow] = await Promise.all([loadOneAnimalSheet(bullSrc), loadOneAnimalSheet(cowSrc)]);
-  if (!bull || !cow) return null;
-  return { bull, cow };
+export async function loadAnimalTextures(
+  bullSrc: string,
+  cowSrc: string,
+  deerSrc: { idle: string; walk: string },
+): Promise<AnimalTextureMap | null> {
+  const [bull, cow, deer] = await Promise.all([
+    loadOneAnimalSheet(bullSrc),
+    loadOneAnimalSheet(cowSrc),
+    loadDeerTextures(deerSrc.idle, deerSrc.walk),
+  ]);
+  if (!bull || !cow || !deer) return null;
+  return { bull, cow, deer };
 }
 
 /** FNV-1a 32-bit hash; deterministic across JS runtimes. */
@@ -161,6 +203,7 @@ export class Animal {
   private y: number;
   private direction: AnimalDirection = 'down';
   private frameIndex = 0;
+  private isMoving = false;
 
   constructor(
     kind: AnimalKind,
@@ -240,7 +283,8 @@ export class Animal {
     const walkFrameIndex = Math.floor((nowMs / 1000) * ANIMAL_WALK_FPS);
 
     if (!isTourMoving) {
-      // Tour is paused — animal holds position, idle frame, keep facing.
+      // Tour is paused — animal holds position, idle animation, keep facing.
+      this.isMoving = false;
       this.frameIndex = 0;
       this.view.position.set(this.x, this.y);
       this.applyFrame();
@@ -253,6 +297,7 @@ export class Animal {
       this.x = forward.x;
       this.y = forward.y;
       this.direction = tourDirection;
+      this.isMoving = true;
       this.frameIndex = walkFrameIndex;
       this.view.position.set(this.x, this.y);
       this.applyFrame();
@@ -262,6 +307,7 @@ export class Animal {
     // Blocked — idle in place. The tour timer keeps running; when this leg's
     // arriveMs passes the animal enters the natural inter-leg pause, then the
     // next leg starts with a fresh direction. No separate state needed.
+    this.isMoving = false;
     this.frameIndex = 0;
     this.view.position.set(this.x, this.y);
     this.applyFrame();
@@ -273,26 +319,30 @@ export class Animal {
   }
 
   private applyFrame(): void {
+    const tex = this.textures;
+    const useIdle = !this.isMoving && !!(tex.idleLeft ?? tex.idleDown ?? tex.idleUp);
+
     let frames: Texture[];
     let flipX = false;
     switch (this.direction) {
       case 'right':
-        frames = this.textures.left;
+        frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
         flipX = true;
         break;
       case 'left':
-        frames = this.textures.left;
+        frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
         break;
       case 'up':
-        frames = this.textures.up;
+        frames = useIdle && tex.idleUp ? tex.idleUp : tex.up;
         break;
       case 'down':
       default:
-        frames = this.textures.down;
+        frames = useIdle && tex.idleDown ? tex.idleDown : tex.down;
         break;
     }
 
-    const idx = ((this.frameIndex % frames.length) + frames.length) % frames.length;
+    const rawIdx = useIdle ? Math.floor((Date.now() / 1000) * DEER_IDLE_FPS) : this.frameIndex;
+    const idx = ((rawIdx % frames.length) + frames.length) % frames.length;
     this.sprite.texture = frames[idx];
 
     const targetScaleX = flipX ? -1 : 1;
@@ -374,16 +424,22 @@ function buildAnimalTour(
   return { legs, cycleMs: cumMs };
 }
 
+export type AnimalHomeAnchors = {
+  bull: { x: number; y: number };
+  cow: { x: number; y: number };
+  deer: { x: number; y: number }[];
+};
+
 /**
- * Deterministic per-room placement for the bull + cow. Same `roomId` always yields the same
- * spawn anchors so a player revisiting a room sees the animals in familiar starting positions.
+ * Deterministic per-room placement for the bull, cow, and deer herd. Same `roomId` always yields
+ * the same spawn anchors so a player revisiting a room sees the animals in familiar positions.
  */
 export function animalHomeAnchors(
   roomId: number,
   tileSize: number,
   worldCols: number,
   worldRows: number,
-): Record<AnimalKind, { x: number; y: number }> {
+): AnimalHomeAnchors {
   const worldW = worldCols * tileSize;
   const worldH = worldRows * tileSize;
   const cx = worldW / 2;
@@ -394,17 +450,29 @@ export function animalHomeAnchors(
   const bullAngle = anglePrng() * Math.PI * 2;
   // Place the cow roughly opposite the bull (±~17°) so they don't overlap on spawn.
   const cowAngle = bullAngle + Math.PI + (anglePrng() - 0.5) * 0.6;
+  // Deer herd shares a sector ~120° from the bull, spread so instances don't stack.
+  const deerSectorCenter = bullAngle + (2 * Math.PI) / 3 + (anglePrng() - 0.5) * 0.35;
+  const deerSpread = 0.55;
 
   const bullRaw = { x: cx + Math.cos(bullAngle) * radius, y: cy + Math.sin(bullAngle) * radius };
   const cowRaw = { x: cx + Math.cos(cowAngle) * radius, y: cy + Math.sin(cowAngle) * radius };
 
+  const deerHomes: { x: number; y: number }[] = [];
+  for (let i = 0; i < DEER_COUNT; i++) {
+    const offset = DEER_COUNT === 1 ? 0 : ((i - (DEER_COUNT - 1) / 2) / (DEER_COUNT - 1)) * deerSpread;
+    const angle = deerSectorCenter + offset + (anglePrng() - 0.5) * 0.2;
+    const raw = { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+    deerHomes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));
+  }
+
   return {
     bull: clampWorldTopLeft(bullRaw.x, bullRaw.y, tileSize, worldCols, worldRows),
     cow: clampWorldTopLeft(cowRaw.x, cowRaw.y, tileSize, worldCols, worldRows),
+    deer: deerHomes,
   };
 }
 
-/** Seed for the per-animal PRNG; stable across processes for the same `(roomId, kind)`. */
-export function animalSeedBase(roomId: number, kind: AnimalKind): number {
-  return fnv1aHash(roomId, KIND_SEED_SALT[kind]);
+/** Seed for the per-animal PRNG; stable for the same `(roomId, kind, instance)`. */
+export function animalSeedBase(roomId: number, kind: AnimalKind, instance = 0): number {
+  return fnv1aHash(roomId, KIND_SEED_SALT[kind], instance);
 }
