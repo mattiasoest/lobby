@@ -1,5 +1,5 @@
 import { Assets, Container, Rectangle, Sprite, Texture } from 'pixi.js';
-import { clampWorldTopLeft } from './worldMath.ts';
+import { clampWorldTopLeft, entityCollidesWithAny } from './worldMath.ts';
 
 /** Pixel size of one frame in an animal spritesheet (32×32 cell). */
 export const ANIMAL_FRAME_SIZE = 32;
@@ -19,7 +19,6 @@ const PAUSE_MAX_MS = 4200;
 /** Max distance (px) a new wander target can be from the animal's home anchor. */
 const WANDER_RADIUS_PX = 192;
 
-/** Number of randomized legs in the precomputed tour (excluding the home-return corrections). */
 const TOUR_LEG_COUNT = 120;
 
 /** Source row indices inside an animal spritesheet. */
@@ -121,6 +120,20 @@ type AnimalLeg = {
   direction: AnimalDirection;
 };
 
+/** Single-axis step in the given direction. */
+function stepInDirection(x: number, y: number, direction: AnimalDirection, maxStep: number): { x: number; y: number } {
+  switch (direction) {
+    case 'right':
+      return { x: x + maxStep, y };
+    case 'left':
+      return { x: x - maxStep, y };
+    case 'down':
+      return { x, y: y + maxStep };
+    case 'up':
+      return { x, y: y - maxStep };
+  }
+}
+
 /**
  * Decorative wandering animal. Owns a {@link Container} (`view`) that callers parent into the
  * animal layer. Position, direction, and walk frame are pure functions of wall-clock time
@@ -135,8 +148,7 @@ export class Animal {
   readonly view: Container;
   private readonly sprite: Sprite;
   private readonly textures: AnimalTextureSet;
-  private readonly homeX: number;
-  private readonly homeY: number;
+  private readonly tileSize: number;
 
   /** Precomputed tour; the animal cycles through this forever in lockstep with wall-clock. */
   private readonly legs: AnimalLeg[];
@@ -162,8 +174,7 @@ export class Animal {
   ) {
     this.kind = kind;
     this.textures = textures;
-    this.homeX = homeX;
-    this.homeY = homeY;
+    this.tileSize = tileSize;
     this.x = homeX;
     this.y = homeY;
 
@@ -193,14 +204,19 @@ export class Animal {
   }
 
   /**
-   * Compute position/direction/frame for the current wall-clock instant. Stateless beyond the
-   * cached leg index, which is only an optimization (recovers correctly after a wrap or a long
-   * pause).
+   * Move one tick. On collision, attempt the opposite direction. If that also
+   * collides, hold position. Direction and walk animation always match actual movement.
    */
-  update(): void {
-    const phaseMs = Date.now() % this.cycleMs;
+  update(players: ReadonlyArray<{ x: number; y: number }>, dtSec: number): void {
+    const prevX = this.x;
+    const prevY = this.y;
+    const tileSize = this.tileSize;
+    const maxStep = ANIMAL_MOVE_PX_PER_SEC * Math.max(dtSec, 1e-4);
+    const nowMs = Date.now();
+    const phaseMs = nowMs % this.cycleMs;
     const legs = this.legs;
 
+    // Find the current leg.
     let idx = this.cachedLegIdx;
     if (idx < 0 || idx >= legs.length) idx = 0;
     if (phaseMs < legs[idx].startMs) idx = 0;
@@ -209,27 +225,44 @@ export class Animal {
 
     const leg = legs[idx];
 
-    if (phaseMs < leg.startMs) {
-      // Before the first leg of the cycle: paused at home, facing down (initial state).
-      this.x = this.homeX;
-      this.y = this.homeY;
-      this.direction = 'down';
-      this.frameIndex = 0;
-    } else if (phaseMs < leg.arriveMs) {
-      const span = Math.max(1, leg.arriveMs - leg.startMs);
-      const u = (phaseMs - leg.startMs) / span;
-      this.x = leg.fromX + (leg.toX - leg.fromX) * u;
-      this.y = leg.fromY + (leg.toY - leg.fromY) * u;
-      this.direction = leg.direction;
-      this.frameIndex = Math.floor(((phaseMs - leg.startMs) * ANIMAL_WALK_FPS) / 1000);
+    // Determine the direction the tour wants to move this frame.
+    let tourDirection: AnimalDirection;
+    if (phaseMs < leg.startMs || phaseMs >= leg.arriveMs) {
+      // Paused (pre-start or post-arrive) — no intended movement.
+      tourDirection = this.direction;
     } else {
-      // Past arrival: paused at this leg's destination until the next leg's start.
-      this.x = leg.toX;
-      this.y = leg.toY;
-      this.direction = leg.direction;
-      this.frameIndex = 0;
+      tourDirection = leg.direction;
     }
 
+    // Determine whether the tour is actually supposed to be moving this frame.
+    const isTourMoving = phaseMs >= leg.startMs && phaseMs < leg.arriveMs;
+
+    const walkFrameIndex = Math.floor((nowMs / 1000) * ANIMAL_WALK_FPS);
+
+    if (!isTourMoving) {
+      // Tour is paused — animal holds position, idle frame, keep facing.
+      this.frameIndex = 0;
+      this.view.position.set(this.x, this.y);
+      this.applyFrame();
+      return;
+    }
+
+    // --- Tour is walking. Attempt movement in tourDirection. ---
+    const forward = stepInDirection(prevX, prevY, tourDirection, maxStep);
+    if (!entityCollidesWithAny(forward.x, forward.y, players, tileSize)) {
+      this.x = forward.x;
+      this.y = forward.y;
+      this.direction = tourDirection;
+      this.frameIndex = walkFrameIndex;
+      this.view.position.set(this.x, this.y);
+      this.applyFrame();
+      return;
+    }
+
+    // Blocked — idle in place. The tour timer keeps running; when this leg's
+    // arriveMs passes the animal enters the natural inter-leg pause, then the
+    // next leg starts with a fresh direction. No separate state needed.
+    this.frameIndex = 0;
     this.view.position.set(this.x, this.y);
     this.applyFrame();
   }

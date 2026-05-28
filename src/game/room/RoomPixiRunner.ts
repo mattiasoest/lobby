@@ -35,8 +35,11 @@ import type { RoomCanvasSyncState } from './syncState.ts';
 import {
   clampWorldTopLeft,
   dropRemoteStaleAnchors,
+  entityInnerQuad,
+  moveTopLeftWithEntityCollisions,
   posFromRemoteBuffer,
   remoteRenderDelayMs,
+  resolveEntityOverlaps,
   scrollWorldPx,
   type RemoteSample,
 } from './worldMath.ts';
@@ -229,6 +232,7 @@ export class RoomPixiRunner {
 
     const spawn = clampWorldTopLeft(worldSpawnPx.x, worldSpawnPx.y, tileSize, worldCols, worldRows);
     this.localPxRef = { ...spawn };
+    this.resolveLocalSpawnOverlap(tileSize, worldCols, worldRows);
     this.lastSyncAtRef = 0;
     this.localWasMovingRef = false;
 
@@ -239,12 +243,26 @@ export class RoomPixiRunner {
       const now = performance.now();
       const syncState = this.opts.syncRef.current;
       const { tileSize, worldCols, worldRows, viewCols, viewRows, localId } = syncState;
-      const pad = tileSize * 0.14;
-      const size = tileSize - pad * 2;
+      const { pad, size } = entityInnerQuad(tileSize);
       const worldW = worldCols * tileSize;
       const worldH = worldRows * tileSize;
       const viewW = (viewCols * tileSize) / ROOM_CAMERA_ZOOM;
       const viewH = (viewRows * tileSize) / ROOM_CAMERA_ZOOM;
+
+      const local = this.localPxRef;
+      const playerPositions = this.collectPlayerPositions(localId, local);
+      const dt = ticker.deltaMS / 1000;
+
+      const animalList = this.animalsRef;
+      if (animalList.length > 0) {
+        for (const animal of animalList) {
+          animal.update(playerPositions, dt);
+        }
+      }
+
+      const remotePlayerObstacles = this.collectRemotePlayerObstacles(localId);
+      const animalObstacles = this.collectAnimalObstacles();
+      const blockObstacles = [...remotePlayerObstacles, ...animalObstacles];
 
       const moveKeys = this.keysInternal;
       let vx = 0;
@@ -259,16 +277,37 @@ export class RoomPixiRunner {
         vy /= len;
       }
 
-      const dt = ticker.deltaMS / 1000;
       const step = MOVE_PX_PER_SEC * dt;
-      const local = this.localPxRef;
+      const localBeforeMove = { x: local.x, y: local.y };
       if (len > 0) {
-        local.x += vx * step;
-        local.y += vy * step;
-        const clampedTopLeft = clampWorldTopLeft(local.x, local.y, tileSize, worldCols, worldRows);
-        local.x = clampedTopLeft.x;
-        local.y = clampedTopLeft.y;
+        const moved = moveTopLeftWithEntityCollisions(
+          local.x,
+          local.y,
+          vx * step,
+          vy * step,
+          blockObstacles,
+          tileSize,
+          worldCols,
+          worldRows,
+          dt,
+          remotePlayerObstacles,
+        );
+        local.x = moved.x;
+        local.y = moved.y;
+      } else {
+        const resolved = resolveEntityOverlaps(
+          local.x,
+          local.y,
+          remotePlayerObstacles,
+          tileSize,
+          worldCols,
+          worldRows,
+          dt,
+        );
+        local.x = resolved.x;
+        local.y = resolved.y;
       }
+      const pushedByCollision = local.x !== localBeforeMove.x || local.y !== localBeforeMove.y;
 
       const wasMoving = this.localWasMovingRef;
       const startedMove = len > 0 && !wasMoving;
@@ -387,12 +426,6 @@ export class RoomPixiRunner {
       const dtSec = Math.max(dt, 1e-4);
       const dtMs = ticker.deltaMS;
 
-      const animalList = this.animalsRef;
-      if (animalList.length > 0) {
-        for (const animal of animalList) {
-          animal.update();
-        }
-      }
       const nameCenterX = this.characterTextures ? size / 2 - pad : size / 2;
       const nameLabelY = -spriteOverhang - PLAYER_NAME_LABEL_BOTTOM_GAP_PX;
       const playerBodyLayer = this.playerBodyLayerRef;
@@ -460,9 +493,10 @@ export class RoomPixiRunner {
         }
       }
 
-      /** Throttled (~{@link SYNC_MS}) position sync to React + socket only while moving, not every tick while idle. */
+      /** Throttled (~{@link SYNC_MS}) position sync to React + socket while moving or when pushed by collision. */
       const throttleMoving = len > 0 && now - this.lastSyncAtRef >= SYNC_MS;
-      if (startedMove || stoppedMove || throttleMoving) {
+      const throttlePushed = pushedByCollision && now - this.lastSyncAtRef >= SYNC_MS;
+      if (startedMove || stoppedMove || throttleMoving || throttlePushed) {
         this.lastSyncAtRef = now;
         syncState.onPositionSync({ x: local.x, y: local.y });
       }
@@ -522,6 +556,58 @@ export class RoomPixiRunner {
     window.addEventListener('blur', this.blur);
 
     onBootstrapComplete?.();
+  }
+
+  private collectPlayerPositions(
+    localId: string | null,
+    localPx: { x: number; y: number },
+  ): { x: number; y: number }[] {
+    const syncState = this.opts.syncRef.current;
+    const positions: { x: number; y: number }[] = [];
+    for (const player of syncState.players) {
+      if (localId && player.id === localId) {
+        positions.push({ x: localPx.x, y: localPx.y });
+        continue;
+      }
+      const remotePos = this.remotePxRef.get(player.id);
+      positions.push(remotePos ?? { x: player.x, y: player.y });
+    }
+    return positions;
+  }
+
+  private collectRemotePlayerObstacles(localId: string | null): { x: number; y: number }[] {
+    const syncState = this.opts.syncRef.current;
+    const obstacles: { x: number; y: number }[] = [];
+    for (const player of syncState.players) {
+      if (localId && player.id === localId) continue;
+      const remotePos = this.remotePxRef.get(player.id);
+      obstacles.push(remotePos ?? { x: player.x, y: player.y });
+    }
+    return obstacles;
+  }
+
+  private collectAnimalObstacles(): { x: number; y: number }[] {
+    return this.animalsRef.map((animal) => animal.getPosition());
+  }
+
+  private resolveLocalSpawnOverlap(tileSize: number, worldCols: number, worldRows: number): void {
+    const localId = this.opts.syncRef.current.localId;
+    const localPx = this.localPxRef;
+    const playerPositions = this.collectPlayerPositions(localId, localPx);
+    for (const animal of this.animalsRef) {
+      animal.update(playerPositions, 1 / 60);
+    }
+    const resolved = resolveEntityOverlaps(
+      localPx.x,
+      localPx.y,
+      this.collectRemotePlayerObstacles(localId),
+      tileSize,
+      worldCols,
+      worldRows,
+      1,
+    );
+    this.localPxRef.x = resolved.x;
+    this.localPxRef.y = resolved.y;
   }
 
   /**
@@ -666,6 +752,7 @@ export class RoomPixiRunner {
       syncState.worldRows,
     );
     this.localPxRef = { ...spawn };
+    this.resolveLocalSpawnOverlap(syncState.tileSize, syncState.worldCols, syncState.worldRows);
     this.remotePxRef.clear();
     this.remoteSampleBufRef.clear();
     this.lastServerSnapRef.clear();
@@ -693,7 +780,7 @@ export class RoomPixiRunner {
       );
       worldContainer.position.set(-left, -top);
     }
-    syncState.onPositionSync({ x: spawn.x, y: spawn.y });
+    syncState.onPositionSync({ x: this.localPxRef.x, y: this.localPxRef.y });
   }
 
   rebuildSpeechBubbles(

@@ -5,6 +5,16 @@ export const SYNC_MS = 1000 / POSITION_SYNC_HZ;
 /** Local movement speed (px/s) */
 export const MOVE_PX_PER_SEC = 110;
 
+/** AABB side length for player/animal entity–entity collision (world px). */
+export const ENTITY_COLLISION_SIZE_PX = 11;
+
+/**
+ * Soft per-frame cap when separating two entities that became overlapped without
+ * a movement input (e.g. a remote player snapped on top of us due to network jitter).
+ * Blocking against an obstacle while actively walking is NOT capped — you stop at the edge.
+ */
+export const ENTITY_OVERLAP_RESOLVE_PX_PER_SEC = 80;
+
 /**
  * Stage scale for the scrolling world.
  * Values above 1 zoom in so 32×32 tiles and characters read larger in the canvas.
