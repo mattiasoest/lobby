@@ -803,6 +803,14 @@ code {
   border-bottom: none;
 }
 
+.chat--canvas-hud .chat-user {
+  color: #93c5fd;
+}
+
+.chat--canvas-hud .chat-content {
+  color: #fff;
+}
+
 .chat--canvas-hud .chat-compose input {
   font-size: 0.88rem;
   padding: 6px 8px;
