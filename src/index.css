@@ -15,6 +15,8 @@
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
+  /* Keep in sync with ROOM_PIXEL_FONT_STACK in pixelTypography.ts */
+  --pixel: 'Pixelify Sans', monospace;
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
@@ -766,15 +768,19 @@ code {
 .chat--canvas-hud {
   position: absolute;
   z-index: 3;
-  left: 4px;
-  bottom: 4px;
+  left: 8px;
+  bottom: 3px;
   width: min(330px, calc(100% - 8px));
   max-width: calc(100% - 8px);
   min-height: 0;
-  max-height: min(calc(280px * 1.05), calc(100% - 8px));
+  max-height: min(calc(280px * 1.05), calc(100% - 4px));
   box-sizing: border-box;
-  padding: 10px 12px;
-  gap: 6px;
+  padding: 6px 8px;
+  gap: 4px;
+  font-family: var(--pixel);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  border-radius: 4px;
   background: transparent;
   border-color: transparent;
   box-shadow: none;
@@ -799,7 +805,7 @@ code {
 }
 
 .chat--canvas-hud .chat-line {
-  padding: 2px 0;
+  padding: 1px 0;
   border-bottom: none;
 }
 
@@ -811,9 +817,15 @@ code {
   color: #fff;
 }
 
+.chat--canvas-hud .chat-compose {
+  gap: 6px;
+}
+
 .chat--canvas-hud .chat-compose input {
+  font-family: inherit;
   font-size: 0.88rem;
-  padding: 6px 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
   background: color-mix(in srgb, var(--code-bg) 38%, transparent);
   border-color: color-mix(in srgb, var(--border) 45%, transparent);
   transition:
@@ -827,8 +839,28 @@ code {
 }
 
 .chat--canvas-hud .chat-compose button {
-  padding-inline: 10px;
+  padding-inline: 8px;
+  padding-block: 4px;
   font-size: 0.85rem;
+  border-radius: 4px;
+  background: #93c5fd;
+  border: 1px solid #93c5fd;
+  color: #0f172a;
+  box-shadow: none;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.15s ease;
+}
+
+.chat--canvas-hud .chat-compose button:not(:disabled):hover {
+  background: #bfdbfe;
+  border-color: #bfdbfe;
+  box-shadow: none;
+}
+
+.chat--canvas-hud .chat-compose button:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .chat-feed {
