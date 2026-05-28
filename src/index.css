@@ -809,6 +809,13 @@ code {
   border-bottom: none;
 }
 
+.chat--canvas-hud .chat-user,
+.chat--canvas-hud .chat-content,
+.chat--canvas-hud .chat-content * {
+  -webkit-text-stroke: 3px #000;
+  paint-order: stroke fill;
+}
+
 .chat--canvas-hud .chat-user {
   color: #93c5fd;
 }
@@ -914,14 +921,20 @@ code {
 }
 
 .chat-mention-highlight {
-  background: color-mix(in srgb, var(--accent) 32%, var(--bg));
+  background: color-mix(in srgb, var(--text) 38%, var(--code-bg));
   color: var(--text-h);
   border-radius: 4px;
   padding: 0 4px;
   box-decoration-break: clone;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent),
-    0 0 12px color-mix(in srgb, var(--accent) 22%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 48%, var(--border)),
+    0 0 8px color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+.chat--canvas-hud .chat-mention-highlight {
+  background: color-mix(in srgb, #9ca3af 58%, rgba(31, 41, 55, 0.5));
+  color: #f3f4f6;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #6b7280 75%, #000);
 }
 
 .chat-user {
