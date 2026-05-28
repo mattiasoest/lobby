@@ -1,5 +1,5 @@
 import { Assets, Container, Rectangle, Sprite, Texture } from 'pixi.js';
-import { clampWorldTopLeft, entityCollidesWithAny } from './worldMath.ts';
+import { clampWorldTopLeft } from './worldMath.ts';
 
 /** Pixel size of one frame in an animal spritesheet (32×32 cell). */
 export const ANIMAL_FRAME_SIZE = 32;
@@ -163,24 +163,14 @@ type AnimalLeg = {
 };
 
 /** Single-axis step in the given direction. */
-function stepInDirection(x: number, y: number, direction: AnimalDirection, maxStep: number): { x: number; y: number } {
-  switch (direction) {
-    case 'right':
-      return { x: x + maxStep, y };
-    case 'left':
-      return { x: x - maxStep, y };
-    case 'down':
-      return { x, y: y + maxStep };
-    case 'up':
-      return { x, y: y - maxStep };
-  }
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }
 
 /**
  * Decorative wandering animal. Owns a {@link Container} (`view`) that callers parent into the
- * animal layer. Position, direction, and walk frame are pure functions of wall-clock time
- * (`Date.now()`) and a per-animal seed: every client in the room renders the same state at the
- * same moment, with no server input required.
+ * animal layer. Position, direction, and walk frame are pure functions of synchronized server time
+ * and a per-animal seed: every client in the room renders the same state at the same moment.
  *
  * Position uses the same coordinate convention as players: `(x, y)` is the world top-left of
  * the inner padded quad (see {@link clampWorldTopLeft}).
@@ -190,11 +180,10 @@ export class Animal {
   readonly view: Container;
   private readonly sprite: Sprite;
   private readonly textures: AnimalTextureSet;
-  private readonly tileSize: number;
 
-  /** Precomputed tour; the animal cycles through this forever in lockstep with wall-clock. */
+  /** Precomputed tour; the animal cycles through this forever in lockstep with server time. */
   private readonly legs: AnimalLeg[];
-  /** Total length (ms) of one tour cycle including pauses; cycle phase = `Date.now() % cycleMs`. */
+  /** Total length (ms) of one tour cycle including pauses; cycle phase = `roomNowMs % cycleMs`. */
   private readonly cycleMs: number;
   /** Linear-scan cache for findLeg; valid index into {@link legs}. */
   private cachedLegIdx = 0;
@@ -217,7 +206,6 @@ export class Animal {
   ) {
     this.kind = kind;
     this.textures = textures;
-    this.tileSize = tileSize;
     this.x = homeX;
     this.y = homeY;
 
@@ -243,74 +231,50 @@ export class Animal {
     this.legs = legs;
     this.cycleMs = cycleMs;
 
-    this.applyFrame();
+    this.applyFrame(Date.now());
   }
 
   /**
-   * Move one tick. On collision, attempt the opposite direction. If that also
-   * collides, hold position. Direction and walk animation always match actual movement.
+   * Sample the precomputed tour at {@link roomNowMs}. Position is interpolated along the active
+   * leg; animals never yield — the local player is pushed aside in {@link RoomPixiRunner}.
    */
-  update(players: ReadonlyArray<{ x: number; y: number }>, dtSec: number): void {
-    const prevX = this.x;
-    const prevY = this.y;
-    const tileSize = this.tileSize;
-    const maxStep = ANIMAL_MOVE_PX_PER_SEC * Math.max(dtSec, 1e-4);
-    const nowMs = Date.now();
-    const phaseMs = nowMs % this.cycleMs;
+  update(roomNowMs: number): void {
+    const phaseMs = roomNowMs % this.cycleMs;
     const legs = this.legs;
 
-    // Find the current leg.
     let idx = this.cachedLegIdx;
     if (idx < 0 || idx >= legs.length) idx = 0;
-    if (phaseMs < legs[idx].startMs) idx = 0;
     while (idx + 1 < legs.length && phaseMs >= legs[idx + 1].startMs) idx += 1;
+    while (idx > 0 && phaseMs < legs[idx].startMs) idx -= 1;
     this.cachedLegIdx = idx;
 
     const leg = legs[idx];
+    const isMoving = phaseMs >= leg.startMs && phaseMs < leg.arriveMs;
 
-    // Determine the direction the tour wants to move this frame.
-    let tourDirection: AnimalDirection;
-    if (phaseMs < leg.startMs || phaseMs >= leg.arriveMs) {
-      // Paused (pre-start or post-arrive) — no intended movement.
-      tourDirection = this.direction;
-    } else {
-      tourDirection = leg.direction;
-    }
-
-    // Determine whether the tour is actually supposed to be moving this frame.
-    const isTourMoving = phaseMs >= leg.startMs && phaseMs < leg.arriveMs;
-
-    const walkFrameIndex = Math.floor((nowMs / 1000) * ANIMAL_WALK_FPS);
-
-    if (!isTourMoving) {
-      // Tour is paused — animal holds position, idle animation, keep facing.
+    if (isMoving) {
+      const legSpan = Math.max(leg.arriveMs - leg.startMs, 1);
+      const t = clamp01((phaseMs - leg.startMs) / legSpan);
+      this.x = leg.fromX + (leg.toX - leg.fromX) * t;
+      this.y = leg.fromY + (leg.toY - leg.fromY) * t;
+      this.direction = leg.direction;
+      this.isMoving = true;
+      this.frameIndex = Math.floor((roomNowMs / 1000) * ANIMAL_WALK_FPS);
+    } else if (phaseMs < leg.startMs) {
+      this.x = leg.fromX;
+      this.y = leg.fromY;
+      this.direction = leg.direction;
       this.isMoving = false;
       this.frameIndex = 0;
-      this.view.position.set(this.x, this.y);
-      this.applyFrame();
-      return;
+    } else {
+      this.x = leg.toX;
+      this.y = leg.toY;
+      this.direction = leg.direction;
+      this.isMoving = false;
+      this.frameIndex = 0;
     }
 
-    // --- Tour is walking. Attempt movement in tourDirection. ---
-    const forward = stepInDirection(prevX, prevY, tourDirection, maxStep);
-    if (!entityCollidesWithAny(forward.x, forward.y, players, tileSize)) {
-      this.x = forward.x;
-      this.y = forward.y;
-      this.direction = tourDirection;
-      this.isMoving = true;
-      this.frameIndex = walkFrameIndex;
-      this.view.position.set(this.x, this.y);
-      this.applyFrame();
-      return;
-    }
-
-    // Blocked — idle in place. The tour timer keeps running; when this leg's
-    // arriveMs passes the animal enters the natural inter-leg pause, then the
-    // next leg starts with a fresh direction. No separate state needed.
-    this.isMoving = false;
-    this.frameIndex = 0;
     this.view.position.set(this.x, this.y);
-    this.applyFrame();
+    this.applyFrame(roomNowMs);
   }
 
   /** World top-left of the inner padded quad (same convention as players). */
@@ -318,7 +282,7 @@ export class Animal {
     return { x: this.x, y: this.y };
   }
 
-  private applyFrame(): void {
+  private applyFrame(roomNowMs: number): void {
     const tex = this.textures;
     const useIdle = !this.isMoving && !!(tex.idleLeft ?? tex.idleDown ?? tex.idleUp);
 
@@ -341,7 +305,7 @@ export class Animal {
         break;
     }
 
-    const rawIdx = useIdle ? Math.floor((Date.now() / 1000) * DEER_IDLE_FPS) : this.frameIndex;
+    const rawIdx = useIdle ? Math.floor((roomNowMs / 1000) * DEER_IDLE_FPS) : this.frameIndex;
     const idx = ((rawIdx % frames.length) + frames.length) % frames.length;
     this.sprite.texture = frames[idx];
 
@@ -459,7 +423,7 @@ export function animalHomeAnchors(
 
   const deerHomes: { x: number; y: number }[] = [];
   for (let i = 0; i < DEER_COUNT; i++) {
-    const offset = DEER_COUNT === 1 ? 0 : ((i - (DEER_COUNT - 1) / 2) / (DEER_COUNT - 1)) * deerSpread;
+    const offset = DEER_COUNT <= 1 ? 0 : ((i - (DEER_COUNT - 1) / 2) / (DEER_COUNT - 1)) * deerSpread;
     const angle = deerSectorCenter + offset + (anglePrng() - 0.5) * 0.2;
     const raw = { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
     deerHomes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));

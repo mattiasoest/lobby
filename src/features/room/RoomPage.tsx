@@ -134,6 +134,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     rosterStructureKeyRef.current = '';
     syncRef.current.players = [];
     syncRef.current.minimapSnapshot = null;
+    syncRef.current.serverClockOffsetMs = null;
     queueMicrotask(() => {
       setServerPlayers([]);
     });
@@ -240,6 +241,12 @@ export function RoomPage({ roomId }: { roomId: number }) {
       pendingRemoteSpeechRef.current.set(msg.user_id, msg);
     }
 
+    function handleRoomClock(payload: { serverNowMs?: number }) {
+      const serverNowMs = payload?.serverNowMs;
+      if (typeof serverNowMs !== 'number' || !Number.isFinite(serverNowMs)) return;
+      syncRef.current.serverClockOffsetMs = serverNowMs - Date.now();
+    }
+
     sock.on('connect', () => {
       setSocketConnected(true);
       setSocketId(sock.id ?? null);
@@ -264,6 +271,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
     sock.on('players:update', handlePlayers);
     sock.on('chat:message', handleChatMessage);
+    sock.on('room:clock', handleRoomClock);
 
     return () => {
       for (const timerId of timersForCleanup.values()) clearTimeout(timerId);

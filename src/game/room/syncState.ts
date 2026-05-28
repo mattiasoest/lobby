@@ -15,7 +15,15 @@ export type RoomCanvasSyncState = {
   remoteSpeechBubbles: ReadonlyMap<string, string>;
   /** Updated each Pixi tick by {@link RoomPixiRunner}; read by the minimap overlay. */
   minimapSnapshot: MinimapSnapshot | null;
+  /** `serverNowMs - Date.now()` from the latest {@link room:clock} event; null until synced. */
+  serverClockOffsetMs: number | null;
 };
+
+/** Estimated server wall time; falls back to local clock before the first sync. */
+export function roomServerTimeMs(syncState: Pick<RoomCanvasSyncState, 'serverClockOffsetMs'>): number {
+  const offset = syncState.serverClockOffsetMs;
+  return offset === null ? Date.now() : Date.now() + offset;
+}
 
 export function createInitialSyncState(): RoomCanvasSyncState {
   return {
@@ -31,5 +39,6 @@ export function createInitialSyncState(): RoomCanvasSyncState {
     localSpeechBubble: null,
     remoteSpeechBubbles: new Map(),
     minimapSnapshot: null,
+    serverClockOffsetMs: null,
   };
 }

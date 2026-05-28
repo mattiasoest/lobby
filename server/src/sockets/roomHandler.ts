@@ -73,6 +73,9 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db
     };
 
     nsp.on('connection', (socket) => {
+      /** One-shot clock sync so clients sample animal tours against server time. */
+      socket.emit('room:clock', { serverNowMs: Date.now() });
+
       socket.on('player:join', async (payload: { x: number; y: number }) => {
         const authedUser = socket.data.user as { sub: string; username: string };
         const clampedPosition = clampPlayerPx(payload.x, payload.y);

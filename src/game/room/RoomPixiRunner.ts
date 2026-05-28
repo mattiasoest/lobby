@@ -31,7 +31,7 @@ import {
   type CharacterTextureSet,
 } from './playerAvatar.ts';
 import { ROOM_PIXEL_FACE_SPECS, ROOM_PIXEL_FONT_STACK, roomWorldCanvasTextOptions } from './pixelTypography.ts';
-import type { RoomCanvasSyncState } from './syncState.ts';
+import { roomServerTimeMs, type RoomCanvasSyncState } from './syncState.ts';
 import {
   clampWorldTopLeft,
   dropRemoteStaleAnchors,
@@ -258,14 +258,14 @@ export class RoomPixiRunner {
       const viewH = (viewRows * tileSize) / ROOM_CAMERA_ZOOM;
 
       const local = this.localPxRef;
-      const playerPositions = this.collectPlayerPositions(localId, local);
       const dt = ticker.deltaMS / 1000;
+      const roomNowMs = roomServerTimeMs(syncState);
 
       const animalList = this.animalsRef;
       const actorLayer = this.actorLayerRef;
       if (animalList.length > 0) {
         for (const animal of animalList) {
-          animal.update(playerPositions, dt);
+          animal.update(roomNowMs);
           const animalPos = animal.getPosition();
           animal.view.zIndex = animalPos.y;
         }
@@ -305,19 +305,33 @@ export class RoomPixiRunner {
         );
         local.x = moved.x;
         local.y = moved.y;
-      } else {
-        const resolved = resolveEntityOverlaps(
+      }
+      // Animals follow the synced tour and never yield — push the local player out immediately.
+      if (animalObstacles.length > 0) {
+        const cleared = resolveEntityOverlaps(
           local.x,
           local.y,
-          remotePlayerObstacles,
+          animalObstacles,
           tileSize,
           worldCols,
           worldRows,
           dt,
+          Number.POSITIVE_INFINITY,
         );
-        local.x = resolved.x;
-        local.y = resolved.y;
+        local.x = cleared.x;
+        local.y = cleared.y;
       }
+      const resolvedRemotes = resolveEntityOverlaps(
+        local.x,
+        local.y,
+        remotePlayerObstacles,
+        tileSize,
+        worldCols,
+        worldRows,
+        dt,
+      );
+      local.x = resolvedRemotes.x;
+      local.y = resolvedRemotes.y;
       const pushedByCollision = local.x !== localBeforeMove.x || local.y !== localBeforeMove.y;
 
       const wasMoving = this.localWasMovingRef;
@@ -569,23 +583,6 @@ export class RoomPixiRunner {
     onBootstrapComplete?.();
   }
 
-  private collectPlayerPositions(
-    localId: string | null,
-    localPx: { x: number; y: number },
-  ): { x: number; y: number }[] {
-    const syncState = this.opts.syncRef.current;
-    const positions: { x: number; y: number }[] = [];
-    for (const player of syncState.players) {
-      if (localId && player.id === localId) {
-        positions.push({ x: localPx.x, y: localPx.y });
-        continue;
-      }
-      const remotePos = this.remotePxRef.get(player.id);
-      positions.push(remotePos ?? { x: player.x, y: player.y });
-    }
-    return positions;
-  }
-
   private collectRemotePlayerObstacles(localId: string | null): { x: number; y: number }[] {
     const syncState = this.opts.syncRef.current;
     const obstacles: { x: number; y: number }[] = [];
@@ -604,13 +601,30 @@ export class RoomPixiRunner {
   private resolveLocalSpawnOverlap(tileSize: number, worldCols: number, worldRows: number): void {
     const localId = this.opts.syncRef.current.localId;
     const localPx = this.localPxRef;
-    const playerPositions = this.collectPlayerPositions(localId, localPx);
+    const roomNowMs = roomServerTimeMs(this.opts.syncRef.current);
     for (const animal of this.animalsRef) {
-      animal.update(playerPositions, 1 / 60);
+      animal.update(roomNowMs);
+    }
+    const animalObstacles = this.collectAnimalObstacles();
+    let spawnX = localPx.x;
+    let spawnY = localPx.y;
+    if (animalObstacles.length > 0) {
+      const cleared = resolveEntityOverlaps(
+        spawnX,
+        spawnY,
+        animalObstacles,
+        tileSize,
+        worldCols,
+        worldRows,
+        1,
+        Number.POSITIVE_INFINITY,
+      );
+      spawnX = cleared.x;
+      spawnY = cleared.y;
     }
     const resolved = resolveEntityOverlaps(
-      localPx.x,
-      localPx.y,
+      spawnX,
+      spawnY,
       this.collectRemotePlayerObstacles(localId),
       tileSize,
       worldCols,

@@ -168,6 +168,8 @@ export function resolveEntityOverlaps(
   worldCols: number,
   worldRows: number,
   dtSec: number,
+  /** When set, caps per-pass separation distance; omit for the default soft remote-player cap. */
+  maxStepPx?: number,
 ): { x: number; y: number } {
   if (obstacles.length === 0) {
     return clampWorldTopLeft(topLeftX, topLeftY, tileSize, worldCols, worldRows);
@@ -175,7 +177,7 @@ export function resolveEntityOverlaps(
 
   const collSize = ENTITY_COLLISION_SIZE_PX;
   const inset = entityCollisionInset(tileSize);
-  const maxStep = ENTITY_OVERLAP_RESOLVE_PX_PER_SEC * Math.max(dtSec, 1e-4);
+  const maxStep = maxStepPx ?? ENTITY_OVERLAP_RESOLVE_PX_PER_SEC * Math.max(dtSec, 1e-4);
   let collX = topLeftX + inset;
   let collY = topLeftY + inset;
   const maxPasses = Math.max(1, obstacles.length);
