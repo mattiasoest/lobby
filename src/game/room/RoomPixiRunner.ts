@@ -40,7 +40,7 @@ import {
   scrollWorldPx,
   type RemoteSample,
 } from './worldMath.ts';
-import { createViewportRain, rainEnabledForRoomId, type ViewportRainApi } from './roomRain.ts';
+import { createWorldRain, rainEnabledForRoomId, type WorldRainApi } from './roomRain.ts';
 import { createWorldSnow, snowEnabledForRoomId, type WorldSnowApi } from './roomSnow.ts';
 import { Animal, animalHomeAnchors, animalSeedBase, loadAnimalTextures, type AnimalTextureMap } from './animals.ts';
 import type { MinimapSnapshot } from './Minimap.ts';
@@ -96,7 +96,7 @@ export class RoomPixiRunner {
   private prevRenderedPxRef = new Map<string, { x: number; y: number }>();
   private characterTextures: CharacterTextureSet | null = null;
   private tickerFn: ((ticker: Ticker) => void) | null = null;
-  private viewportRain: ViewportRainApi | null = null;
+  private worldRain: WorldRainApi | null = null;
   private worldSnow: WorldSnowApi | null = null;
 
   private keysInternal = createMoveKeysState();
@@ -209,6 +209,9 @@ export class RoomPixiRunner {
     if (snowEnabledForRoomId(this.opts.roomId)) {
       this.worldSnow = createWorldSnow(weatherWorld);
     }
+    if (rainEnabledForRoomId(this.opts.roomId)) {
+      this.worldRain = createWorldRain(weatherWorld);
+    }
 
     const playerNameLayer = new Container();
     playerNameLayer.sortableChildren = true;
@@ -223,10 +226,6 @@ export class RoomPixiRunner {
     viewRoot.scale.set(ROOM_CAMERA_ZOOM, ROOM_CAMERA_ZOOM);
     viewRoot.addChild(world);
     app.stage.addChild(viewRoot);
-
-    if (rainEnabledForRoomId(this.opts.roomId)) {
-      this.viewportRain = createViewportRain(viewPixelW, viewPixelH, app.stage);
-    }
 
     const spawn = clampWorldTopLeft(worldSpawnPx.x, worldSpawnPx.y, tileSize, worldCols, worldRows);
     this.localPxRef = { ...spawn };
@@ -499,8 +498,9 @@ export class RoomPixiRunner {
         animals: minimapAnimals,
       } satisfies MinimapSnapshot;
 
-      this.viewportRain?.update(ticker.deltaMS);
-      this.worldSnow?.update(ticker.deltaMS, { left: viewLeft, top: viewTop, w: viewW, h: viewH });
+      const weatherViewport = { left: viewLeft, top: viewTop, w: viewW, h: viewH };
+      this.worldRain?.update(ticker.deltaMS, weatherViewport);
+      this.worldSnow?.update(ticker.deltaMS, weatherViewport);
     };
 
     this.tickerFn = tickRun;
@@ -737,8 +737,8 @@ export class RoomPixiRunner {
     window.removeEventListener('keyup', this.keyUp);
     window.removeEventListener('blur', this.blur);
 
-    this.viewportRain?.destroy();
-    this.viewportRain = null;
+    this.worldRain?.destroy();
+    this.worldRain = null;
     this.worldSnow?.destroy();
     this.worldSnow = null;
 

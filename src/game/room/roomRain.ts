@@ -1,5 +1,7 @@
 import type { Container } from 'pixi.js';
 import { Graphics } from 'pixi.js';
+import { ROOM_CAMERA_ZOOM } from './constants.ts';
+import type { WorldViewport } from './roomSnow.ts';
 
 export function rainEnabledForRoomId(roomId: number): boolean {
   const r = roomId | 0;
@@ -8,48 +10,50 @@ export function rainEnabledForRoomId(roomId: number): boolean {
 
 type Drop = { x: number; y: number; vy: number; length: number };
 
-const MIN_DROPS = 120;
-const MAX_DROPS = 420;
-/** Target rain density (~px² per drop); tuned for TILE=32 / ~32×20 view */
-const AREA_PER_DROP = 3800;
+const MIN_DROPS = 95;
+const MAX_DROPS = 340;
+/** Target rain density in world-space px² per drop (screen density ÷ zoom²). */
+const AREA_PER_DROP = 4800 / (ROOM_CAMERA_ZOOM * ROOM_CAMERA_ZOOM);
 
-/** ~wind: horizontal drift in px/sec */
-const WIND_PX_PER_SEC = 28;
+/** ~wind: horizontal drift in world px/sec (screen wind ÷ zoom). */
+const WIND_PX_PER_SEC = 28 / ROOM_CAMERA_ZOOM;
 /** Streak tilt from vertical (sin/cos multiplier on length) */
 const SLANT_X = 0.22;
 const SLANT_Y = 0.98;
 
-export type ViewportRainApi = {
-  update: (deltaMS: number) => void;
+export type WorldRainApi = {
+  update: (deltaMS: number, viewport: WorldViewport) => void;
   destroy: () => void;
 };
 
 /**
- * Screen-space rain above the scrolling world.
- * Draws translucent streaks inside [0,viewW)×[0,viewH).
+ * World-space rain attached to the weather container. Drops live in world coords,
+ * so as the camera moves the player walks through the rain rather than the rain
+ * staying fixed to the screen (which made fall speed look tied to movement).
  */
-export function createViewportRain(viewW: number, viewH: number, stage: Container): ViewportRainApi {
-  const w = Math.max(1, viewW);
-  const h = Math.max(1, viewH);
-
-  const drops: Drop[] = [];
-  let count = Math.round((w * h) / AREA_PER_DROP);
-  count = Math.max(MIN_DROPS, Math.min(MAX_DROPS, count));
-
-  const seedDrop = (): Drop => ({
-    x: Math.random() * w,
-    y: Math.random() * h - h * 0.5,
-    vy: 380 + Math.random() * 140,
-    length: 5 + Math.random() * 11,
-  });
-
-  for (let i = 0; i < count; i++) {
-    drops.push(seedDrop());
-  }
-
+export function createWorldRain(parent: Container): WorldRainApi {
   const g = new Graphics();
   g.eventMode = 'none';
-  stage.addChild(g);
+  parent.addChild(g);
+
+  const drops: Drop[] = [];
+  let seeded = false;
+
+  const newDrop = (view: WorldViewport, fromTop: boolean): Drop => ({
+    x: view.left + Math.random() * view.w,
+    y: fromTop ? view.top - 12 - Math.random() * 48 : view.top + Math.random() * view.h,
+    vy: (380 + Math.random() * 140) / ROOM_CAMERA_ZOOM,
+    length: (5 + Math.random() * 11) / ROOM_CAMERA_ZOOM,
+  });
+
+  const seed = (view: WorldViewport): void => {
+    let count = Math.round((view.w * view.h) / AREA_PER_DROP);
+    count = Math.max(MIN_DROPS, Math.min(MAX_DROPS, count));
+    drops.length = 0;
+    for (let i = 0; i < count; i++) {
+      drops.push(newDrop(view, false));
+    }
+  };
 
   const repaint = (): void => {
     const ctx = g.context;
@@ -65,32 +69,40 @@ export function createViewportRain(viewW: number, viewH: number, stage: Containe
     }
   };
 
-  const update = (deltaMS: number): void => {
+  const update = (deltaMS: number, viewport: WorldViewport): void => {
+    if (!seeded) {
+      seed(viewport);
+      seeded = true;
+      repaint();
+      return;
+    }
+
     const dt = deltaMS / 1000;
     const wind = WIND_PX_PER_SEC * dt;
+    const margin = 24;
+    const bottom = viewport.top + viewport.h;
+    const right = viewport.left + viewport.w;
+
     for (const d of drops) {
       d.y += d.vy * dt;
       d.x += wind;
-      const margin = d.length + 8;
-      if (d.y > h + margin) {
-        d.y = -margin - Math.random() * 48;
-        d.x = Math.random() * w;
+      if (d.y > bottom + margin) {
+        Object.assign(d, newDrop(viewport, true));
+        continue;
       }
-      if (d.x > w + margin) {
-        d.x = -margin;
-      } else if (d.x < -margin) {
-        d.x = w + margin;
+      if (d.x > right + margin) {
+        d.x = viewport.left - margin;
+      } else if (d.x < viewport.left - margin) {
+        d.x = right + margin;
       }
     }
     repaint();
   };
 
-  repaint();
-
   return {
     update,
     destroy: () => {
-      stage.removeChild(g);
+      parent.removeChild(g);
       g.destroy();
     },
   };
