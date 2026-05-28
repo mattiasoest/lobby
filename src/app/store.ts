@@ -1,10 +1,3 @@
-/** Legacy key — cleared on boot so access tokens are memory-only. */
-const TOKEN_KEY = 'lobby_token';
-
-export function clearLegacyAccessToken() {
-  localStorage.removeItem(TOKEN_KEY);
-}
-
 export function decodeJwtPayload(token: string | null): {
   username?: string;
   sub?: string;

@@ -5,7 +5,7 @@ import { queryKeys } from '../query/keys.ts';
 import { configureAuthApi } from '../services/api.ts';
 import { apiUrl } from '../services/apiOrigin.ts';
 import { refreshAccessFromCookieSingleFlight } from '../services/credentialRefresh.ts';
-import { clearLegacyAccessToken, decodeJwtUsername } from './store';
+import { decodeJwtUsername } from './store';
 
 type AuthValue = {
   token: string | null;
@@ -55,10 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** OAuth callback skips refresh; otherwise wait until the first bootstrap attempt finishes. */
   const sessionReady = skipBootstrap || bootstrapQuery.isFetched;
 
-  useEffect(() => {
-    clearLegacyAccessToken();
-  }, []);
-
   const setToken = useCallback((newToken: string | null) => {
     setTokenOverride(newToken);
   }, []);
@@ -89,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSettled: () => {
       queryClient.clear();
       setTokenOverride(null);
-      clearLegacyAccessToken();
     },
   });
 
