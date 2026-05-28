@@ -17,6 +17,7 @@ import {
 } from './auth/tokens.js';
 import { createDb, createPool } from './db/client.js';
 import { users } from './db/schema.js';
+import { guestLoginRateLimit } from './middleware/guestLoginRateLimit.js';
 import { createRequireAuth } from './middleware/jwt.js';
 import { createAuthTokensRouter } from './routes/authTokens.js';
 import { meRouter } from './routes/me.js';
@@ -42,6 +43,8 @@ const pool = createPool(DATABASE_URL);
 const db = createDb(pool);
 const app = express();
 
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
+
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
@@ -58,7 +61,7 @@ app.get('/api/auth/providers', (_req, res) => {
   });
 });
 
-app.post('/api/auth/guest-login', async (_req, res) => {
+app.post('/api/auth/guest-login', guestLoginRateLimit, async (_req, res) => {
   if (process.env.ALLOW_GUEST_LOGIN === '0') {
     res.status(403).json({ error: 'disabled' });
     return;

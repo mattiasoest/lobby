@@ -69,7 +69,12 @@ export async function guestLogin(): Promise<string> {
         : `Unexpected empty response (${res.status}).`,
     );
   }
-  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  if (!res.ok) {
+    if (data.error === 'rate_limited') {
+      throw new Error('Too many guest sign-ins from your network. Try again later.');
+    }
+    throw new Error(data.error ?? `HTTP ${res.status}`);
+  }
   if (!data.accessToken) throw new Error('missing access token');
   return data.accessToken;
 }

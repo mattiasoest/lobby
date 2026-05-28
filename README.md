@@ -49,6 +49,9 @@ Create `server/.env` (see values below). The server **exits on startup** if `JWT
 | `SERVER_PUBLIC_URL`                         | for OAuth   | Public URL of this API (default `http://localhost:3001`); used in OAuth callback URLs                                         |
 | `ALLOW_DEV_LOGIN`                           | optional    | Set to `1` to enable **POST `/api/auth/dev-login`** and the dev login button on the sign-in page. **Turn off in production.** |
 | `ALLOW_GUEST_LOGIN`                         | optional    | Set to `0` to disable **POST `/api/auth/guest-login`** and the “Continue as guest” button. Defaults **on**.                   |
+| `GUEST_LOGIN_RATE_LIMIT_MAX`                | optional    | Max guest sign-ins per IP per window (default `5`).                                                                           |
+| `GUEST_LOGIN_RATE_LIMIT_WINDOW_MS`          | optional    | Guest sign-in rate-limit window in ms (default `900000`, 15 minutes).                                                         |
+| `TRUST_PROXY`                               | optional    | Express `trust proxy` hop count for correct client IP behind a reverse proxy (default `1`). Set to `0` for direct exposure.   |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional    | Enable “Continue with Google” when both are set                                                                               |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional    | Enable “Continue with GitHub” when both are set                                                                               |
 
