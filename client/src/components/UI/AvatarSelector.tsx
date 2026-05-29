@@ -1,5 +1,6 @@
 import { useAvatar } from '../../app/avatarContext.tsx';
 import { AVATAR_OPTIONS, avatarPreviewStyle, getAvatarOption } from '../../game/room/avatars.ts';
+import type { CSSProperties } from 'react';
 
 const PREVIEW_SIZE_PX = 56;
 const OPTION_SIZE_PX = 48;
@@ -51,7 +52,12 @@ export function AvatarSelector() {
         </div>
       </div>
 
-      <div className="avatar-selector-grid" role="listbox" aria-label="Avatar options">
+      <div
+        className="avatar-selector-grid"
+        role="listbox"
+        aria-label="Avatar options"
+        style={{ '--avatar-option-sprite-size': `${OPTION_SIZE_PX}px` } as CSSProperties}
+      >
         {AVATAR_OPTIONS.map((option) => {
           const selected = option.id === avatarId;
           if (!option.unlocked) {
@@ -66,10 +72,14 @@ export function AvatarSelector() {
                 role="option"
                 aria-selected={false}
               >
-                <span className="avatar-option-lock" aria-hidden>
-                  🔒
+                <span
+                  className="avatar-option-sprite avatar-option-sprite--locked"
+                  style={{ width: OPTION_SIZE_PX, height: OPTION_SIZE_PX }}
+                  aria-hidden
+                >
+                  <span className="avatar-option-lock">🔒</span>
                 </span>
-                <span className="avatar-option-coming-soon">Coming soon</span>
+                <span className="avatar-option-label avatar-option-coming-soon">Coming soon</span>
               </button>
             );
           }

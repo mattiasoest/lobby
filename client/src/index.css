@@ -492,6 +492,10 @@ code {
   box-sizing: border-box;
 }
 
+.lobby-grid h1 {
+  text-align: center;
+}
+
 .avatar-selector {
   display: grid;
   gap: 12px;
@@ -523,6 +527,13 @@ code {
   image-rendering: pixelated;
   border-radius: 0;
   background-color: var(--pal-bg);
+  flex-shrink: 0;
+}
+
+.avatar-option-sprite--locked {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
 }
 
 .avatar-preview {
@@ -551,18 +562,22 @@ code {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 12px;
+  --avatar-option-sprite-size: 48px;
 }
 
 .avatar-option {
   display: grid;
   gap: 8px;
   justify-items: center;
+  align-content: start;
   padding: 10px 8px;
   border: 2px solid var(--pal-line-soft);
   border-radius: 0;
   background: var(--pal-panel-2);
   cursor: pointer;
   box-shadow: var(--bevel);
+  min-height: calc(20px + var(--avatar-option-sprite-size) + 8px + 1.25em);
+  box-sizing: border-box;
   transition:
     background 0.1s steps(2),
     border-color 0.1s steps(2);
@@ -593,7 +608,6 @@ code {
 }
 
 .avatar-option-coming-soon {
-  font-size: 0.75rem;
   color: var(--text-muted);
   text-align: center;
 }
@@ -605,15 +619,18 @@ code {
 }
 
 .room-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 14px;
+  width: 100%;
 }
 
 .room-card {
   display: grid;
   place-items: center;
-  padding: 28px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: clamp(12px, 4vw, 28px);
   border: 3px solid var(--pal-line);
   border-radius: 0;
   background: var(--pal-panel);
