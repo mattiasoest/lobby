@@ -7,6 +7,8 @@ export type CanvasLoaderLayout = {
 export const ROOM_TILE_SIZE = 32;
 export const ROOM_VIEW_COLS = 30;
 export const ROOM_VIEW_ROWS = 18;
+/** Minimum view rows when the panel is shorter than the default canvas — keep in sync with useRoomPanelLayout. */
+export const ROOM_VIEW_ROWS_MIN = 10;
 export const ROOM_WORLD_COLS = 48;
 export const ROOM_WORLD_ROWS = 32;
 

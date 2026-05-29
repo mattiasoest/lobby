@@ -13,6 +13,7 @@ import {
   ROOM_WORLD_COLS,
   ROOM_WORLD_ROWS,
 } from '../../components/Canvas/canvasLoaderLayout.ts';
+import { useRoomPanelLayout } from '../../utils/useRoomScrollArea.ts';
 import { useGameFrameWidth } from '../../utils/useGameFrameWidth.ts';
 import { ChatBox } from '../../components/Chat/ChatBox.tsx';
 import { RoomPlayerList } from '../../components/UI/RoomPlayerList.tsx';
@@ -136,7 +137,14 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const claims = useMemo(() => decodeJwtPayload(token), [token]);
 
-  const canvasViewBox = useMemo(() => canvasViewPixels(ROOM_TILE_SIZE, ROOM_VIEW_COLS, ROOM_VIEW_ROWS), []);
+  const roomStackRef = useRef<HTMLDivElement>(null);
+  const {
+    stackMaxHeightPx: roomPanelMaxHeightPx,
+    viewRows: roomViewRows,
+    showPlayerList,
+  } = useRoomPanelLayout(roomStackRef, ROOM_TILE_SIZE, ROOM_VIEW_ROWS);
+
+  const canvasViewBox = useMemo(() => canvasViewPixels(ROOM_TILE_SIZE, ROOM_VIEW_COLS, roomViewRows), [roomViewRows]);
 
   const [pixiCanvasReady, setPixiCanvasReady] = useState(false);
 
@@ -306,7 +314,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     <div className="room-page">
       <div className="room-shell">
         <div className="room-stage">
-          <div className="room-game-stack">
+          <div ref={roomStackRef} className="room-game-stack" style={{ maxHeight: roomPanelMaxHeightPx }}>
             <div className="room-switcher-bar">
               <nav className="room-switcher" aria-label="Switch room">
                 {ROOM_IDS.map((id) => (
@@ -321,49 +329,55 @@ export function RoomPage({ roomId }: { roomId: number }) {
                 ))}
               </nav>
             </div>
-            <div
-              className="pixi-mount-host"
-              style={{
-                position: 'relative',
-                height: canvasViewBox.height,
-              }}
-              aria-busy={showRoomCanvasLoader}
-              aria-label="Room canvas"
-            >
-              <Suspense fallback={null}>
-                <LazyPixiRoomCanvas
-                  syncRef={syncRef}
-                  tileSize={ROOM_TILE_SIZE}
-                  viewCols={ROOM_VIEW_COLS}
-                  viewRows={ROOM_VIEW_ROWS}
-                  worldCols={ROOM_WORLD_COLS}
-                  worldRows={ROOM_WORLD_ROWS}
-                  worldSpawnPx={spawnPx}
-                  players={displayPlayers}
-                  localId={socketId}
-                  roomId={roomId}
-                  keysDisabled={typingFocus}
-                  onPositionSync={handlePositionSync}
-                  onCanvasReady={handlePixiCanvasReady}
+            <div className="room-panel">
+              <div
+                className="pixi-mount-host"
+                style={{
+                  position: 'relative',
+                  height: canvasViewBox.height,
+                }}
+                aria-busy={showRoomCanvasLoader}
+                aria-label="Room canvas"
+              >
+                <Suspense fallback={null}>
+                  <LazyPixiRoomCanvas
+                    syncRef={syncRef}
+                    tileSize={ROOM_TILE_SIZE}
+                    viewCols={ROOM_VIEW_COLS}
+                    viewRows={roomViewRows}
+                    worldCols={ROOM_WORLD_COLS}
+                    worldRows={ROOM_WORLD_ROWS}
+                    worldSpawnPx={spawnPx}
+                    players={displayPlayers}
+                    localId={socketId}
+                    roomId={roomId}
+                    keysDisabled={typingFocus}
+                    onPositionSync={handlePositionSync}
+                    onCanvasReady={handlePixiCanvasReady}
+                  />
+                </Suspense>
+                {showRoomCanvasLoader && (
+                  <div className="pixi-mount-bootstrap-overlay">
+                    <CanvasLoadingFallback />
+                  </div>
+                )}
+                {pixiCanvasReady && <RoomMinimap syncRef={syncRef} active={pixiCanvasReady} />}
+                <ChatBox
+                  className="chat--canvas-hud"
+                  messages={messages}
+                  viewerUsername={username}
+                  roomUsernamesLower={roomUsernamesLower}
+                  onSend={sendChat}
+                  onTypingChange={setTypingFocus}
+                  composerRef={chatComposerRef}
                 />
-              </Suspense>
-              {showRoomCanvasLoader && (
-                <div className="pixi-mount-bootstrap-overlay">
-                  <CanvasLoadingFallback />
+              </div>
+              {showPlayerList && (
+                <div className="player-list-scroll" aria-label="Players in room">
+                  <RoomPlayerList store={playerListStore} />
                 </div>
               )}
-              {pixiCanvasReady && <RoomMinimap syncRef={syncRef} active={pixiCanvasReady} />}
-              <ChatBox
-                className="chat--canvas-hud"
-                messages={messages}
-                viewerUsername={username}
-                roomUsernamesLower={roomUsernamesLower}
-                onSend={sendChat}
-                onTypingChange={setTypingFocus}
-                composerRef={chatComposerRef}
-              />
             </div>
-            <RoomPlayerList store={playerListStore} />
           </div>
         </div>
       </div>

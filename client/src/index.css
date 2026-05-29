@@ -168,6 +168,7 @@ code {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -180,6 +181,8 @@ code {
   flex-direction: column;
   align-items: stretch;
   gap: 16px;
+  flex: 1;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -253,6 +256,7 @@ code {
 
 .chrome-body {
   flex: 1;
+  min-height: 0;
   min-width: 0;
   width: 100%;
   display: flex;
@@ -637,13 +641,18 @@ code {
 }
 
 .room-page {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   gap: 12px;
+  min-height: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
 .room-switcher-bar {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
@@ -689,27 +698,62 @@ code {
 }
 
 .room-shell {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   gap: 16px;
+  min-height: 0;
   min-width: 0;
 }
 
 .room-stage {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   gap: 12px;
+  min-height: 0;
   min-width: 0;
 }
 
-/* Room switcher, canvas, and player list share the game-column track (same width as header). */
+/* Capped to viewport via useRoomPanelMaxHeight; player positions scroll in .player-list-scroll */
 .room-game-stack {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  flex: 1;
   gap: 12px;
   width: 100%;
+  min-height: 0;
   min-width: 0;
+  overflow: hidden;
   box-sizing: border-box;
+}
+
+.room-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.room-panel .pixi-mount-host {
+  flex-shrink: 0;
+}
+
+.player-list-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.player-list-scroll .player-list {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
 }
 
 .room-switcher {
@@ -888,19 +932,36 @@ code {
 }
 
 .player-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   border: 3px solid var(--pal-line);
   background: var(--pal-bg-2);
   box-shadow: var(--bevel), var(--pixel-shadow-sm);
-  padding: 12px 16px;
+  padding: 8px 12px 8px;
+  box-sizing: border-box;
 }
 
-.player-list h3 {
+.player-list__title {
+  flex-shrink: 0;
   font-family: var(--heading);
   font-size: 11px;
   font-weight: 400;
-  margin: 0 0 12px;
+  margin: 0 0 4px;
+  padding: 0 2px;
   color: var(--pal-green);
   text-shadow: 2px 2px 0 #0c0d16;
+}
+
+.player-list__names {
+  flex: 1;
+  min-height: 0;
+  margin: 0 -2px;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .player-list ul {
