@@ -10,6 +10,7 @@ import { AVATAR_CHARACTER_TEXTURES } from '../../game/room/avatars.ts';
 import { backgroundTextureSrcForRoomId } from '../../game/room/roomBackground.ts';
 import { TouchControls } from '../UI/TouchControls.tsx';
 import { useIsTouchDevice } from '../../utils/useIsTouchDevice.ts';
+import { clampGameViewWidthPx } from '../../utils/gameFrameLayout.ts';
 import type { PlayerDTO } from '../../types.ts';
 
 const MIN_VIEW_WIDTH_PX = 1;
@@ -33,9 +34,8 @@ export type PixiCanvasProps = {
 };
 
 function clampViewWidthPx(availablePx: number, tileSize: number, worldCols: number): number {
-  const maxW = worldCols * tileSize;
   if (availablePx < MIN_VIEW_WIDTH_PX) return MIN_VIEW_WIDTH_PX;
-  return Math.min(maxW, Math.round(availablePx));
+  return clampGameViewWidthPx(availablePx, tileSize, worldCols);
 }
 
 /**

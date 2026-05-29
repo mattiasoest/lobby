@@ -1,30 +1,30 @@
-import { useLayoutEffect } from 'react';
-
-const FRAME_SELECTOR = '.pixi-canvas-frame';
-const VAR_NAME = '--game-frame-width';
+import { useLayoutEffect, type RefObject } from 'react';
+import { measureGameFrameTrackWidthPx, publishGameFrameWidthPx } from './gameFrameLayout.ts';
 
 /**
- * Publishes the live `.pixi-canvas-frame` width (border included) to
- * `--game-frame-width` on `:root`, so the header, room tabs, and player list can match the
- * canvas's actual rendered width and stay centered with equal left/right spacing.
+ * Publishes the live game-column track width to `--game-frame-width` on `:root`, so the header,
+ * lobby, room tabs, and player list match the canvas host before the room canvas mounts.
  */
-export function useGameFrameWidth(active: boolean) {
+export function useGameFrameWidth(trackRef: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
-    const root = document.documentElement;
+    const track = trackRef.current;
+    if (!track) return;
 
     const sync = () => {
-      const frame = document.querySelector<HTMLElement>(FRAME_SELECTOR);
-      if (!frame) return;
-      const w = frame.getBoundingClientRect().width;
-      if (w > 0) root.style.setProperty(VAR_NAME, `${Math.round(w)}px`);
+      publishGameFrameWidthPx(measureGameFrameTrackWidthPx(track));
     };
-
-    if (!active) return;
 
     sync();
     const ro = new ResizeObserver(sync);
-    const frame = document.querySelector<HTMLElement>(FRAME_SELECTOR);
-    if (frame) ro.observe(frame);
-    return () => ro.disconnect();
-  }, [active]);
+    ro.observe(track);
+    window.addEventListener('resize', sync);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', sync);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', sync);
+      vv?.removeEventListener('resize', sync);
+    };
+  }, [trackRef]);
 }

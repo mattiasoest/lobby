@@ -14,7 +14,6 @@ import {
   ROOM_WORLD_ROWS,
 } from '../../components/Canvas/canvasLoaderLayout.ts';
 import { useRoomPanelLayout } from '../../utils/useRoomScrollArea.ts';
-import { useGameFrameWidth } from '../../utils/useGameFrameWidth.ts';
 import { ChatBox } from '../../components/Chat/ChatBox.tsx';
 import { RoomPlayerList } from '../../components/UI/RoomPlayerList.tsx';
 import { createPlayerListPositionStore } from '../../components/UI/playerListPositionStore.ts';
@@ -148,8 +147,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const canvasViewBox = useMemo(() => canvasViewPixels(ROOM_TILE_SIZE, ROOM_VIEW_COLS, roomViewRows), [roomViewRows]);
 
   const [pixiCanvasReady, setPixiCanvasReady] = useState(false);
-
-  useGameFrameWidth(pixiCanvasReady);
 
   const handlePixiCanvasReady = useCallback((ready: boolean) => {
     setPixiCanvasReady(ready);

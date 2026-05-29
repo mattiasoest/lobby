@@ -1,9 +1,13 @@
 import { Link } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { useAuth } from '../../app/authContext.tsx';
+import { useGameFrameWidth } from '../../utils/useGameFrameWidth.ts';
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const { logout, username } = useAuth();
+  const frameTrackRef = useRef<HTMLElement>(null);
+  useGameFrameWidth(frameTrackRef);
+
   return (
     <div className="chrome">
       <div className="game-column">
@@ -16,7 +20,9 @@ export function AppChrome({ children }: { children: ReactNode }) {
             Log out
           </button>
         </header>
-        <main className="chrome-body">{children}</main>
+        <main ref={frameTrackRef} className="chrome-body">
+          {children}
+        </main>
       </div>
     </div>
   );
