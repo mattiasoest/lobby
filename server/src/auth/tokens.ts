@@ -18,23 +18,42 @@ export function refreshTtlMs(): number {
   return days * 24 * 60 * 60 * 1000;
 }
 
+function primaryFrontendOrigin(): string {
+  const raw = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+  return raw.split(',')[0]?.trim() || 'http://localhost:5173';
+}
+
 /** Use HTTPS-only cookies when the browser actually talks HTTPS to the SPA. */
 function refreshCookieSecure(): boolean {
   if (process.env.REFRESH_COOKIE_SECURE === '1') return true;
   if (process.env.REFRESH_COOKIE_SECURE === '0') return false;
   try {
-    const frontendBaseUrl = new URL(process.env.FRONTEND_URL ?? 'http://localhost:5173');
+    const frontendBaseUrl = new URL(primaryFrontendOrigin());
     return frontendBaseUrl.protocol === 'https:';
   } catch {
     return false;
   }
 }
 
+function refreshCookieSameSite(): CookieOptions['sameSite'] {
+  const explicit = process.env.REFRESH_COOKIE_SAMESITE;
+  if (explicit === 'none' || explicit === 'lax' || explicit === 'strict') return explicit;
+  try {
+    const frontend = new URL(primaryFrontendOrigin());
+    const server = new URL(process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3001');
+    if (frontend.origin !== server.origin) return 'none';
+  } catch {
+    // fall through
+  }
+  return 'lax';
+}
+
 function refreshCookieBase(): Omit<CookieOptions, 'maxAge'> {
+  const secure = refreshCookieSecure() || refreshCookieSameSite() === 'none';
   return {
     httpOnly: true,
-    secure: refreshCookieSecure(),
-    sameSite: 'lax',
+    secure,
+    sameSite: refreshCookieSameSite(),
     path: '/api/auth',
   };
 }

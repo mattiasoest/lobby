@@ -24,10 +24,12 @@ import { meRouter } from './routes/me.js';
 import { messagesRouter } from './routes/messages.js';
 import { registerRoomNamespaces } from './sockets/roomHandler.js';
 import { collapseUsernameWhitespace } from './usernameNormalize.js';
+import { corsOriginDelegate, parseAllowedOrigins, primaryFrontendUrl } from './allowedOrigins.js';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const JWT_SECRET = process.env.JWT_SECRET ?? '';
-const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+const allowedOrigins = parseAllowedOrigins(process.env.FRONTEND_URL);
+const FRONTEND_URL = primaryFrontendUrl(process.env.FRONTEND_URL);
 const DATABASE_URL = process.env.DATABASE_URL ?? '';
 
 if (!JWT_SECRET) {
@@ -45,7 +47,7 @@ const app = express();
 
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
 
-app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+app.use(cors({ origin: corsOriginDelegate(allowedOrigins), credentials: true }));
 app.use(cookieParser());
 app.use(express.json());
 app.use(passport.initialize());
@@ -146,7 +148,7 @@ app.use('/api', messagesRouter(db, requireAuth));
 
 const httpServer = createServer(app);
 const io = new IOServer(httpServer, {
-  cors: { origin: FRONTEND_URL },
+  cors: { origin: allowedOrigins, credentials: true },
   path: '/socket.io',
 });
 
