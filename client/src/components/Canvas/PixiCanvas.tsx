@@ -26,8 +26,6 @@ export type PixiCanvasProps = {
   players: PlayerDTO[];
   localId: string | null;
   roomId: number;
-  localSpeechBubble: string | null;
-  remoteSpeechBubbles: ReadonlyMap<string, string>;
   keysDisabled?: boolean;
   onPositionSync: (pos: { x: number; y: number }) => void;
   /** Fires when the WebGL runner finishes bootstrap or tears down (recreates runner). */
@@ -56,12 +54,11 @@ const PixiCanvasInner = memo(function PixiCanvas({
   keysDisabled,
   onPositionSync,
   roomId,
-  localSpeechBubble,
-  remoteSpeechBubbles,
   onCanvasReady,
 }: PixiCanvasProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const runnerRef = useRef<RoomPixiRunner | null>(null);
+  const prevRoomIdRef = useRef(roomId);
   const [layoutViewWidthPx, setLayoutViewWidthPx] = useState(() => viewCols * tileSize);
 
   useLayoutEffect(() => {
@@ -96,21 +93,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     syncState.worldRows = worldRows;
     syncState.keysDisabled = keysDisabled ?? false;
     syncState.onPositionSync = onPositionSync;
-    syncState.localSpeechBubble = localSpeechBubble;
-    syncState.remoteSpeechBubbles = remoteSpeechBubbles;
-  }, [
-    syncRef,
-    localId,
-    tileSize,
-    layoutViewWidthPx,
-    viewRows,
-    worldCols,
-    worldRows,
-    keysDisabled,
-    onPositionSync,
-    localSpeechBubble,
-    remoteSpeechBubbles,
-  ]);
+  }, [syncRef, localId, tileSize, layoutViewWidthPx, viewRows, worldCols, worldRows, keysDisabled, onPositionSync]);
 
   const playerLayerSig = useMemo(
     () =>
@@ -123,6 +106,26 @@ const PixiCanvasInner = memo(function PixiCanvas({
 
   const [canvasReady, setCanvasReady] = useState(false);
   const isTouchDevice = useIsTouchDevice();
+
+  useEffect(() => {
+    const syncState = syncRef.current;
+    const runner = runnerRef.current;
+    if (!canvasReady || !runner) {
+      syncState.showSpeechBubble = undefined;
+      syncState.clearSpeechBubbles = undefined;
+      return;
+    }
+    syncState.showSpeechBubble = (playerSocketId, text) => {
+      runner.showSpeechBubble(playerSocketId, text);
+    };
+    syncState.clearSpeechBubbles = () => {
+      runner.clearSpeechBubbles();
+    };
+    return () => {
+      syncState.showSpeechBubble = undefined;
+      syncState.clearSpeechBubbles = undefined;
+    };
+  }, [canvasReady, syncRef]);
 
   const handleMoveVector = useCallback((x: number, y: number) => {
     runnerRef.current?.setMoveVector(x, y);
@@ -160,8 +163,16 @@ const PixiCanvasInner = memo(function PixiCanvas({
       runner.destroy();
       runnerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- view width resizes via resizeView; worldSpawnPx only used for init
-  }, [tileSize, viewRows, worldCols, worldRows, roomId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- room changes use switchRoom; worldSpawnPx only used for init
+  }, [tileSize, viewRows, worldCols, worldRows]);
+
+  useEffect(() => {
+    const runner = runnerRef.current;
+    if (!runner || !canvasReady) return;
+    if (prevRoomIdRef.current === roomId) return;
+    prevRoomIdRef.current = roomId;
+    void runner.switchRoom(roomId, worldSpawnPx, backgroundTextureSrcForRoomId(roomId, grassBg, snowBg));
+  }, [canvasReady, roomId, worldSpawnPx]);
 
   useLayoutEffect(() => {
     if (!canvasReady) return;
@@ -178,21 +189,10 @@ const PixiCanvasInner = memo(function PixiCanvas({
   }, [canvasReady, localId, playerLayerSig, tileSize]);
 
   useEffect(() => {
-    const runner = runnerRef.current;
-    if (!runner || !canvasReady) return;
-    runner.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
-  }, [canvasReady, roomId, worldSpawnPx.x, worldSpawnPx.y]);
-
-  useEffect(() => {
     if (keysDisabled) {
       runnerRef.current?.clearMovementKeys();
     }
   }, [keysDisabled]);
-
-  useEffect(() => {
-    if (!canvasReady) return;
-    runnerRef.current?.rebuildSpeechBubbles(localSpeechBubble, localId, remoteSpeechBubbles);
-  }, [canvasReady, localId, localSpeechBubble, remoteSpeechBubbles]);
 
   useEffect(() => {
     if (!canvasReady) return;

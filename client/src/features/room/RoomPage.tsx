@@ -98,12 +98,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const [serverPlayers, setServerPlayers] = useState<PlayerDTO[]>([]);
   const [typingFocus, setTypingFocus] = useState(false);
   const chatComposerRef = useRef<HTMLInputElement>(null);
-  /** Text shown above the local avatar after sending chat; cleared after a delay */
-  const [localSpeechBubble, setLocalSpeechBubble] = useState<string | null>(null);
-  const speechHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [remoteSpeechBubbles, setRemoteSpeechBubbles] = useState<Map<string, string>>(() => new Map());
-  const remoteSpeechTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const serverPlayersRef = useRef<PlayerDTO[]>([]);
   const selfUserIdRef = useRef<string>('');
   /** Messages from others before roster lists their socket id yet (latest per user id) */
@@ -117,10 +111,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     avatarId: 'default',
   });
 
-  const playerListStore = useMemo(() => {
-    void roomId;
-    return createPlayerListPositionStore();
-  }, [roomId]);
+  const playerListStore = useMemo(() => createPlayerListPositionStore(), []);
 
   const spawnPx = useMemo(() => {
     // Spawn coordinates do not use room geometry (same WORLD_* everywhere). We still key this memo on
@@ -136,10 +127,12 @@ export function RoomPage({ roomId }: { roomId: number }) {
     syncRef.current.players = [];
     syncRef.current.minimapSnapshot = null;
     syncRef.current.serverClockOffsetMs = null;
+    syncRef.current.clearSpeechBubbles?.();
+    playerListStore.publish([]);
     queueMicrotask(() => {
       setServerPlayers([]);
     });
-  }, [roomId]);
+  }, [playerListStore, roomId]);
 
   const claims = useMemo(() => decodeJwtPayload(token), [token]);
 
@@ -147,7 +140,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const [pixiCanvasReady, setPixiCanvasReady] = useState(false);
 
-  useGameFrameWidth(pixiCanvasReady, [roomId, pixiCanvasReady]);
+  useGameFrameWidth(pixiCanvasReady);
 
   const handlePixiCanvasReady = useCallback((ready: boolean) => {
     setPixiCanvasReady(ready);
@@ -165,31 +158,13 @@ export function RoomPage({ roomId }: { roomId: number }) {
   useEffect(() => {
     if (!token) return;
 
-    const timersForCleanup = remoteSpeechTimersRef.current;
     const pendingForCleanup = pendingRemoteSpeechRef.current;
 
     const sock = createRoomSocket({ roomId, token });
     socketRef.current = sock;
 
     function scheduleRemoteBubble(senderSocketId: string, content: string) {
-      setRemoteSpeechBubbles((prev) => {
-        const next = new Map(prev);
-        next.set(senderSocketId, content);
-        return next;
-      });
-
-      const timers = remoteSpeechTimersRef.current;
-      const prevTimer = timers.get(senderSocketId);
-      if (prevTimer) clearTimeout(prevTimer);
-      const timerId = window.setTimeout(() => {
-        setRemoteSpeechBubbles((prev) => {
-          const next = new Map(prev);
-          next.delete(senderSocketId);
-          return next;
-        });
-        timers.delete(senderSocketId);
-      }, 4000);
-      timers.set(senderSocketId, timerId);
+      syncRef.current.showSpeechBubble?.(senderSocketId, content);
     }
 
     /** @returns Whether the bubble was shown (sender on roster). */
@@ -229,12 +204,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
       });
 
       if (msg.user_id === selfUserIdRef.current) {
-        if (speechHideTimerRef.current) clearTimeout(speechHideTimerRef.current);
-        setLocalSpeechBubble(msg.content);
-        speechHideTimerRef.current = window.setTimeout(() => {
-          setLocalSpeechBubble(null);
-          speechHideTimerRef.current = null;
-        }, 4000);
+        const localSocketId = sock.id ?? syncRef.current.localId;
+        if (localSocketId) scheduleRemoteBubble(localSocketId, msg.content);
         return;
       }
 
@@ -268,8 +239,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
     sock.on('room:clock', handleRoomClock);
 
     return () => {
-      for (const timerId of timersForCleanup.values()) clearTimeout(timerId);
-      timersForCleanup.clear();
       pendingForCleanup.clear();
       sock.removeAllListeners();
       sock.disconnect();
@@ -316,13 +285,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const sendChat = useCallback((text: string) => {
     socketRef.current?.emit('chat:send', { content: text });
   }, []);
-
-  useEffect(
-    () => () => {
-      if (speechHideTimerRef.current) clearTimeout(speechHideTimerRef.current);
-    },
-    [],
-  );
 
   useEffect(() => {
     const onKeyDown = (keyEvent: KeyboardEvent) => {
@@ -380,8 +342,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
                   players={displayPlayers}
                   localId={socketId}
                   roomId={roomId}
-                  localSpeechBubble={localSpeechBubble}
-                  remoteSpeechBubbles={remoteSpeechBubbles}
                   keysDisabled={typingFocus}
                   onPositionSync={handlePositionSync}
                   onCanvasReady={handlePixiCanvasReady}

@@ -243,10 +243,7 @@ code {
   font-weight: 600;
   cursor: pointer;
   box-shadow: var(--bevel);
-  transition:
-    background-color 0.1s steps(2),
-    color 0.1s steps(2),
-    transform 0.05s steps(1);
+  transition: transform 0.05s steps(1);
 }
 
 .chrome-logout:not(:disabled):hover {
@@ -579,14 +576,18 @@ code {
   cursor: pointer;
   box-shadow: var(--bevel);
   transition:
-    transform 0.05s steps(1),
+    background 0.1s steps(2),
     border-color 0.1s steps(2),
-    box-shadow 0.1s steps(2);
+    transform 0.05s steps(1);
 }
 
 .avatar-option:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: var(--bevel), var(--pixel-shadow-sm);
+  background: var(--pal-panel);
+  border-color: var(--pal-line);
+}
+
+.avatar-option:active:not(:disabled) {
+  transform: translate(1px, 1px);
 }
 
 .avatar-option--selected {
@@ -645,24 +646,20 @@ code {
   cursor: pointer;
   box-shadow: var(--bevel), var(--pixel-shadow);
   transition:
-    transform 0.05s steps(1),
-    box-shadow 0.1s steps(2),
-    color 0.1s steps(2);
+    background 0.1s steps(2),
+    color 0.1s steps(2),
+    border-color 0.1s steps(2),
+    transform 0.05s steps(1);
 }
 
 .room-card:hover {
-  color: var(--pal-yellow);
-  transform: translate(-2px, -2px);
-  box-shadow:
-    var(--bevel),
-    6px 6px 0 0 #0c0d16;
+  background: var(--pal-panel-2);
+  color: var(--pal-cyan);
+  border-color: var(--pal-line);
 }
 
 .room-card:active {
-  transform: translate(2px, 2px);
-  box-shadow:
-    var(--bevel),
-    2px 2px 0 0 #0c0d16;
+  transform: translate(1px, 1px);
 }
 
 .room-page {

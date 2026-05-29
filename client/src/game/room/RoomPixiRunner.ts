@@ -55,6 +55,9 @@ import {
 } from './animals.ts';
 import type { MinimapSnapshot } from './minimap.ts';
 
+/** How long speech bubbles stay visible above avatars (ms). */
+const SPEECH_BUBBLE_DURATION_MS = 4000;
+
 export type RoomPixiRunnerOptions = {
   mount: HTMLElement;
   syncRef: { current: RoomCanvasSyncState };
@@ -89,12 +92,16 @@ export class RoomPixiRunner {
   private cancelBootstrap = false;
   private app: Application | null = null;
   private worldRef: Container | null = null;
+  private backgroundRef: TilingSprite | null = null;
+  private weatherWorldRef: Container | null = null;
   private actorLayerRef: Container | null = null;
   private playerNameLayerRef: Container | null = null;
   private animalsRef: Animal[] = [];
   private animalTextures: AnimalTextureMap | null = null;
   private speechBubbleWorldRef: Container | null = null;
   private speechBubbleLayoutRef = new Map<string, SpeechBubbleLayout>();
+  private speechTextByPlayerId = new Map<string, string>();
+  private speechHideTimersRef = new Map<string, ReturnType<typeof setTimeout>>();
   /** Avatar body; position is world top-left of the avatar quad. */
   private playerRootByIdRef = new Map<string, Container>();
   private playerNameLabelByIdRef = new Map<string, Text>();
@@ -206,6 +213,7 @@ export class RoomPixiRunner {
         width: worldPixelW,
         height: worldPixelH,
       });
+      this.backgroundRef = grass;
       world.addChild(grass);
     }
 
@@ -219,6 +227,7 @@ export class RoomPixiRunner {
     // walks through them. Inserted before speech bubbles so chat stays readable.
     const weatherWorld = new Container();
     weatherWorld.eventMode = 'none';
+    this.weatherWorldRef = weatherWorld;
     world.addChild(weatherWorld);
     if (snowEnabledForRoomId(this.opts.roomId)) {
       this.worldSnow = createWorldSnow(weatherWorld);
@@ -840,11 +849,33 @@ export class RoomPixiRunner {
     syncState.onPositionSync({ x: this.localPxRef.x, y: this.localPxRef.y });
   }
 
-  rebuildSpeechBubbles(
-    localSpeechBubble: string | null,
-    localId: string | null,
-    remoteSpeechBubbles: ReadonlyMap<string, string>,
-  ): void {
+  /** Show chat text above a player avatar; managed entirely in the Pixi layer. */
+  showSpeechBubble(playerSocketId: string, text: string): void {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    this.speechTextByPlayerId.set(playerSocketId, trimmed);
+
+    const prevTimer = this.speechHideTimersRef.get(playerSocketId);
+    if (prevTimer) clearTimeout(prevTimer);
+    const timerId = window.setTimeout(() => {
+      this.speechTextByPlayerId.delete(playerSocketId);
+      this.speechHideTimersRef.delete(playerSocketId);
+      this.rebuildSpeechBubbleGraphics();
+    }, SPEECH_BUBBLE_DURATION_MS);
+    this.speechHideTimersRef.set(playerSocketId, timerId);
+
+    this.rebuildSpeechBubbleGraphics();
+  }
+
+  clearSpeechBubbles(): void {
+    for (const timerId of this.speechHideTimersRef.values()) clearTimeout(timerId);
+    this.speechHideTimersRef.clear();
+    this.speechTextByPlayerId.clear();
+    this.rebuildSpeechBubbleGraphics();
+  }
+
+  private rebuildSpeechBubbleGraphics(): void {
     const parent = this.speechBubbleWorldRef;
     if (!parent) return;
 
@@ -854,17 +885,7 @@ export class RoomPixiRunner {
     }
     this.speechBubbleLayoutRef.clear();
 
-    type Entry = { playerId: string; text: string };
-    const entries: Entry[] = [];
-    const localTrimmed = localSpeechBubble?.trim();
-    if (localTrimmed && localId) entries.push({ playerId: localId, text: localTrimmed });
-    for (const [socketId, raw] of remoteSpeechBubbles) {
-      const trimmedRemote = raw.trim();
-      if (!trimmedRemote || socketId === localId) continue;
-      entries.push({ playerId: socketId, text: trimmedRemote });
-    }
-
-    for (const { playerId, text } of entries) {
+    for (const [playerId, text] of this.speechTextByPlayerId) {
       const built = createSpeechBubbleGroup(text);
       parent.addChild(built.group);
       this.speechBubbleLayoutRef.set(playerId, built);
@@ -875,6 +896,45 @@ export class RoomPixiRunner {
     Object.assign(this.keysInternal, createMoveKeysState());
     this.touchVecRef.x = 0;
     this.touchVecRef.y = 0;
+  }
+
+  /**
+   * Swap room visuals (background, weather, animals) without tearing down WebGL.
+   * Called when navigating between rooms while the canvas stays mounted.
+   */
+  async switchRoom(roomId: number, worldSpawnPx: { x: number; y: number }, grassTextureSrc: string): Promise<void> {
+    if (!this.app || !this.worldRef) return;
+
+    this.clearSpeechBubbles();
+
+    this.opts.roomId = roomId;
+    this.opts.worldSpawnPx = worldSpawnPx;
+
+    const grassTexture = await Assets.load(grassTextureSrc).catch(() => null);
+    if (this.backgroundRef && grassTexture) {
+      this.backgroundRef.texture = grassTexture;
+    }
+
+    this.worldRain?.destroy();
+    this.worldRain = null;
+    this.worldSnow?.destroy();
+    this.worldSnow = null;
+
+    const weatherWorld = this.weatherWorldRef;
+    if (weatherWorld) {
+      if (snowEnabledForRoomId(roomId)) {
+        this.worldSnow = createWorldSnow(weatherWorld);
+      }
+      if (rainEnabledForRoomId(roomId)) {
+        this.worldRain = createWorldRain(weatherWorld);
+      }
+    }
+
+    this.spawnAnimals();
+    this.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
+
+    const syncState = this.opts.syncRef.current;
+    this.rebuildPlayerLayer(syncState.players, syncState.localId, syncState.tileSize);
   }
 
   /** Resize the renderer to match the host width without tearing down the scene. */
@@ -906,6 +966,7 @@ export class RoomPixiRunner {
 
   destroy(): void {
     this.cancelBootstrap = true;
+    this.clearSpeechBubbles();
     window.removeEventListener('keydown', this.keyDown);
     window.removeEventListener('keyup', this.keyUp);
     window.removeEventListener('blur', this.blur);
@@ -939,7 +1000,11 @@ export class RoomPixiRunner {
     this.playerNameLayerRef = null;
     this.speechBubbleWorldRef = null;
     this.speechBubbleLayoutRef.clear();
+    this.speechTextByPlayerId.clear();
+    this.speechHideTimersRef.clear();
     this.worldRef = null;
+    this.backgroundRef = null;
+    this.weatherWorldRef = null;
 
     this.app = null;
     void app?.destroy(true);

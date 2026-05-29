@@ -14,8 +14,10 @@ export type RoomCanvasSyncState = {
   worldRows: number;
   keysDisabled: boolean;
   onPositionSync: (pos: { x: number; y: number }) => void;
-  localSpeechBubble: string | null;
-  remoteSpeechBubbles: ReadonlyMap<string, string>;
+  /** Set by {@link PixiCanvas} when the runner is ready; draws speech in the world layer only. */
+  showSpeechBubble?: (playerSocketId: string, text: string) => void;
+  /** Clears all speech graphics (e.g. on room switch). */
+  clearSpeechBubbles?: () => void;
   /** Updated each Pixi tick by {@link RoomPixiRunner}; read by the minimap overlay. */
   minimapSnapshot: MinimapSnapshot | null;
   /** `serverNowMs - Date.now()` from the latest {@link room:clock} event; null until synced. */
@@ -40,8 +42,6 @@ export function createInitialSyncState(): RoomCanvasSyncState {
     worldRows: 32,
     keysDisabled: false,
     onPositionSync: () => {},
-    localSpeechBubble: null,
-    remoteSpeechBubbles: new Map(),
     minimapSnapshot: null,
     serverClockOffsetMs: null,
   };
