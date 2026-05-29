@@ -164,7 +164,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
       runnerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- room changes use switchRoom; worldSpawnPx only used for init
-  }, [tileSize, viewRows, worldCols, worldRows]);
+  }, [tileSize, worldCols, worldRows]);
 
   useEffect(() => {
     const runner = runnerRef.current;
@@ -176,8 +176,8 @@ const PixiCanvasInner = memo(function PixiCanvas({
 
   useLayoutEffect(() => {
     if (!canvasReady) return;
-    runnerRef.current?.resizeView(layoutViewWidthPx);
-  }, [canvasReady, layoutViewWidthPx]);
+    runnerRef.current?.resizeView(layoutViewWidthPx, viewRows);
+  }, [canvasReady, layoutViewWidthPx, viewRows]);
 
   useEffect(() => {
     const runner = runnerRef.current;

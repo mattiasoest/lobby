@@ -251,8 +251,7 @@ export class RoomPixiRunner {
     app.stage.addChild(viewRoot);
 
     const spawn = clampWorldTopLeft(worldSpawnPx.x, worldSpawnPx.y, tileSize, worldCols, worldRows);
-    this.localPxRef = { ...spawn };
-    this.resolveLocalSpawnOverlap(tileSize, worldCols, worldRows);
+    this.restoreLocalPxFromSync(spawn, tileSize, worldCols, worldRows);
     this.lastSyncAtRef = 0;
     this.localWasMovingRef = false;
 
@@ -573,6 +572,7 @@ export class RoomPixiRunner {
         players: minimapPlayers,
         animals: minimapAnimals,
       } satisfies MinimapSnapshot;
+      syncState.localPx = { x: local.x, y: local.y };
 
       const weatherViewport = { left: viewLeft, top: viewTop, w: viewW, h: viewH };
       this.worldRain?.update(ticker.deltaMS, weatherViewport);
@@ -819,6 +819,7 @@ export class RoomPixiRunner {
     );
     this.localPxRef = { ...spawn };
     this.resolveLocalSpawnOverlap(syncState.tileSize, syncState.worldCols, syncState.worldRows);
+    syncState.localPx = { x: this.localPxRef.x, y: this.localPxRef.y };
     this.remotePxRef.clear();
     this.remoteSampleBufRef.clear();
     this.lastServerSnapRef.clear();
@@ -937,20 +938,40 @@ export class RoomPixiRunner {
     this.rebuildPlayerLayer(syncState.players, syncState.localId, syncState.tileSize);
   }
 
-  /** Resize the renderer to match the host width without tearing down the scene. */
-  resizeView(viewPixelW: number): void {
-    const { tileSize, viewRows, worldCols } = this.opts.dimensions;
+  /** Resize the renderer to match the host without tearing down the scene. */
+  resizeView(viewPixelW: number, viewRows?: number): void {
+    const { tileSize, worldCols } = this.opts.dimensions;
     const maxW = worldCols * tileSize;
     const clampedW = Math.max(tileSize, Math.min(maxW, Math.round(viewPixelW)));
     this.opts.dimensions.viewPixelW = clampedW;
+    if (viewRows !== undefined) {
+      this.opts.dimensions.viewRows = viewRows;
+    }
+    const rows = this.opts.dimensions.viewRows;
     const syncState = this.opts.syncRef.current;
     syncState.viewPixelW = clampedW;
     syncState.viewCols = clampedW / tileSize;
+    syncState.viewRows = rows;
 
     const app = this.app;
     if (!app) return;
-    const viewPixelH = viewRows * tileSize;
-    app.renderer.resize(clampedW, viewPixelH);
+    app.renderer.resize(clampedW, rows * tileSize);
+  }
+
+  /** Keep the local avatar at its live coords when the runner (re)boots mid-session. */
+  private restoreLocalPxFromSync(
+    fallbackSpawn: { x: number; y: number },
+    tileSize: number,
+    worldCols: number,
+    worldRows: number,
+  ): void {
+    const syncState = this.opts.syncRef.current;
+    const localPlayer = syncState.localId
+      ? syncState.players.find((player) => player.id === syncState.localId)
+      : undefined;
+    const source = syncState.localPx ?? localPlayer ?? fallbackSpawn;
+    this.localPxRef = clampWorldTopLeft(source.x, source.y, tileSize, worldCols, worldRows);
+    this.resolveLocalSpawnOverlap(tileSize, worldCols, worldRows);
   }
 
   /** Feed analog movement from the on-screen touch joystick; components are clamped to [-1, 1]. */

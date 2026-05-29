@@ -12,6 +12,8 @@ export type RoomCanvasSyncState = {
   viewRows: number;
   worldCols: number;
   worldRows: number;
+  /** Client-authoritative local avatar position; survives view resizes and runner recycle. */
+  localPx: { x: number; y: number } | null;
   keysDisabled: boolean;
   onPositionSync: (pos: { x: number; y: number }) => void;
   /** Set by {@link PixiCanvas} when the runner is ready; draws speech in the world layer only. */
@@ -40,6 +42,7 @@ export function createInitialSyncState(): RoomCanvasSyncState {
     viewRows: 16,
     worldCols: 48,
     worldRows: 32,
+    localPx: null,
     keysDisabled: false,
     onPositionSync: () => {},
     minimapSnapshot: null,

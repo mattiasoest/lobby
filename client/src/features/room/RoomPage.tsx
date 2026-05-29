@@ -126,6 +126,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
   useEffect(() => {
     rosterStructureKeyRef.current = '';
     syncRef.current.players = [];
+    syncRef.current.localPx = null;
     syncRef.current.minimapSnapshot = null;
     syncRef.current.serverClockOffsetMs = null;
     syncRef.current.clearSpeechBubbles?.();
