@@ -243,17 +243,12 @@ code {
   font-weight: 600;
   cursor: pointer;
   box-shadow: var(--bevel);
-  transition: transform 0.05s steps(1);
 }
 
 .chrome-logout:not(:disabled):hover {
   background: var(--pal-red);
   border-color: var(--pal-red);
   color: #fff;
-}
-
-.chrome-logout:not(:disabled):active {
-  transform: translate(1px, 1px);
 }
 
 .chrome-body {
@@ -350,9 +345,7 @@ code {
   text-align: left;
   cursor: pointer;
   box-shadow: var(--bevel), var(--pixel-shadow-sm);
-  transition:
-    transform 0.05s steps(1),
-    filter 0.1s steps(2);
+  transition: filter 0.1s steps(2);
 }
 
 .login-provider span {
@@ -362,11 +355,6 @@ code {
 
 .login-provider:not(:disabled):hover {
   filter: brightness(1.12);
-}
-
-.login-provider:not(:disabled):active {
-  transform: translate(2px, 2px);
-  box-shadow: var(--bevel);
 }
 
 .login-provider-icon {
@@ -456,18 +444,11 @@ code {
   font: inherit;
   font-weight: 600;
   box-shadow: var(--bevel), var(--pixel-shadow-sm);
-  transition:
-    filter 0.1s steps(2),
-    transform 0.05s steps(1);
+  transition: filter 0.1s steps(2);
 }
 
 .login-dev-panel button:not(:disabled):hover {
   filter: brightness(1.12);
-}
-
-.login-dev-panel button:not(:disabled):active {
-  transform: translate(2px, 2px);
-  box-shadow: var(--bevel);
 }
 
 .login-dev-panel button:disabled {
@@ -577,17 +558,12 @@ code {
   box-shadow: var(--bevel);
   transition:
     background 0.1s steps(2),
-    border-color 0.1s steps(2),
-    transform 0.05s steps(1);
+    border-color 0.1s steps(2);
 }
 
 .avatar-option:hover:not(:disabled) {
   background: var(--pal-panel);
   border-color: var(--pal-line);
-}
-
-.avatar-option:active:not(:disabled) {
-  transform: translate(1px, 1px);
 }
 
 .avatar-option--selected {
@@ -648,18 +624,13 @@ code {
   transition:
     background 0.1s steps(2),
     color 0.1s steps(2),
-    border-color 0.1s steps(2),
-    transform 0.05s steps(1);
+    border-color 0.1s steps(2);
 }
 
 .room-card:hover {
   background: var(--pal-panel-2);
   color: var(--pal-cyan);
   border-color: var(--pal-line);
-}
-
-.room-card:active {
-  transform: translate(1px, 1px);
 }
 
 .room-page {
@@ -696,17 +667,12 @@ code {
   box-shadow: var(--bevel);
   transition:
     background 0.1s steps(2),
-    color 0.1s steps(2),
-    transform 0.05s steps(1);
+    color 0.1s steps(2);
 }
 
 .room-switcher-btn:hover {
   background: var(--pal-panel);
   color: var(--pal-cyan);
-}
-
-.room-switcher-btn:active {
-  transform: translate(1px, 1px);
 }
 
 .room-switcher-btn--active {
@@ -1052,17 +1018,11 @@ code {
   border: 2px solid #0c0d16;
   color: #06222b;
   box-shadow: var(--bevel);
-  transition:
-    filter 0.12s steps(2),
-    transform 0.05s steps(1);
+  transition: filter 0.12s steps(2);
 }
 
 .chat--canvas-hud .chat-compose button:not(:disabled):hover {
   filter: brightness(1.12);
-}
-
-.chat--canvas-hud .chat-compose button:not(:disabled):active {
-  transform: translate(1px, 1px);
 }
 
 .chat-feed {
@@ -1088,17 +1048,11 @@ code {
   box-shadow: var(--bevel), var(--pixel-shadow-sm);
   transition:
     filter 0.1s steps(2),
-    transform 0.05s steps(1),
     box-shadow 0.1s steps(2);
 }
 
 .chat-compose button:not(:disabled):hover {
   filter: brightness(1.12);
-}
-
-.chat-compose button:not(:disabled):active {
-  transform: translate(2px, 2px);
-  box-shadow: var(--bevel);
 }
 
 .chat-compose button:disabled {
