@@ -574,11 +574,14 @@ code {
 
 .avatar-selector-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--avatar-option-size), 1fr));
   gap: clamp(6px, 2vw, 12px);
   width: 100%;
   min-width: 0;
   --avatar-option-sprite-size: 48px;
+  --avatar-option-size: calc(
+    var(--avatar-option-sprite-size) + clamp(12px, 4vw, 20px) + clamp(4px, 1.5vw, 8px) + 1.25em
+  );
 }
 
 .avatar-option {
@@ -586,14 +589,17 @@ code {
   gap: clamp(4px, 1.5vw, 8px);
   justify-items: center;
   align-content: start;
-  min-width: 0;
   padding: clamp(6px, 2vw, 10px) clamp(4px, 1.5vw, 8px);
   border: 2px solid var(--pal-line-soft);
   border-radius: 0;
   background: var(--pal-panel-2);
+  font-family: var(--heading);
+  font-weight: 400;
+  letter-spacing: 0;
   cursor: pointer;
   box-shadow: var(--bevel);
-  min-height: calc(var(--avatar-option-sprite-size) + clamp(12px, 4vw, 20px) + clamp(4px, 1.5vw, 8px) + 1.25em);
+  min-width: var(--avatar-option-size);
+  min-height: var(--avatar-option-size);
   box-sizing: border-box;
   transition:
     background 0.1s steps(2),
@@ -620,23 +626,36 @@ code {
 }
 
 .avatar-option-lock {
-  font-size: 1.25rem;
-  line-height: 1;
+  width: 24px;
+  height: 24px;
+  fill: var(--pal-yellow);
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 2px 0 #0c0d16);
+}
+
+.avatar-option-lock__shine {
+  fill: rgba(255, 255, 255, 0.35);
+}
+
+.avatar-option-lock__keyhole {
+  fill: var(--pal-bg);
 }
 
 .avatar-option-coming-soon {
+  font-family: inherit;
   color: var(--text-muted);
   text-align: center;
 }
 
 .avatar-option-label {
-  font-size: clamp(0.6rem, 2.4vw, 0.8125rem);
-  font-weight: 500;
+  font-family: inherit;
+  font-size: clamp(0.45rem, 2vw, 0.625rem);
+  font-weight: 400;
   color: var(--text-h);
   max-width: 100%;
   overflow-wrap: anywhere;
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.4;
 }
 
 .room-cards {

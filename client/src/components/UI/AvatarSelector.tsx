@@ -5,6 +5,19 @@ import type { CSSProperties } from 'react';
 const PREVIEW_SIZE_PX = 56;
 const OPTION_SIZE_PX = 48;
 
+function RetroLockIcon() {
+  return (
+    <svg className="avatar-option-lock" viewBox="0 0 16 16" aria-hidden shapeRendering="crispEdges">
+      <rect x="5" y="1" width="6" height="2" />
+      <rect x="4" y="3" width="2" height="4" />
+      <rect x="10" y="3" width="2" height="4" />
+      <rect x="3" y="6" width="10" height="9" />
+      <rect x="4" y="7" width="2" height="2" className="avatar-option-lock__shine" />
+      <rect x="7" y="9" width="2" height="4" className="avatar-option-lock__keyhole" />
+    </svg>
+  );
+}
+
 function AvatarSpritePreview({
   optionId,
   sizePx,
@@ -77,7 +90,7 @@ export function AvatarSelector() {
                   style={{ width: OPTION_SIZE_PX, height: OPTION_SIZE_PX }}
                   aria-hidden
                 >
-                  <span className="avatar-option-lock">🔒</span>
+                  <RetroLockIcon />
                 </span>
                 <span className="avatar-option-label avatar-option-coming-soon">Coming soon</span>
               </button>
