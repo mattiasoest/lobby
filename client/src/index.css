@@ -509,7 +509,7 @@ code {
 .avatar-selector-preview-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
 }
 
@@ -528,7 +528,8 @@ code {
 
 .avatar-selector-selected-label {
   display: grid;
-  gap: 4px;
+  gap: 2px;
+  padding-top: 12px;
 }
 
 .avatar-selector-selected-name {
@@ -537,7 +538,9 @@ code {
 }
 
 .avatar-selector-status {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
+  min-height: 1.2em;
+  line-height: 1.2;
 }
 
 .avatar-selector-grid {

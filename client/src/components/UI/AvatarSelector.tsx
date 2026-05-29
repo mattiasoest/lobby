@@ -45,9 +45,9 @@ export function AvatarSelector() {
         <AvatarSpritePreview optionId={avatarId} sizePx={PREVIEW_SIZE_PX} className="avatar-preview" />
         <div className="avatar-selector-selected-label">
           <span className="avatar-selector-selected-name">{selectedOption?.label ?? 'Traveler'}</span>
-          {(avatarLoading || avatarUpdating) && (
-            <span className="muted avatar-selector-status">{avatarUpdating ? 'Saving…' : 'Loading…'}</span>
-          )}
+          <span className="muted avatar-selector-status" aria-live="polite">
+            {avatarLoading || avatarUpdating ? (avatarUpdating ? 'Saving…' : 'Loading…') : null}
+          </span>
         </div>
       </div>
 
