@@ -18,6 +18,7 @@ type Flake = {
   wobbleFreq: number;
   wobbleAmp: number;
   alpha: number;
+  graphic: Graphics;
 };
 
 const MIN_FLAKES = 80;
@@ -33,22 +34,35 @@ export type WorldSnowApi = {
   destroy: () => void;
 };
 
+function createFlakeGraphic(): Graphics {
+  const g = new Graphics();
+  g.circle(0, 0, 1).fill({ color: 0xffffff, alpha: 1 });
+  g.eventMode = 'none';
+  g.cullable = true;
+  return g;
+}
+
+function syncFlakeGraphic(f: Flake, elapsedSec: number): void {
+  const drawX = f.x + Math.sin(elapsedSec * f.wobbleFreq + f.phase) * f.wobbleAmp;
+  f.graphic.position.set(drawX, f.y);
+  f.graphic.scale.set(f.radius);
+  f.graphic.alpha = f.alpha;
+}
+
 /**
  * World-space snow attached to a world container. Flakes live in world coords,
  * so as the camera moves the player walks **through** the snow rather than the
  * snow following the player. Flakes that drift off the visible viewport are
  * recycled at the top of the current view.
+ *
+ * Each flake is a pooled Graphics child drawn once; only transforms update each frame.
  */
 export function createWorldSnow(parent: Container): WorldSnowApi {
-  const g = new Graphics();
-  g.eventMode = 'none';
-  parent.addChild(g);
-
   const flakes: Flake[] = [];
   let elapsedSec = 0;
   let seeded = false;
 
-  const newFlake = (view: WorldViewport, fromTop: boolean): Flake => {
+  const newFlake = (view: WorldViewport, fromTop: boolean): Omit<Flake, 'graphic'> => {
     const radius = 0.6 + Math.random() * 1.1;
     return {
       x: view.left + Math.random() * view.w,
@@ -65,18 +79,18 @@ export function createWorldSnow(parent: Container): WorldSnowApi {
   const seed = (view: WorldViewport): void => {
     let count = Math.round((view.w * view.h) / AREA_PER_FLAKE);
     count = Math.max(MIN_FLAKES, Math.min(MAX_FLAKES, count));
+    for (const f of flakes) {
+      parent.removeChild(f.graphic);
+      f.graphic.destroy();
+    }
     flakes.length = 0;
     for (let i = 0; i < count; i++) {
-      flakes.push(newFlake(view, false));
-    }
-  };
-
-  const repaint = (): void => {
-    const ctx = g.context;
-    ctx.clear();
-    for (const f of flakes) {
-      const drawX = f.x + Math.sin(elapsedSec * f.wobbleFreq + f.phase) * f.wobbleAmp;
-      g.circle(drawX, f.y, f.radius).fill({ color: 0xffffff, alpha: f.alpha });
+      const state = newFlake(view, false);
+      const graphic = createFlakeGraphic();
+      const flake: Flake = { ...state, graphic };
+      syncFlakeGraphic(flake, 0);
+      parent.addChild(graphic);
+      flakes.push(flake);
     }
   };
 
@@ -84,7 +98,6 @@ export function createWorldSnow(parent: Container): WorldSnowApi {
     if (!seeded) {
       seed(viewport);
       seeded = true;
-      repaint();
       return;
     }
 
@@ -100,22 +113,23 @@ export function createWorldSnow(parent: Container): WorldSnowApi {
       f.x += wind;
       if (f.y > bottom + margin) {
         Object.assign(f, newFlake(viewport, true));
-        continue;
-      }
-      if (f.x > right + margin) {
+      } else if (f.x > right + margin) {
         f.x = viewport.left - margin;
       } else if (f.x < viewport.left - margin) {
         f.x = right + margin;
       }
+      syncFlakeGraphic(f, elapsedSec);
     }
-    repaint();
   };
 
   return {
     update,
     destroy: () => {
-      parent.removeChild(g);
-      g.destroy();
+      for (const f of flakes) {
+        parent.removeChild(f.graphic);
+        f.graphic.destroy();
+      }
+      flakes.length = 0;
     },
   };
 }

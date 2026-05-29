@@ -8,7 +8,13 @@ export function rainEnabledForRoomId(roomId: number): boolean {
   return r === 2 || r === 3;
 }
 
-type Drop = { x: number; y: number; vy: number; length: number };
+type Drop = {
+  x: number;
+  y: number;
+  vy: number;
+  length: number;
+  graphic: Graphics;
+};
 
 const MIN_DROPS = 95;
 const MAX_DROPS = 340;
@@ -26,46 +32,71 @@ export type WorldRainApi = {
   destroy: () => void;
 };
 
+/** Match original world-space streak: tip at (0,0), tail at (-SLANT * length). */
+function drawDropShape(g: Graphics, length: number): void {
+  g.clear();
+  g.moveTo(-SLANT_X * length, -SLANT_Y * length)
+    .lineTo(0, 0)
+    .stroke({
+      width: 1,
+      color: 0xb8d4ff,
+      alpha: 0.4,
+    });
+}
+
+function createDropGraphic(length: number): Graphics {
+  const g = new Graphics();
+  g.eventMode = 'none';
+  g.cullable = true;
+  drawDropShape(g, length);
+  return g;
+}
+
+function syncDropGraphic(d: Drop): void {
+  d.graphic.position.set(d.x, d.y);
+}
+
 /**
  * World-space rain attached to the weather container. Drops live in world coords,
  * so as the camera moves the player walks through the rain rather than the rain
  * staying fixed to the screen (which made fall speed look tied to movement).
+ *
+ * Each drop is a pooled Graphics child; position updates every frame, geometry
+ * redraws only when a drop is recycled (same streak shape as the original batch draw).
+ * Drops that fall below the viewport are recycled at the top instead of destroyed.
  */
 export function createWorldRain(parent: Container): WorldRainApi {
-  const g = new Graphics();
-  g.eventMode = 'none';
-  parent.addChild(g);
-
   const drops: Drop[] = [];
   let seeded = false;
 
-  const newDrop = (view: WorldViewport, fromTop: boolean): Drop => ({
+  const newDrop = (view: WorldViewport, fromTop: boolean): Omit<Drop, 'graphic'> => ({
     x: view.left + Math.random() * view.w,
     y: fromTop ? view.top - 12 - Math.random() * 48 : view.top + Math.random() * view.h,
     vy: (380 + Math.random() * 140) / ROOM_CAMERA_ZOOM,
     length: (5 + Math.random() * 11) / ROOM_CAMERA_ZOOM,
   });
 
+  const resetDrop = (d: Drop, view: WorldViewport, fromTop: boolean): void => {
+    Object.assign(d, newDrop(view, fromTop));
+    drawDropShape(d.graphic, d.length);
+    syncDropGraphic(d);
+  };
+
   const seed = (view: WorldViewport): void => {
     let count = Math.round((view.w * view.h) / AREA_PER_DROP);
     count = Math.max(MIN_DROPS, Math.min(MAX_DROPS, count));
+    for (const d of drops) {
+      parent.removeChild(d.graphic);
+      d.graphic.destroy();
+    }
     drops.length = 0;
     for (let i = 0; i < count; i++) {
-      drops.push(newDrop(view, false));
-    }
-  };
-
-  const repaint = (): void => {
-    const ctx = g.context;
-    ctx.clear();
-    for (const d of drops) {
-      const lx = d.x - SLANT_X * d.length;
-      const ly = d.y - SLANT_Y * d.length;
-      g.moveTo(lx, ly).lineTo(d.x, d.y).stroke({
-        width: 1,
-        color: 0xb8d4ff,
-        alpha: 0.4,
-      });
+      const state = newDrop(view, false);
+      const graphic = createDropGraphic(state.length);
+      const drop: Drop = { ...state, graphic };
+      syncDropGraphic(drop);
+      parent.addChild(graphic);
+      drops.push(drop);
     }
   };
 
@@ -73,7 +104,6 @@ export function createWorldRain(parent: Container): WorldRainApi {
     if (!seeded) {
       seed(viewport);
       seeded = true;
-      repaint();
       return;
     }
 
@@ -87,7 +117,7 @@ export function createWorldRain(parent: Container): WorldRainApi {
       d.y += d.vy * dt;
       d.x += wind;
       if (d.y > bottom + margin) {
-        Object.assign(d, newDrop(viewport, true));
+        resetDrop(d, viewport, true);
         continue;
       }
       if (d.x > right + margin) {
@@ -95,15 +125,18 @@ export function createWorldRain(parent: Container): WorldRainApi {
       } else if (d.x < viewport.left - margin) {
         d.x = right + margin;
       }
+      syncDropGraphic(d);
     }
-    repaint();
   };
 
   return {
     update,
     destroy: () => {
-      parent.removeChild(g);
-      g.destroy();
+      for (const d of drops) {
+        parent.removeChild(d.graphic);
+        d.graphic.destroy();
+      }
+      drops.length = 0;
     },
   };
 }
