@@ -1,5 +1,5 @@
 import type { PlayerDTO } from '../../types.ts';
-import type { MinimapSnapshot } from './Minimap.ts';
+import type { MinimapSnapshot } from './minimap.ts';
 
 export type RoomCanvasSyncState = {
   players: PlayerDTO[];

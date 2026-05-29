@@ -53,7 +53,7 @@ import {
   loadAnimalTextures,
   type AnimalTextureMap,
 } from './animals.ts';
-import type { MinimapSnapshot } from './Minimap.ts';
+import type { MinimapSnapshot } from './minimap.ts';
 
 export type RoomPixiRunnerOptions = {
   mount: HTMLElement;
