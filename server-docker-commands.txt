@@ -1,0 +1,16 @@
+Lobby server — Docker commands (run from repo root)
+
+# 1. Migrate (one-off)
+docker-compose -f docker-compose.server.yml run --rm server node dist/migrate.js
+
+# 2. Start/restart server
+docker-compose -f docker-compose.server.yml up -d --build
+
+# Env-only change (no code rebuild)
+docker-compose -f docker-compose.server.yml up -d --force-recreate
+
+# Logs
+docker-compose -f docker-compose.server.yml logs -f server
+
+# Status
+docker-compose -f docker-compose.server.yml ps
