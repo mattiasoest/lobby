@@ -1,6 +1,6 @@
 export const DEFAULT_AVATAR_ID = 'default';
 
-const UNLOCKED_AVATAR_IDS = new Set<string>([DEFAULT_AVATAR_ID, 'option1']);
+const UNLOCKED_AVATAR_IDS = new Set<string>([DEFAULT_AVATAR_ID, 'option1', 'option2']);
 
 export function isUnlockedAvatarId(id: string): boolean {
   return UNLOCKED_AVATAR_IDS.has(id);

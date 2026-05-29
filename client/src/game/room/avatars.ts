@@ -2,9 +2,12 @@ import defaultIdlePng from '../../assets/character/default/idle.png';
 import defaultWalkPng from '../../assets/character/default/walk.png';
 import option1IdlePng from '../../assets/character/option1/idle.png';
 import option1WalkPng from '../../assets/character/option1/walk.png';
+import option2IdlePng from '../../assets/character/option2/idle.png';
+import option2WalkPng from '../../assets/character/option2/walk.png';
 
 export const DEFAULT_AVATAR_ID = 'default';
 export const OPTION1_AVATAR_ID = 'option1';
+export const OPTION2_AVATAR_ID = 'option2';
 export const CHARACTER_FRAME_SIZE = 32;
 
 export type AvatarCharacterTextures = {
@@ -15,6 +18,7 @@ export type AvatarCharacterTextures = {
 export const AVATAR_CHARACTER_TEXTURES: Record<string, AvatarCharacterTextures> = {
   [DEFAULT_AVATAR_ID]: { idle: defaultIdlePng, walk: defaultWalkPng },
   [OPTION1_AVATAR_ID]: { idle: option1IdlePng, walk: option1WalkPng },
+  [OPTION2_AVATAR_ID]: { idle: option2IdlePng, walk: option2WalkPng },
 };
 
 export type AvatarOption = {
@@ -42,7 +46,13 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
     minimapColor: 0xf97316,
     preview: { sheetSrc: option1IdlePng, col: 0, row: 0 },
   },
-  { id: 'locked-3', label: '???', unlocked: false, minimapColor: 0x64748b },
+  {
+    id: OPTION2_AVATAR_ID,
+    label: 'Scout',
+    unlocked: true,
+    minimapColor: 0x22c55e,
+    preview: { sheetSrc: option2IdlePng, col: 0, row: 0 },
+  },
   { id: 'locked-4', label: '???', unlocked: false, minimapColor: 0x64748b },
   { id: 'locked-5', label: '???', unlocked: false, minimapColor: 0x64748b },
   { id: 'locked-6', label: '???', unlocked: false, minimapColor: 0x64748b },
