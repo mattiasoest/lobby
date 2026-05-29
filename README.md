@@ -2,6 +2,8 @@
 
 Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **PostgreSQL**, and **Socket.IO** for presence/chat-style features. Auth uses a **short-lived access JWT in memory** (React state). A **rotating refresh token** lives in an **httpOnly cookie** on `/api/auth`; the app calls **`POST /api/auth/refresh`** on startup to restore access in new tabs. Optional **Google/GitHub OAuth**, a one-click **guest login**, and a **dev login** shortcut round out the sign-in options.
 
+**Live app:** https://lobby-rho.vercel.app/
+
 ## Prerequisites
 
 - **Node.js** 20+ (LTS recommended)
