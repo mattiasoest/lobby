@@ -245,8 +245,10 @@ code {
   margin-inline-end: auto;
 }
 
-.chrome-brand:hover {
-  color: var(--pal-yellow);
+@media (hover: hover) and (pointer: fine) {
+  .chrome-brand:hover {
+    color: var(--pal-yellow);
+  }
 }
 
 .chrome-user {
@@ -633,16 +635,26 @@ code {
     border-color 0.1s steps(2);
 }
 
-.avatar-option:hover:not(:disabled) {
-  background: var(--pal-panel);
-  border-color: var(--pal-line);
+@media (hover: hover) and (pointer: fine) {
+  .avatar-option:hover:not(:disabled):not(.avatar-option--selected) {
+    background: var(--pal-panel);
+    border-color: var(--pal-line);
+  }
 }
 
 .avatar-option--selected {
+  background: var(--pal-panel);
   border-color: var(--pal-yellow);
   box-shadow:
     var(--bevel),
     0 0 0 2px var(--pal-yellow);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .avatar-option--selected:hover:not(:disabled) {
+    background: var(--pal-panel);
+    border-color: var(--pal-yellow);
+  }
 }
 
 .avatar-option--locked {

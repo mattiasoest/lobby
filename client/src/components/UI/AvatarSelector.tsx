@@ -1,6 +1,6 @@
 import { useAvatar } from '../../app/avatarContext.tsx';
 import { AVATAR_OPTIONS, avatarPreviewStyle, getAvatarOption } from '../../game/room/avatars.ts';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, PointerEvent } from 'react';
 
 const PREVIEW_SIZE_PX = 56;
 const OPTION_SIZE_PX = 48;
@@ -49,6 +49,18 @@ function AvatarSpritePreview({
 export function AvatarSelector() {
   const { avatarId, avatarLoading, avatarUpdating, setAvatarId } = useAvatar();
   const selectedOption = getAvatarOption(avatarId);
+  const selectionLocked = avatarLoading || avatarUpdating;
+
+  const selectAvatar = (id: string) => {
+    if (selectionLocked || id === avatarId) return;
+    setAvatarId(id);
+  };
+
+  const handleAvatarPointerUp = (e: PointerEvent<HTMLButtonElement>, id: string) => {
+    if (e.pointerType !== 'touch' || e.currentTarget.disabled) return;
+    selectAvatar(id);
+    e.preventDefault();
+  };
 
   return (
     <section className="avatar-selector" aria-labelledby="avatar-selector-heading">
@@ -105,9 +117,10 @@ export function AvatarSelector() {
               aria-pressed={selected}
               aria-selected={selected}
               role="option"
-              disabled={avatarLoading || avatarUpdating}
+              disabled={selectionLocked}
               title={option.label}
-              onClick={() => setAvatarId(option.id)}
+              onPointerUp={(e) => handleAvatarPointerUp(e, option.id)}
+              onClick={() => selectAvatar(option.id)}
             >
               <AvatarSpritePreview optionId={option.id} sizePx={OPTION_SIZE_PX} className="avatar-option-sprite" />
               <span className="avatar-option-label">{option.label}</span>
