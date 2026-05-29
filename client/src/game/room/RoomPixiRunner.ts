@@ -107,6 +107,8 @@ export class RoomPixiRunner {
   private worldSnow: WorldSnowApi | null = null;
 
   private keysInternal = createMoveKeysState();
+  /** Analog movement from the on-screen touch joystick; components in [-1, 1], (0,0) when idle. */
+  private touchVecRef = { x: 0, y: 0 };
   private localPxRef = { x: 0, y: 0 };
   private remotePxRef = new Map<string, { x: number; y: number }>();
   private remoteSampleBufRef = new Map<string, RemoteSample[]>();
@@ -132,6 +134,8 @@ export class RoomPixiRunner {
 
   private blur = () => {
     Object.assign(this.keysInternal, createMoveKeysState());
+    this.touchVecRef.x = 0;
+    this.touchVecRef.y = 0;
   };
 
   constructor(opts: RoomPixiRunnerOptions) {
@@ -282,10 +286,15 @@ export class RoomPixiRunner {
       if (moveKeys.right) vx += 1;
       if (moveKeys.up) vy -= 1;
       if (moveKeys.down) vy += 1;
-      const len = Math.hypot(vx, vy);
-      if (len > 0) {
+      // On-screen touch joystick adds analog input. Clamp the combined vector to unit length so the
+      // keyboard keeps constant speed while a partial joystick push still moves proportionally slower.
+      vx += this.touchVecRef.x;
+      vy += this.touchVecRef.y;
+      let len = Math.hypot(vx, vy);
+      if (len > 1) {
         vx /= len;
         vy /= len;
+        len = 1;
       }
 
       const step = MOVE_PX_PER_SEC * dt;
@@ -865,6 +874,19 @@ export class RoomPixiRunner {
 
   clearMovementKeys(): void {
     Object.assign(this.keysInternal, createMoveKeysState());
+    this.touchVecRef.x = 0;
+    this.touchVecRef.y = 0;
+  }
+
+  /** Feed analog movement from the on-screen touch joystick; components are clamped to [-1, 1]. */
+  setMoveVector(x: number, y: number): void {
+    if (this.opts.syncRef.current.keysDisabled) {
+      this.touchVecRef.x = 0;
+      this.touchVecRef.y = 0;
+      return;
+    }
+    this.touchVecRef.x = Math.max(-1, Math.min(1, x));
+    this.touchVecRef.y = Math.max(-1, Math.min(1, y));
   }
 
   destroy(): void {

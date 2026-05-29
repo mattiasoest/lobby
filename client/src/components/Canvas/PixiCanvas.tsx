@@ -4,10 +4,12 @@ import bullSpriteSrc from '../../assets/entities/bull/bull.png';
 import cowSpriteSrc from '../../assets/entities/cow/cow.png';
 import deerIdleSpriteSrc from '../../assets/entities/deer/deer_idle.png';
 import deerWalkSpriteSrc from '../../assets/entities/deer/deer_walk.png';
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { RoomPixiRunner, type RoomCanvasSyncState } from '../../game/room/index.ts';
 import { AVATAR_CHARACTER_TEXTURES } from '../../game/room/avatars.ts';
 import { backgroundTextureSrcForRoomId } from '../../game/room/roomBackground.ts';
+import { TouchControls } from '../UI/TouchControls.tsx';
+import { useIsTouchDevice } from '../../utils/useIsTouchDevice.ts';
 import type { PlayerDTO } from '../../types.ts';
 
 /** Whole-tile columns from inner host width (no CSS scale). */
@@ -114,6 +116,11 @@ const PixiCanvasInner = memo(function PixiCanvas({
   );
 
   const [canvasReady, setCanvasReady] = useState(false);
+  const isTouchDevice = useIsTouchDevice();
+
+  const handleMoveVector = useCallback((x: number, y: number) => {
+    runnerRef.current?.setMoveVector(x, y);
+  }, []);
 
   // Only view/world dimensions recreate Pixi; spawn is handled by applyRoomSpawn.
   useEffect(() => {
@@ -188,6 +195,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     <div
       className="pixi-canvas-frame"
       style={{
+        position: 'relative',
         width: frameW,
         maxWidth: '100%',
         minWidth: 0,
@@ -198,6 +206,11 @@ const PixiCanvasInner = memo(function PixiCanvas({
       }}
     >
       <div ref={mountRef} className="pixi-mount pixi-mount__surface" />
+      {isTouchDevice && canvasReady && (
+        <div className="touch-controls-slot">
+          <TouchControls onMove={handleMoveVector} />
+        </div>
+      )}
     </div>
   );
 });
