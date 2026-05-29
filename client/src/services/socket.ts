@@ -6,10 +6,10 @@ export type RoomSocketOptions = {
   token: string;
 };
 
-/** In dev, hit the API host directly so cookies + WS match REST (matches `apiOrigin()`). */
+/** When the API is on another host (dev or split prod deploy), connect there; else same-origin (reverse proxy). */
 function socketHttpBase(): string | undefined {
-  if (import.meta.env.PROD) return undefined;
-  return apiOrigin();
+  const base = apiOrigin();
+  return base === '' ? undefined : base;
 }
 
 export function createRoomSocket({ roomId, token }: RoomSocketOptions) {

@@ -76,7 +76,9 @@ Vite **HTTP-proxies** `/api` to the API. In development, the Socket.IO client co
 VITE_PROXY_TARGET=http://localhost:3001
 ```
 
-(Default if unset: `http://localhost:3001` for both REST proxy and Socket.IO in dev. In production builds, sockets use the current page origin—deploy behind a reverse proxy that serves the app and API on the same host, or customize `socket.ts`.)
+(Default if unset: `http://localhost:3001` for both REST proxy and Socket.IO in dev.)
+
+For production, set **`VITE_API_ORIGIN`** to your public API URL (e.g. `https://api.example.com`) when the frontend and API are on different hosts (Vercel + Docker, etc.). REST and Socket.IO both use that origin. Leave it unset when a reverse proxy serves the app and API on the same host (same-origin `/api` and `/socket.io`).
 
 ## 4. Run the app (development)
 
