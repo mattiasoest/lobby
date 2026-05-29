@@ -1,0 +1,10 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - '1002:3001'
+    env_file:
+      - ./server/.env
+    restart: unless-stopped
