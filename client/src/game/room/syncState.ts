@@ -5,6 +5,9 @@ export type RoomCanvasSyncState = {
   players: PlayerDTO[];
   localId: string | null;
   tileSize: number;
+  /** Viewport width in pixels (may differ from whole tile columns during resize). */
+  viewPixelW: number;
+  /** Legacy tile-column estimate; `viewPixelW / tileSize`. */
   viewCols: number;
   viewRows: number;
   worldCols: number;
@@ -30,6 +33,7 @@ export function createInitialSyncState(): RoomCanvasSyncState {
     players: [],
     localId: null,
     tileSize: 32,
+    viewPixelW: 24 * 32,
     viewCols: 24,
     viewRows: 16,
     worldCols: 48,

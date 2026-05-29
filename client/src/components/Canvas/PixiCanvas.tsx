@@ -12,8 +12,7 @@ import { TouchControls } from '../UI/TouchControls.tsx';
 import { useIsTouchDevice } from '../../utils/useIsTouchDevice.ts';
 import type { PlayerDTO } from '../../types.ts';
 
-/** Whole-tile columns from inner host width (no CSS scale). */
-const MIN_LAYOUT_VIEW_COLS = 1;
+const MIN_VIEW_WIDTH_PX = 1;
 
 export type PixiCanvasProps = {
   /** Shared with {@link RoomPage}: socket updates `players` here; React props are for structure/rebuilds only. */
@@ -34,6 +33,12 @@ export type PixiCanvasProps = {
   /** Fires when the WebGL runner finishes bootstrap or tears down (recreates runner). */
   onCanvasReady?: (ready: boolean) => void;
 };
+
+function clampViewWidthPx(availablePx: number, tileSize: number, worldCols: number): number {
+  const maxW = worldCols * tileSize;
+  if (availablePx < MIN_VIEW_WIDTH_PX) return MIN_VIEW_WIDTH_PX;
+  return Math.min(maxW, Math.round(availablePx));
+}
 
 /**
  * React mount + prop sync for the room Pixi stack. Game loop and scene graph live in {@link RoomPixiRunner}.
@@ -57,8 +62,8 @@ const PixiCanvasInner = memo(function PixiCanvas({
 }: PixiCanvasProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const runnerRef = useRef<RoomPixiRunner | null>(null);
-  /** Width in whole tiles — buffer is `layoutViewCols * tileSize` px (no CSS bitmap scale). */
-  const [layoutViewCols, setLayoutViewCols] = useState(viewCols);
+  const [layoutViewWidthPx, setLayoutViewWidthPx] = useState(() => viewCols * tileSize);
+
   useLayoutEffect(() => {
     const mount = mountRef.current;
     const host = mount?.closest('.pixi-mount-host');
@@ -68,8 +73,8 @@ const PixiCanvasInner = memo(function PixiCanvas({
       const style = getComputedStyle(host);
       const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
       const aw = Math.max(0, host.clientWidth - padX);
-      const cols = aw < tileSize ? 1 : Math.min(worldCols, Math.max(MIN_LAYOUT_VIEW_COLS, Math.floor(aw / tileSize)));
-      setLayoutViewCols((prev) => (prev === cols ? prev : cols));
+      const w = clampViewWidthPx(aw, tileSize, worldCols);
+      setLayoutViewWidthPx((prev) => (prev === w ? prev : w));
     };
 
     measure();
@@ -84,7 +89,8 @@ const PixiCanvasInner = memo(function PixiCanvas({
     // `players` is owned by RoomPage's socket handler for live coords — do not overwrite here.
     syncState.localId = localId;
     syncState.tileSize = tileSize;
-    syncState.viewCols = layoutViewCols;
+    syncState.viewPixelW = layoutViewWidthPx;
+    syncState.viewCols = layoutViewWidthPx / tileSize;
     syncState.viewRows = viewRows;
     syncState.worldCols = worldCols;
     syncState.worldRows = worldRows;
@@ -96,7 +102,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     syncRef,
     localId,
     tileSize,
-    layoutViewCols,
+    layoutViewWidthPx,
     viewRows,
     worldCols,
     worldRows,
@@ -130,7 +136,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     const runner = new RoomPixiRunner({
       mount,
       syncRef,
-      dimensions: { tileSize, viewCols: layoutViewCols, viewRows, worldCols, worldRows },
+      dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewRows, worldCols, worldRows },
       worldSpawnPx,
       roomId,
       grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, snowBg),
@@ -154,8 +160,13 @@ const PixiCanvasInner = memo(function PixiCanvas({
       runner.destroy();
       runnerRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- worldSpawnPx only used for init; changing it must not recreate runner
-  }, [tileSize, layoutViewCols, viewRows, worldCols, worldRows, roomId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- view width resizes via resizeView; worldSpawnPx only used for init
+  }, [tileSize, viewRows, worldCols, worldRows, roomId]);
+
+  useLayoutEffect(() => {
+    if (!canvasReady) return;
+    runnerRef.current?.resizeView(layoutViewWidthPx);
+  }, [canvasReady, layoutViewWidthPx]);
 
   useEffect(() => {
     const runner = runnerRef.current;
@@ -188,7 +199,6 @@ const PixiCanvasInner = memo(function PixiCanvas({
     onCanvasReady?.(canvasReady);
   }, [canvasReady, onCanvasReady]);
 
-  const frameW = layoutViewCols * tileSize;
   const frameH = viewRows * tileSize;
 
   return (
@@ -196,11 +206,8 @@ const PixiCanvasInner = memo(function PixiCanvas({
       className="pixi-canvas-frame"
       style={{
         position: 'relative',
-        width: frameW,
-        maxWidth: '100%',
+        width: '100%',
         minWidth: 0,
-        marginLeft: 'auto',
-        marginRight: 'auto',
         height: frameH,
         boxSizing: 'border-box',
       }}

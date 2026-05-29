@@ -43,7 +43,10 @@
 
   --page-gutter-x: clamp(16px, 4vw, 32px);
   /* Room game canvas only — tighter than page gutter (see .room-canvas-gutter). */
+  /* --room-canvas-gutter-x: clamp(4px, 1vw, 8px); */
   --room-canvas-gutter-x: clamp(4px, 1vw, 8px);
+  /* ROOM_VIEW_COLS × ROOM_TILE_SIZE — lobby + pre-measure room chrome */
+  --game-frame-width-fallback: 960px;
 
   --sans: 'Pixelify Sans', 'Segoe UI', system-ui, sans-serif;
   --heading: 'Press Start 2P', 'Pixelify Sans', monospace;
@@ -164,9 +167,29 @@ code {
 .chrome {
   display: flex;
   flex-direction: column;
-  gap: 16px;
   flex: 1;
   min-width: 0;
+}
+
+/* Shared horizontal track: header, lobby, and room chrome align with the game canvas. */
+.game-column {
+  box-sizing: border-box;
+  width: calc(100% + 2 * (var(--page-gutter-x) - var(--room-canvas-gutter-x)));
+  margin-inline: calc(var(--room-canvas-gutter-x) - var(--page-gutter-x));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Header, room tabs, and player list match the canvas's rendered width and stay centered. */
+.chrome-header,
+.room-switcher-bar,
+.player-list {
+  width: min(100%, var(--game-frame-width, var(--game-frame-width-fallback)));
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 
 .chrome-header {
@@ -239,6 +262,10 @@ code {
 .chrome-body {
   flex: 1;
   min-width: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .auth-page {
@@ -478,6 +505,9 @@ code {
 .lobby-grid {
   display: grid;
   gap: 18px;
+  width: min(100%, var(--game-frame-width-fallback));
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 
 .avatar-selector {
@@ -488,9 +518,7 @@ code {
   border-radius: 0;
   background: var(--pal-bg-2);
   box-shadow: var(--bevel), var(--pixel-shadow);
-  width: min(100%, 750px);
-  max-width: 750px;
-  justify-self: center;
+  width: 100%;
   box-sizing: border-box;
 }
 
@@ -648,10 +676,8 @@ code {
   flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
-  width: 100%;
   min-width: 0;
   gap: clamp(4px, 1.5vw, 12px);
-  margin-bottom: 10px;
 }
 
 .room-switcher-btn {
@@ -709,19 +735,15 @@ code {
   min-width: 0;
 }
 
-/* Canvas row stays within #root max-width; no viewport breakout. */
-.room-canvas-bleed {
+/* Room switcher, canvas, and player list share the game-column track (same width as header). */
+.room-game-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
   width: 100%;
-  box-sizing: border-box;
   min-width: 0;
-}
-
-/* Pull the game canvas out of #root page padding; inset uses --room-canvas-gutter-x instead. */
-.room-canvas-gutter {
   box-sizing: border-box;
-  min-width: 0;
-  margin-inline: calc(var(--room-canvas-gutter-x) - var(--page-gutter-x));
-  width: calc(100% + 2 * (var(--page-gutter-x) - var(--room-canvas-gutter-x)));
 }
 
 .room-switcher {
@@ -738,10 +760,8 @@ code {
 .pixi-mount-host {
   position: relative;
   box-sizing: border-box;
+  width: 100%;
   min-width: 0;
-  /* When max-width caps the host, split leftover row space evenly (same visual margin L/R). */
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .pixi-mount.pixi-mount__surface {
@@ -757,10 +777,16 @@ code {
   pointer-events: none;
 }
 
+.pixi-mount-bootstrap-overlay .pixi-mount--fallback {
+  border: 3px solid var(--pal-line);
+  box-shadow: var(--bevel);
+  box-sizing: border-box;
+}
+
 .room-minimap {
   position: absolute;
   top: 10px;
-  right: 10px;
+  right: 15px;
   z-index: 4;
   width: 150px;
   height: 100px;
@@ -776,8 +802,8 @@ code {
 .pixi-canvas-frame .touch-controls-slot {
   position: absolute;
   right: 5px;
-  /* chat bottom (3px) + hud padding (6px) + compose row (~34px) + gap */
-  bottom: calc(3px + 6px + 2.125rem + 10px);
+  /* chat bottom (10px) + hud padding (6px) + compose row (~34px) + gap */
+  bottom: calc(10px + 6px + 2.125rem + 10px);
   z-index: 5;
   pointer-events: none;
 }
@@ -812,13 +838,20 @@ code {
   will-change: transform;
 }
 
+.pixi-canvas-frame {
+  border: 3px solid var(--pal-line);
+  box-shadow: var(--bevel);
+  box-sizing: border-box;
+  margin-inline: auto;
+}
+
 .pixi-mount canvas {
   display: block;
   width: 100%;
   height: 100%;
   border-radius: 0;
-  border: 3px solid var(--pal-line);
-  box-shadow: var(--bevel);
+  border: none;
+  box-sizing: border-box;
   image-rendering: pixelated;
 }
 
@@ -826,7 +859,7 @@ code {
   display: grid;
   place-items: center;
   border-radius: 0;
-  border: 3px solid var(--pal-line);
+  border: none;
   position: relative;
   overflow: hidden;
   background:
@@ -938,11 +971,11 @@ code {
   position: absolute;
   z-index: 3;
   left: 8px;
-  bottom: 3px;
+  bottom: 10px;
   width: min(330px, calc(100% - 8px));
   max-width: calc(100% - 8px);
   min-height: 0;
-  max-height: min(calc(280px * 1.05), calc(100% - 4px));
+  max-height: min(calc(280px * 1.05), calc(100% - 14px));
   box-sizing: border-box;
   padding: 6px 8px;
   gap: 4px;

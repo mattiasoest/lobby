@@ -5,7 +5,15 @@ import { decodeJwtPayload } from '../../app/store.ts';
 import { useAuth } from '../../app/authContext.tsx';
 import { CanvasLoadingFallback } from '../../components/Canvas/CanvasLoadingFallback.tsx';
 import { RoomMinimap } from '../../components/Canvas/RoomMinimap.tsx';
-import { canvasViewPixels } from '../../components/Canvas/canvasLoaderLayout.ts';
+import {
+  canvasViewPixels,
+  ROOM_TILE_SIZE,
+  ROOM_VIEW_COLS,
+  ROOM_VIEW_ROWS,
+  ROOM_WORLD_COLS,
+  ROOM_WORLD_ROWS,
+} from '../../components/Canvas/canvasLoaderLayout.ts';
+import { useGameFrameWidth } from '../../utils/useGameFrameWidth.ts';
 import { ChatBox } from '../../components/Chat/ChatBox.tsx';
 import { RoomPlayerList } from '../../components/UI/RoomPlayerList.tsx';
 import { createPlayerListPositionStore } from '../../components/UI/playerListPositionStore.ts';
@@ -24,17 +32,11 @@ const LazyPixiRoomCanvas = lazy(() =>
   import('../../components/Canvas/PixiCanvas.tsx').then((m) => ({ default: m.PixiCanvas })),
 );
 
-const TILE = 32;
-const VIEW_COLS = 30;
-const VIEW_ROWS = 18;
-const WORLD_COLS = 48;
-const WORLD_ROWS = 32;
-
 function worldSpawnPx() {
-  const pad = TILE * 0.14;
-  const size = TILE - pad * 2;
-  const worldWidthPx = WORLD_COLS * TILE;
-  const worldHeightPx = WORLD_ROWS * TILE;
+  const pad = ROOM_TILE_SIZE * 0.14;
+  const size = ROOM_TILE_SIZE - pad * 2;
+  const worldWidthPx = ROOM_WORLD_COLS * ROOM_TILE_SIZE;
+  const worldHeightPx = ROOM_WORLD_ROWS * ROOM_TILE_SIZE;
   return { x: worldWidthPx / 2 - size / 2, y: worldHeightPx / 2 - size / 2 };
 }
 
@@ -141,9 +143,11 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const claims = useMemo(() => decodeJwtPayload(token), [token]);
 
-  const canvasViewBox = useMemo(() => canvasViewPixels(TILE, VIEW_COLS, VIEW_ROWS), []);
+  const canvasViewBox = useMemo(() => canvasViewPixels(ROOM_TILE_SIZE, ROOM_VIEW_COLS, ROOM_VIEW_ROWS), []);
 
   const [pixiCanvasReady, setPixiCanvasReady] = useState(false);
+
+  useGameFrameWidth(pixiCanvasReady, [roomId, pixiCanvasReady]);
 
   const handlePixiCanvasReady = useCallback((ready: boolean) => {
     setPixiCanvasReady(ready);
@@ -340,71 +344,67 @@ export function RoomPage({ roomId }: { roomId: number }) {
     <div className="room-page">
       <div className="room-shell">
         <div className="room-stage">
-          <div className="room-canvas-bleed">
-            <div className="room-canvas-gutter">
-              <div className="room-switcher-bar">
-                <nav className="room-switcher" aria-label="Switch room">
-                  {ROOM_IDS.map((id) => (
-                    <Link
-                      key={id}
-                      to={`/room/${id}`}
-                      className={`room-switcher-btn${id === roomId ? ' room-switcher-btn--active' : ''}`}
-                      aria-current={id === roomId ? 'page' : undefined}
-                    >
-                      Room {id}
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-              <div
-                className="pixi-mount-host"
-                style={{
-                  position: 'relative',
-                  width: '100%',
-                  maxWidth: WORLD_COLS * TILE,
-                  height: canvasViewBox.height,
-                }}
-                aria-busy={showRoomCanvasLoader}
-                aria-label="Room canvas"
-              >
-                <Suspense fallback={null}>
-                  <LazyPixiRoomCanvas
-                    syncRef={syncRef}
-                    tileSize={TILE}
-                    viewCols={VIEW_COLS}
-                    viewRows={VIEW_ROWS}
-                    worldCols={WORLD_COLS}
-                    worldRows={WORLD_ROWS}
-                    worldSpawnPx={spawnPx}
-                    players={displayPlayers}
-                    localId={socketId}
-                    roomId={roomId}
-                    localSpeechBubble={localSpeechBubble}
-                    remoteSpeechBubbles={remoteSpeechBubbles}
-                    keysDisabled={typingFocus}
-                    onPositionSync={handlePositionSync}
-                    onCanvasReady={handlePixiCanvasReady}
-                  />
-                </Suspense>
-                {showRoomCanvasLoader && (
-                  <div className="pixi-mount-bootstrap-overlay">
-                    <CanvasLoadingFallback />
-                  </div>
-                )}
-                {pixiCanvasReady && <RoomMinimap syncRef={syncRef} active={pixiCanvasReady} />}
-                <ChatBox
-                  className="chat--canvas-hud"
-                  messages={messages}
-                  viewerUsername={username}
-                  roomUsernamesLower={roomUsernamesLower}
-                  onSend={sendChat}
-                  onTypingChange={setTypingFocus}
-                  composerRef={chatComposerRef}
-                />
-              </div>
+          <div className="room-game-stack">
+            <div className="room-switcher-bar">
+              <nav className="room-switcher" aria-label="Switch room">
+                {ROOM_IDS.map((id) => (
+                  <Link
+                    key={id}
+                    to={`/room/${id}`}
+                    className={`room-switcher-btn${id === roomId ? ' room-switcher-btn--active' : ''}`}
+                    aria-current={id === roomId ? 'page' : undefined}
+                  >
+                    Room {id}
+                  </Link>
+                ))}
+              </nav>
             </div>
+            <div
+              className="pixi-mount-host"
+              style={{
+                position: 'relative',
+                height: canvasViewBox.height,
+              }}
+              aria-busy={showRoomCanvasLoader}
+              aria-label="Room canvas"
+            >
+              <Suspense fallback={null}>
+                <LazyPixiRoomCanvas
+                  syncRef={syncRef}
+                  tileSize={ROOM_TILE_SIZE}
+                  viewCols={ROOM_VIEW_COLS}
+                  viewRows={ROOM_VIEW_ROWS}
+                  worldCols={ROOM_WORLD_COLS}
+                  worldRows={ROOM_WORLD_ROWS}
+                  worldSpawnPx={spawnPx}
+                  players={displayPlayers}
+                  localId={socketId}
+                  roomId={roomId}
+                  localSpeechBubble={localSpeechBubble}
+                  remoteSpeechBubbles={remoteSpeechBubbles}
+                  keysDisabled={typingFocus}
+                  onPositionSync={handlePositionSync}
+                  onCanvasReady={handlePixiCanvasReady}
+                />
+              </Suspense>
+              {showRoomCanvasLoader && (
+                <div className="pixi-mount-bootstrap-overlay">
+                  <CanvasLoadingFallback />
+                </div>
+              )}
+              {pixiCanvasReady && <RoomMinimap syncRef={syncRef} active={pixiCanvasReady} />}
+              <ChatBox
+                className="chat--canvas-hud"
+                messages={messages}
+                viewerUsername={username}
+                roomUsernamesLower={roomUsernamesLower}
+                onSend={sendChat}
+                onTypingChange={setTypingFocus}
+                composerRef={chatComposerRef}
+              />
+            </div>
+            <RoomPlayerList store={playerListStore} />
           </div>
-          <RoomPlayerList store={playerListStore} />
         </div>
       </div>
     </div>
