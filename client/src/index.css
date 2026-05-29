@@ -484,27 +484,41 @@ code {
   box-shadow: var(--pixel-shadow-sm);
 }
 
+.lobby-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .lobby-grid {
   display: grid;
-  gap: 18px;
-  width: min(100%, var(--game-frame-width-fallback));
+  gap: clamp(12px, 3vw, 18px);
+  width: min(100%, var(--game-frame-width, var(--game-frame-width-fallback)));
   margin-inline: auto;
+  min-width: 0;
   box-sizing: border-box;
 }
 
 .lobby-grid h1 {
   text-align: center;
+  font-size: clamp(14px, 5.5vw, 34px);
+  margin: clamp(16px, 5vw, 32px) 0;
 }
 
 .avatar-selector {
   display: grid;
-  gap: 12px;
-  padding: 18px 20px;
+  gap: clamp(10px, 2.5vw, 12px);
+  padding: clamp(12px, 3vw, 18px) clamp(10px, 3vw, 20px);
   border: 3px solid var(--pal-line);
   border-radius: 0;
   background: var(--pal-bg-2);
   box-shadow: var(--bevel), var(--pixel-shadow);
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 
@@ -560,23 +574,26 @@ code {
 
 .avatar-selector-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: clamp(6px, 2vw, 12px);
+  width: 100%;
+  min-width: 0;
   --avatar-option-sprite-size: 48px;
 }
 
 .avatar-option {
   display: grid;
-  gap: 8px;
+  gap: clamp(4px, 1.5vw, 8px);
   justify-items: center;
   align-content: start;
-  padding: 10px 8px;
+  min-width: 0;
+  padding: clamp(6px, 2vw, 10px) clamp(4px, 1.5vw, 8px);
   border: 2px solid var(--pal-line-soft);
   border-radius: 0;
   background: var(--pal-panel-2);
   cursor: pointer;
   box-shadow: var(--bevel);
-  min-height: calc(20px + var(--avatar-option-sprite-size) + 8px + 1.25em);
+  min-height: calc(var(--avatar-option-sprite-size) + clamp(12px, 4vw, 20px) + clamp(4px, 1.5vw, 8px) + 1.25em);
   box-sizing: border-box;
   transition:
     background 0.1s steps(2),
@@ -613,34 +630,42 @@ code {
 }
 
 .avatar-option-label {
-  font-size: 0.8125rem;
+  font-size: clamp(0.6rem, 2.4vw, 0.8125rem);
   font-weight: 500;
   color: var(--text-h);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .room-cards {
   display: flex;
   flex-wrap: nowrap;
-  gap: 14px;
+  align-items: stretch;
+  gap: clamp(4px, 1.5vw, 14px);
   width: 100%;
+  min-width: 0;
 }
 
 .room-card {
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 1 1 0;
   min-width: 0;
-  padding: clamp(12px, 4vw, 28px);
+  padding: clamp(6px, 1.5vw, 28px) clamp(6px, 2vw, 14px);
   border: 3px solid var(--pal-line);
   border-radius: 0;
   background: var(--pal-panel);
   text-decoration: none;
   font-family: var(--heading);
-  font-size: 12px;
+  font-size: clamp(0.55rem, 2.8vw, 12px);
   font-weight: 400;
   letter-spacing: 0;
   text-align: center;
   line-height: 1.6;
+  white-space: nowrap;
   color: var(--pal-cyan);
   text-shadow: 2px 2px 0 #0c0d16;
   cursor: pointer;
