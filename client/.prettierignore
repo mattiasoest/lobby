@@ -1,0 +1,9 @@
+# Dependencies & caches
+node_modules
+.vite
+
+# Build outputs
+dist
+dist-ssr
+build
+coverage
