@@ -540,7 +540,6 @@ code {
   display: block;
   image-rendering: pixelated;
   border-radius: 0;
-  background-color: var(--pal-bg);
   flex-shrink: 0;
 }
 
