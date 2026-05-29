@@ -98,6 +98,34 @@ body {
   background-attachment: fixed;
 }
 
+/* No tap flash or accidental text selection on tappable UI (phones) */
+button,
+input[type='button'],
+input[type='submit'],
+input[type='reset'],
+[role='button'],
+a.room-card,
+a.room-switcher-btn,
+a.chrome-brand,
+.touch-joystick {
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button,
+input[type='button'],
+input[type='submit'],
+input[type='reset'],
+[role='button'],
+a.room-card,
+a.room-switcher-btn,
+a.chrome-brand {
+  touch-action: manipulation;
+}
+
 /* CRT scanline overlay across the whole app */
 body::after {
   content: '';
@@ -893,9 +921,6 @@ code {
   border: 2px solid color-mix(in srgb, var(--pal-line) 60%, transparent);
   box-shadow: 0 0 0 2px rgba(12, 13, 22, 0.4);
   touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .touch-joystick-thumb {
