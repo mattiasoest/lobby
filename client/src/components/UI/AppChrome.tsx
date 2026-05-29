@@ -13,7 +13,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
       <div className="game-column">
         <header className="chrome-header">
           <Link to="/lobby" className="chrome-brand">
-            Lobby
+            PIXEL PORT
           </Link>
           <div className="chrome-user">{username ?? 'Player'}</div>
           <button type="button" className="chrome-logout" onClick={logout}>

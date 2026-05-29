@@ -111,7 +111,7 @@ export function LoginPage() {
   return (
     <div className="auth-page login-page">
       <div className="login-shell">
-        <h1 className="login-title">Login</h1>
+        <h1 className="login-title">Pixel Port Login</h1>
 
         {displayError ? <p className="login-error">{displayError}</p> : null}
 
