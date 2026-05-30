@@ -241,6 +241,7 @@ code {
   color: var(--pal-cyan);
   text-decoration: none;
   letter-spacing: 0;
+  text-transform: uppercase;
   text-shadow: 2px 2px 0 #0c0d16;
   margin-inline-end: auto;
 }

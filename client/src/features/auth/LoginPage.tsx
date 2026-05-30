@@ -1,4 +1,5 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
+import { APP_NAME } from '../../app/config.ts';
 import { useAuth } from '../../app/authContext.tsx';
 import { useAuthProvidersQuery, useDevLoginMutation, useGuestLoginMutation } from '../../query/hooks.ts';
 import { apiUrl } from '../../services/apiOrigin.ts';
@@ -111,7 +112,7 @@ export function LoginPage() {
   return (
     <div className="auth-page login-page">
       <div className="login-shell">
-        <h1 className="login-title">Pixel Port Login</h1>
+        <h1 className="login-title">{APP_NAME} Login</h1>
 
         {displayError ? <p className="login-error">{displayError}</p> : null}
 

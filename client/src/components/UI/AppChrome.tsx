@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useRef, type ReactNode } from 'react';
+import { APP_NAME } from '../../app/config.ts';
 import { useAuth } from '../../app/authContext.tsx';
 import { useGameFrameWidth } from '../../utils/useGameFrameWidth.ts';
 
@@ -13,7 +14,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
       <div className="game-column">
         <header className="chrome-header">
           <Link to="/lobby" className="chrome-brand">
-            PIXEL PORT
+            {APP_NAME}
           </Link>
           <div className="chrome-user">{username ?? 'Player'}</div>
           <button type="button" className="chrome-logout" onClick={logout}>
