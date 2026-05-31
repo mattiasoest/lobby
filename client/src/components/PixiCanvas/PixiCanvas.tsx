@@ -1,4 +1,5 @@
 import grassBg from '@/assets/bg/grass.jpg';
+import spaceBg from '@/assets/bg/space.jpg';
 import snowBg from '@/assets/bg/snow.jpg';
 import bullSpriteSrc from '@/assets/entities/bull/bull.png';
 import cowSpriteSrc from '@/assets/entities/cow/cow.png';
@@ -142,7 +143,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
       dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewPixelH: viewHeightPx, worldCols, worldRows },
       worldSpawnPx,
       roomId,
-      grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, snowBg),
+      grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, snowBg),
       characterTextureSrcByAvatarId: AVATAR_CHARACTER_TEXTURES,
       animalTextureSrc: {
         bull: bullSpriteSrc,
@@ -171,7 +172,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     if (!runner || !canvasReady) return;
     if (prevRoomIdRef.current === roomId) return;
     prevRoomIdRef.current = roomId;
-    void runner.switchRoom(roomId, worldSpawnPx, backgroundTextureSrcForRoomId(roomId, grassBg, snowBg));
+    void runner.switchRoom(roomId, worldSpawnPx, backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, snowBg));
   }, [canvasReady, roomId, worldSpawnPx]);
 
   useLayoutEffect(() => {
