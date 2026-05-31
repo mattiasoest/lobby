@@ -7,26 +7,32 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { APP_NAME } from './app/config.ts';
 import { AuthProvider } from './app/authContext.tsx';
 import { router } from './app/router.tsx';
+import { AppErrorBoundary } from './components/UI/AppErrorBoundary.tsx';
 import { queryClient } from './query/queryClient.ts';
+import { clearChunkReloadAttempt } from './utils/chunkLoadError.ts';
 import './index.css';
+
+clearChunkReloadAttempt();
 
 document.title = APP_NAME;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Suspense
-          fallback={
-            <div className="auth-page">
-              <p className="muted">Loading…</p>
-            </div>
-          }
-        >
-          <RouterProvider router={router} />
-        </Suspense>
-      </AuthProvider>
-    </QueryClientProvider>
+    <AppErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Suspense
+            fallback={
+              <div className="auth-page">
+                <p className="muted">Loading…</p>
+              </div>
+            }
+          >
+            <RouterProvider router={router} />
+          </Suspense>
+        </AuthProvider>
+      </QueryClientProvider>
+    </AppErrorBoundary>
     <Analytics />
     <SpeedInsights />
   </StrictMode>,

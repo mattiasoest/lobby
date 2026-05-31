@@ -26,9 +26,10 @@ import { createInitialSyncState, type RoomCanvasSyncState } from '../../game/roo
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import { usernameForMentionMatch } from '../../utils/usernameForMentions.ts';
 import type { Socket } from 'socket.io-client';
+import { importWithChunkRetry } from '../../utils/chunkLoadError.ts';
 
 const LazyPixiRoomCanvas = lazy(() =>
-  import('../../components/Canvas/PixiCanvas.tsx').then((m) => ({ default: m.PixiCanvas })),
+  importWithChunkRetry(() => import('../../components/Canvas/PixiCanvas.tsx').then((m) => ({ default: m.PixiCanvas }))),
 );
 
 function worldSpawnPx() {
