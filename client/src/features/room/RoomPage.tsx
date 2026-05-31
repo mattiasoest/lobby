@@ -113,6 +113,26 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const playerListStore = useMemo(() => createPlayerListPositionStore(), []);
 
+  /** When `roomId` changes, reset room-scoped state during render so Pixi stays mounted and
+   *  `switchRoom` can transition without the bootstrap loader flicker. Refs reset in layout
+   *  effect (same commit, before paint) — not in `useEffect`, which runs too late. */
+  const [trackedRoomId, setTrackedRoomId] = useState(roomId);
+  if (roomId !== trackedRoomId) {
+    setTrackedRoomId(roomId);
+    setServerPlayers([]);
+    playerListStore.publish([]);
+  }
+
+  useLayoutEffect(() => {
+    rosterStructureKeyRef.current = '';
+    pendingRemoteSpeechRef.current.clear();
+    syncRef.current.players = [];
+    syncRef.current.localPx = null;
+    syncRef.current.minimapSnapshot = null;
+    syncRef.current.serverClockOffsetMs = null;
+    syncRef.current.clearSpeechBubbles?.();
+  }, [roomId]);
+
   const spawnPx = useMemo(() => {
     // Spawn coordinates do not use room geometry (same WORLD_* everywhere). We still key this memo on
     // roomId so navigating to another room draws a fresh jittered spawn; to reuse one spawn for all
@@ -121,19 +141,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
     void roomId;
     return jitterAroundWorldSpawn();
   }, [roomId]);
-
-  useEffect(() => {
-    rosterStructureKeyRef.current = '';
-    syncRef.current.players = [];
-    syncRef.current.localPx = null;
-    syncRef.current.minimapSnapshot = null;
-    syncRef.current.serverClockOffsetMs = null;
-    syncRef.current.clearSpeechBubbles?.();
-    playerListStore.publish([]);
-    queueMicrotask(() => {
-      setServerPlayers([]);
-    });
-  }, [playerListStore, roomId]);
 
   const claims = useMemo(() => decodeJwtPayload(token), [token]);
 
