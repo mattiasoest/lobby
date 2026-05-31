@@ -23,6 +23,12 @@ export type RoomCanvasSyncState = {
   minimapSnapshot: MinimapSnapshot | null;
   /** `serverNowMs - Date.now()` from the latest {@link room:clock} event; null until synced. */
   serverClockOffsetMs: number | null;
+  /**
+   * Server send time (Date.now, ms) of the latest `players:update`. The ticker stamps remote
+   * samples with this so interpolation replays true server spacing instead of arrival jitter.
+   * 0 before the first timestamped snapshot.
+   */
+  playersServerStampMs: number;
 };
 
 /** Estimated server wall time; falls back to local clock before the first sync. */
@@ -45,5 +51,6 @@ export function createInitialSyncState(): RoomCanvasSyncState {
     onPositionSync: () => {},
     minimapSnapshot: null,
     serverClockOffsetMs: null,
+    playersServerStampMs: 0,
   };
 }

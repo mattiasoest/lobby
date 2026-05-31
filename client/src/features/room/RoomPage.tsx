@@ -130,6 +130,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     syncRef.current.localPx = null;
     syncRef.current.minimapSnapshot = null;
     syncRef.current.serverClockOffsetMs = null;
+    syncRef.current.playersServerStampMs = 0;
     syncRef.current.clearSpeechBubbles?.();
   }, [roomId]);
 
@@ -195,18 +196,24 @@ export function RoomPage({ roomId }: { roomId: number }) {
       }
     }
 
-    function handlePlayers(payload: PlayerDTO[]) {
-      serverPlayersRef.current = payload;
+    function handlePlayers(payload: PlayerDTO[] | { t?: number; players: PlayerDTO[] }) {
+      // Newer servers send { t, players }; tolerate the bare array for resilience during rollout.
+      const roster = Array.isArray(payload) ? payload : (payload?.players ?? []);
+      const serverStampMs = Array.isArray(payload) ? undefined : payload?.t;
+      if (typeof serverStampMs === 'number' && Number.isFinite(serverStampMs)) {
+        syncRef.current.playersServerStampMs = serverStampMs;
+      }
+      serverPlayersRef.current = roster;
       const sid = sock.id ?? null;
-      const merged = withGhostPlayerIfNeeded(payload, sid, spawnPx, username, claims, avatarId);
+      const merged = withGhostPlayerIfNeeded(roster, sid, spawnPx, username, claims, avatarId);
       syncRef.current.players = merged;
       playerListStore.publish(merged.map((p) => ({ ...p })));
-      const nextKey = rosterStructureKey(payload);
+      const nextKey = rosterStructureKey(roster);
       if (nextKey !== rosterStructureKeyRef.current) {
         rosterStructureKeyRef.current = nextKey;
-        setServerPlayers(payload);
+        setServerPlayers(roster);
       }
-      flushPendingRemoteSpeech(payload);
+      flushPendingRemoteSpeech(roster);
     }
 
     function handleChatMessage(msg: ChatMessageDTO) {

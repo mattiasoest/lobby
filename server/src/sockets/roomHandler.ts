@@ -10,6 +10,15 @@ const TILE_PX = 32;
 const WORLD_COLS_CONST = 48;
 const WORLD_ROWS_CONST = 32;
 
+/**
+ * Fixed rate at which we re-broadcast moving players. Clients may send `player:move` far faster
+ * (up to their render rate); we coalesce those into one snapshot per tick so fan-out stays
+ * O(players) per tick instead of O(moves) — this is what keeps production from flooding and
+ * jittering. Roster changes (join/leave) flush immediately regardless of the tick.
+ */
+const BROADCAST_HZ = 20;
+const BROADCAST_INTERVAL_MS = Math.round(1000 / BROADCAST_HZ);
+
 function clampPlayerPx(rawX: unknown, rawY: unknown): { x: number; y: number } {
   const pad = TILE_PX * 0.14;
   const size = TILE_PX - pad * 2;
@@ -35,6 +44,15 @@ export type PlayerPublic = {
   y: number;
   userId: string;
   avatarId: string;
+};
+
+/**
+ * `t` is the server send time (Date.now, ms). Clients replay remote movement on a timeline anchored
+ * to these timestamps so per-packet network jitter doesn't distort the motion.
+ */
+export type PlayersUpdate = {
+  t: number;
+  players: PlayerPublic[];
 };
 
 export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db: AppDatabase }) {
@@ -67,10 +85,27 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db
     });
 
     const players = new Map<string, PlayerPublic>();
+    /** Set when positions change between ticks; the broadcast tick only emits when something moved. */
+    let movesPending = false;
 
-    const broadcastPlayers = () => {
-      nsp.emit('players:update', [...players.values()]);
+    const emitPlayers = () => {
+      const payload: PlayersUpdate = { t: Date.now(), players: [...players.values()] };
+      nsp.emit('players:update', payload);
     };
+
+    /** Roster changes (join/leave) must propagate now, not on the next tick. */
+    const flushNow = () => {
+      movesPending = false;
+      emitPlayers();
+    };
+
+    const broadcastTimer = setInterval(() => {
+      if (!movesPending) return;
+      movesPending = false;
+      emitPlayers();
+    }, BROADCAST_INTERVAL_MS);
+    // Don't keep the process alive solely for this timer (namespaces live for the server's lifetime).
+    broadcastTimer.unref?.();
 
     nsp.on('connection', (socket) => {
       /** One-shot clock sync so clients sample animal tours against server time. */
@@ -98,7 +133,7 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db
           userId: authedUser.sub,
           avatarId,
         });
-        broadcastPlayers();
+        flushNow();
       });
 
       socket.on('player:move', (payload: { x: number; y: number }) => {
@@ -107,12 +142,13 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db
         const clampedPosition = clampPlayerPx(payload.x, payload.y);
         row.x = clampedPosition.x;
         row.y = clampedPosition.y;
-        broadcastPlayers();
+        // Coalesced into the next broadcast tick rather than re-emitted per move.
+        movesPending = true;
       });
 
       socket.on('player:leave', () => {
         players.delete(socket.id);
-        broadcastPlayers();
+        flushNow();
       });
 
       socket.on('chat:send', async (payload: { content: string }) => {
@@ -166,7 +202,7 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db
 
       socket.on('disconnect', () => {
         players.delete(socket.id);
-        broadcastPlayers();
+        flushNow();
       });
     });
   }

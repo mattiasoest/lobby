@@ -5,6 +5,8 @@ import {
   MAX_REMOTE_SAMPLES,
   MOVE_PX_PER_SEC,
   ROOM_CAMERA_ZOOM,
+  REMOTE_CLOCK_CORRECTION,
+  REMOTE_CLOCK_REANCHOR_MS,
   REMOTE_BURST_DELAY_SHAVE_MS,
   REMOTE_BURST_DURATION_MS,
   REMOTE_BURST_IDLE_SPEED_PX_S,
@@ -125,6 +127,16 @@ export class RoomPixiRunner {
   private remoteTargetPrevRef = new Map<string, { x: number; y: number }>();
   private remoteSpeedSmoothedRef = new Map<string, number>();
   private remoteBurstUntilRef = new Map<string, number>();
+  /**
+   * Maps the server send clock onto the local performance clock. Built from the first snapshot's
+   * arrival; sample times are then `local + (serverNow - serverAtAnchor)` so jittery arrivals keep
+   * their true server spacing. See {@link advanceRemoteClock}.
+   */
+  private remoteClockAnchorRef: { localMs: number; serverMs: number } | null = null;
+  /** Server stamp last folded into the anchor; guards against re-correcting on repeated frames. */
+  private lastRemoteServerStampRef = 0;
+  /** Mapped (local-clock) time for {@link lastRemoteServerStampRef}; reused while the stamp is unchanged. */
+  private lastRemoteSampleTimeRef = 0;
 
   private keyDown = (keyEvent: KeyboardEvent) => {
     if (this.opts.syncRef.current.keysDisabled || isTypingTarget(keyEvent.target)) return;
@@ -355,12 +367,15 @@ export class RoomPixiRunner {
       this.localWasMovingRef = len > 0;
 
       const playerList = syncState.players;
+      // Stamp samples on the server timeline (mapped to the local clock) so production arrival
+      // jitter doesn't distort spacing. Falls back to arrival time before the first server stamp.
+      const sampleTimeMs = this.advanceRemoteClock(syncState.playersServerStampMs, now);
       for (const player of playerList) {
         if (localId && player.id === localId) continue;
 
         let samples = this.remoteSampleBufRef.get(player.id);
         if (!samples) {
-          samples = [{ time: now, x: player.x, y: player.y }];
+          samples = [{ time: sampleTimeMs, x: player.x, y: player.y }];
           this.remoteSampleBufRef.set(player.id, samples);
           this.lastServerSnapRef.set(player.id, { x: player.x, y: player.y });
         } else {
@@ -368,7 +383,7 @@ export class RoomPixiRunner {
           const moved = !prev || (player.x - prev.x) ** 2 + (player.y - prev.y) ** 2 > REMOTE_SNAP_EPS_SQ;
           if (moved) {
             this.lastServerSnapRef.set(player.id, { x: player.x, y: player.y });
-            samples.push({ time: now, x: player.x, y: player.y });
+            samples.push({ time: sampleTimeMs, x: player.x, y: player.y });
             while (samples.length > MAX_REMOTE_SAMPLES) {
               samples.shift();
             }
@@ -599,6 +614,53 @@ export class RoomPixiRunner {
     onBootstrapComplete?.();
   }
 
+  /**
+   * Map the latest server send stamp onto the local performance clock for sample timestamping.
+   *
+   * Only deltas between server stamps matter (not absolute clock agreement), so this is immune to
+   * the coarse one-shot `room:clock` offset. The anchor fixes `serverNow → localNow` at the first
+   * snapshot; later stamps map to `anchor.local + (stamp - anchor.server)`, preserving true server
+   * spacing even when packets arrive clumped. Each new stamp nudges the anchor toward real-time so
+   * slow latency drift doesn't pile up, and a large divergence (clock jump / long stall) hard
+   * re-anchors. Returns arrival time verbatim until the first server stamp exists.
+   */
+  private advanceRemoteClock(serverStampMs: number, nowLocalMs: number): number {
+    if (!serverStampMs) return nowLocalMs;
+
+    let anchor = this.remoteClockAnchorRef;
+    if (!anchor) {
+      anchor = { localMs: nowLocalMs, serverMs: serverStampMs };
+      this.remoteClockAnchorRef = anchor;
+      this.lastRemoteServerStampRef = serverStampMs;
+      this.lastRemoteSampleTimeRef = nowLocalMs;
+      return nowLocalMs;
+    }
+
+    // Same snapshot still being polled across frames — reuse its mapped time, don't re-correct.
+    if (serverStampMs === this.lastRemoteServerStampRef) return this.lastRemoteSampleTimeRef;
+
+    let mapped = anchor.localMs + (serverStampMs - anchor.serverMs);
+    const lead = mapped - nowLocalMs;
+    if (Math.abs(lead) > REMOTE_CLOCK_REANCHOR_MS) {
+      anchor.localMs = nowLocalMs;
+      anchor.serverMs = serverStampMs;
+      mapped = nowLocalMs;
+    } else if (lead !== 0) {
+      anchor.localMs -= lead * REMOTE_CLOCK_CORRECTION;
+      mapped = anchor.localMs + (serverStampMs - anchor.serverMs);
+    }
+
+    this.lastRemoteServerStampRef = serverStampMs;
+    this.lastRemoteSampleTimeRef = mapped;
+    return mapped;
+  }
+
+  private resetRemoteClock(): void {
+    this.remoteClockAnchorRef = null;
+    this.lastRemoteServerStampRef = 0;
+    this.lastRemoteSampleTimeRef = 0;
+  }
+
   private collectRemotePlayerObstacles(localId: string | null): { x: number; y: number }[] {
     const syncState = this.opts.syncRef.current;
     const obstacles: { x: number; y: number }[] = [];
@@ -737,6 +799,7 @@ export class RoomPixiRunner {
     this.remoteTargetPrevRef.clear();
     this.remoteSpeedSmoothedRef.clear();
     this.remoteBurstUntilRef.clear();
+    this.resetRemoteClock();
 
     const pad = tileSize * 0.14;
     const size = tileSize - pad * 2;
@@ -825,6 +888,7 @@ export class RoomPixiRunner {
     this.remoteTargetPrevRef.clear();
     this.remoteSpeedSmoothedRef.clear();
     this.remoteBurstUntilRef.clear();
+    this.resetRemoteClock();
     this.prevRenderedPxRef.clear();
     this.localWasMovingRef = false;
     this.lastSyncAtRef = 0;
@@ -1010,6 +1074,7 @@ export class RoomPixiRunner {
     this.remoteTargetPrevRef.clear();
     this.remoteSpeedSmoothedRef.clear();
     this.remoteBurstUntilRef.clear();
+    this.resetRemoteClock();
     this.characterTexturesByAvatarId.clear();
     for (const animal of this.animalsRef) animal.destroy();
     this.animalsRef = [];
