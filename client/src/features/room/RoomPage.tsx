@@ -113,14 +113,13 @@ export function RoomPage({ roomId }: { roomId: number }) {
 
   const playerListStore = useMemo(() => createPlayerListPositionStore(), []);
 
-  /** When `roomId` changes, reset room-scoped state during render so Pixi stays mounted and
-   *  `switchRoom` can transition without the bootstrap loader flicker. Refs reset in layout
-   *  effect (same commit, before paint) — not in `useEffect`, which runs too late. */
+  /** When `roomId` changes, reset room-scoped React state during render so Pixi stays mounted and
+   *  `switchRoom` can transition without the bootstrap loader flicker. Refs and the player-list
+   *  store reset in layout effect (same commit, before paint) — not in `useEffect`, which runs too late. */
   const [trackedRoomId, setTrackedRoomId] = useState(roomId);
   if (roomId !== trackedRoomId) {
     setTrackedRoomId(roomId);
     setServerPlayers([]);
-    playerListStore.publish([]);
   }
 
   useLayoutEffect(() => {
@@ -132,7 +131,8 @@ export function RoomPage({ roomId }: { roomId: number }) {
     syncRef.current.serverClockOffsetMs = null;
     syncRef.current.playersServerStampMs = 0;
     syncRef.current.clearSpeechBubbles?.();
-  }, [roomId]);
+    playerListStore.publish([]);
+  }, [playerListStore, roomId]);
 
   const spawnPx = useMemo(() => {
     // Spawn coordinates do not use room geometry (same WORLD_* everywhere). We still key this memo on
