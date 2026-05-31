@@ -54,6 +54,8 @@ Create `server/.env` (see values below). The server **exits on startup** if `JWT
 | `GUEST_LOGIN_RATE_LIMIT_MAX`                | optional    | Max guest sign-ins per IP per window (default `5`).                                                                           |
 | `GUEST_LOGIN_RATE_LIMIT_WINDOW_MS`          | optional    | Guest sign-in rate-limit window in ms (default `900000`, 15 minutes).                                                         |
 | `TRUST_PROXY`                               | optional    | Express `trust proxy` hop count for correct client IP behind a reverse proxy (default `1`). Set to `0` for direct exposure.   |
+| `REFRESH_COOKIE_SAMESITE`                   | optional    | Override the refresh-cookie `SameSite` (`lax` / `strict` / `none`). Default: `strict`. |
+| `REFRESH_COOKIE_SECURE`                     | optional    | Force the `Secure` flag on the refresh cookie (`1` / `0`). Auto: on when the API or SPA URL is HTTPS.                          |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional    | Enable “Continue with Google” when both are set                                                                               |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional    | Enable “Continue with GitHub” when both are set                                                                               |
 
@@ -81,6 +83,28 @@ VITE_API_ORIGIN=http://localhost:3001
 (Default if unset in dev: `http://localhost:3001` for both REST and Socket.IO.)
 
 For production, set **`VITE_API_ORIGIN`** to your public API URL (e.g. `https://api.example.com`) when the frontend and API are on different hosts (Vercel + Docker, etc.). REST and Socket.IO both use that origin.
+
+### Production example (same registrable domain: `pixelport.app` + `api.pixelport.app`)
+
+This is the recommended, most secure topology: the SPA and API share one root domain on different subdomains.
+
+`server/.env`:
+
+```env
+FRONTEND_URL=https://pixelport.app
+SERVER_PUBLIC_URL=https://api.pixelport.app
+DATABASE_URL=postgresql://...
+JWT_SECRET=<long-random-string>
+# ALLOW_DEV_LOGIN must stay unset/0 in production
+```
+
+Frontend build env:
+
+```env
+VITE_API_ORIGIN=https://api.pixelport.app
+```
+
+Because both hosts share the registrable domain `pixelport.app`, the refresh cookie is issued as **`SameSite=Strict; Secure; HttpOnly; Path=/auth`** (host-only on `api.pixelport.app`). Register the OAuth callbacks as `https://api.pixelport.app/auth/google/callback` and `.../auth/github/callback`, and ensure your reverse proxy forwards `X-Forwarded-Proto: https` so Express marks the cookie `Secure`.
 
 ## 4. Run the app (development)
 

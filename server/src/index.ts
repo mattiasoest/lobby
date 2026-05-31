@@ -47,7 +47,14 @@ const app = express();
 
 app.set('trust proxy', Number(process.env.TRUST_PROXY ?? 1));
 
-app.use(cors({ origin: corsOriginDelegate(allowedOrigins), credentials: true }));
+const corsOptions: cors.CorsOptions = {
+  origin: corsOriginDelegate(allowedOrigins),
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 600,
+};
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use(passport.initialize());
@@ -148,7 +155,7 @@ app.use(messagesRouter(db, requireAuth));
 
 const httpServer = createServer(app);
 const io = new IOServer(httpServer, {
-  cors: { origin: allowedOrigins, credentials: true },
+  cors: { origin: allowedOrigins, credentials: true, methods: ['GET', 'POST'] },
   path: '/socket.io',
 });
 

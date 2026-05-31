@@ -18,56 +18,69 @@ export function refreshTtlMs(): number {
   return days * 24 * 60 * 60 * 1000;
 }
 
+const AUTH_COOKIE_PATH = '/auth';
+const SERVER_URL_FALLBACK = 'http://localhost:3001';
+const FRONTEND_URL_FALLBACK = 'http://localhost:5173';
+
 function primaryFrontendOrigin(): string {
-  const raw = process.env.FRONTEND_URL ?? 'http://localhost:5173';
-  return raw.split(',')[0]?.trim() || 'http://localhost:5173';
+  const raw = process.env.FRONTEND_URL ?? FRONTEND_URL_FALLBACK;
+  return raw.split(',')[0]?.trim() || FRONTEND_URL_FALLBACK;
 }
 
-/** Use HTTPS-only cookies when the browser actually talks HTTPS to the SPA. */
-function refreshCookieSecure(): boolean {
+function serverOrigin(): string {
+  return process.env.SERVER_PUBLIC_URL ?? SERVER_URL_FALLBACK;
+}
+
+/** Use HTTPS-only cookies whenever the API (the host setting the cookie) or the SPA speaks HTTPS. */
+function cookieSecure(): boolean {
   if (process.env.REFRESH_COOKIE_SECURE === '1') return true;
   if (process.env.REFRESH_COOKIE_SECURE === '0') return false;
-  try {
-    const frontendBaseUrl = new URL(primaryFrontendOrigin());
-    return frontendBaseUrl.protocol === 'https:';
-  } catch {
-    return false;
+  for (const candidate of [serverOrigin(), primaryFrontendOrigin()]) {
+    try {
+      if (new URL(candidate).protocol === 'https:') return true;
+    } catch {
+      // ignore malformed URL, try next
+    }
   }
+  return false;
 }
 
-function refreshCookieSameSite(): CookieOptions['sameSite'] {
+/** SameSite for the refresh cookie. Defaults to `strict` (pixelport.app + api.pixelport.app topology). */
+function refreshCookieSameSite(): NonNullable<CookieOptions['sameSite']> {
   const explicit = process.env.REFRESH_COOKIE_SAMESITE;
   if (explicit === 'none' || explicit === 'lax' || explicit === 'strict') return explicit;
-  try {
-    const frontend = new URL(primaryFrontendOrigin());
-    const server = new URL(process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3001');
-    if (frontend.origin !== server.origin) return 'none';
-  } catch {
-    // fall through
-  }
-  return 'lax';
+  return 'strict';
 }
 
-function refreshCookieBase(): Omit<CookieOptions, 'maxAge'> {
-  const secure = refreshCookieSecure() || refreshCookieSameSite() === 'none';
+function cookieBase(sameSite: NonNullable<CookieOptions['sameSite']>): Omit<CookieOptions, 'maxAge'> {
   return {
     httpOnly: true,
-    secure,
-    sameSite: refreshCookieSameSite(),
-    path: '/auth',
+    // SameSite=None is only honored by browsers when Secure is also set.
+    secure: cookieSecure() || sameSite === 'none',
+    sameSite,
+    path: AUTH_COOKIE_PATH,
   };
 }
 
 export function refreshCookieOptions(): CookieOptions {
-  return { ...refreshCookieBase(), maxAge: refreshTtlMs() };
+  return { ...cookieBase(refreshCookieSameSite()), maxAge: refreshTtlMs() };
 }
 
 export function clearRefreshCookieOptions(): CookieOptions {
-  return refreshCookieBase();
+  return cookieBase(refreshCookieSameSite());
 }
 
-export function authPathCookieOptions(maxAgeMs: number): CookieOptions {
-  return { ...refreshCookieBase(), maxAge: maxAgeMs };
+/**
+ * Transient OAuth state cookie (e.g. the return origin). It must survive the cross-site
+ * top-level redirect back from the identity provider, so it is always `Lax` (never `Strict`),
+ * which is exactly what a top-level GET callback needs — no `None` required.
+ */
+export function oauthStateCookieOptions(maxAgeMs: number): CookieOptions {
+  return { ...cookieBase('lax'), maxAge: maxAgeMs };
+}
+
+export function clearOauthStateCookieOptions(): CookieOptions {
+  return cookieBase('lax');
 }
 
 export function hashRefreshToken(raw: string): string {

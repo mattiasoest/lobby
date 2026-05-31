@@ -12,10 +12,10 @@ import { users } from '../db/schema.js';
 import { resolveFrontendReturnUrl } from '../allowedOrigins.js';
 import { readCookie } from '../http/cookieHeader.js';
 import {
-  authPathCookieOptions,
-  clearRefreshCookieOptions,
+  clearOauthStateCookieOptions,
   generateRefreshSecret,
   issueAccessToken,
+  oauthStateCookieOptions,
   persistRefreshToken,
   refreshTtlMs,
 } from './tokens.js';
@@ -54,7 +54,7 @@ export function setupOAuth(
   }
 
   function clearOAuthReturnCookie(res: Response): void {
-    res.clearCookie(OAUTH_RETURN_COOKIE, clearRefreshCookieOptions());
+    res.clearCookie(OAUTH_RETURN_COOKIE, clearOauthStateCookieOptions());
   }
 
   const captureOAuthReturnOrigin: RequestHandler = (req, res, next) => {
@@ -64,7 +64,7 @@ export function setupOAuth(
       allowedOrigins,
       fallbackFrontendUrl,
     );
-    res.cookie(OAUTH_RETURN_COOKIE, returnBase, authPathCookieOptions(OAUTH_RETURN_MAX_AGE_MS));
+    res.cookie(OAUTH_RETURN_COOKIE, returnBase, oauthStateCookieOptions(OAUTH_RETURN_MAX_AGE_MS));
     next();
   };
 
