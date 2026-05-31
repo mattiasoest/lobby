@@ -1,0 +1,183 @@
+.root {
+  border: 3px solid var(--pal-line);
+  border-radius: 0;
+  padding: 12px;
+  background: var(--pal-bg-2);
+  box-shadow: var(--bevel), var(--pixel-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 480px;
+  max-height: 640px;
+}
+
+.canvasHud {
+  position: absolute;
+  z-index: 3;
+  left: 8px;
+  bottom: 10px;
+  width: min(330px, calc(100% - 8px));
+  max-width: calc(100% - 8px);
+  min-height: 0;
+  max-height: min(calc(280px * 1.05), calc(100% - 14px));
+  box-sizing: border-box;
+  padding: 6px 8px;
+  gap: 4px;
+  font-family: var(--pixel);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  border-radius: 0;
+  background: transparent;
+  border: 2px solid transparent;
+  box-shadow: none;
+  pointer-events: auto;
+  transition:
+    background 0.12s steps(2),
+    border-color 0.12s steps(2);
+  display: flex;
+  flex-direction: column;
+}
+
+.canvasHud:focus-within {
+  background: rgba(26, 28, 44, 0.78);
+  border-color: var(--pal-line);
+  box-shadow: var(--pixel-shadow-sm);
+}
+
+.feed {
+  flex: 1;
+  overflow-y: auto;
+  text-align: start;
+}
+
+.canvasHud .feed {
+  flex: 1 1 auto;
+  min-height: 0;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.compose {
+  display: flex;
+  gap: 8px;
+}
+
+.canvasHud .compose {
+  gap: 6px;
+}
+
+.compose input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 0;
+  border: 2px solid var(--border);
+  background: var(--pal-bg);
+  color: var(--text-h);
+}
+
+.compose input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.canvasHud .compose input {
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 4px 6px;
+  border-radius: 0;
+  background: rgba(26, 28, 44, 0.55);
+  border: 2px solid color-mix(in srgb, var(--pal-line) 55%, transparent);
+  transition:
+    background 0.12s steps(2),
+    border-color 0.12s steps(2);
+}
+
+.canvasHud:focus-within .compose input {
+  background: var(--pal-bg);
+  border-color: var(--pal-line);
+}
+
+.compose button {
+  position: relative;
+  border-radius: 0;
+  border: 2px solid #0c0d16;
+  background: var(--pal-cyan);
+  color: #06222b;
+  font-weight: 600;
+  padding-inline: 14px;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: var(--bevel), var(--pixel-shadow-sm);
+  transition:
+    filter 0.1s steps(2),
+    box-shadow 0.1s steps(2);
+}
+
+.compose button:not(:disabled):hover {
+  filter: brightness(1.12);
+}
+
+.compose button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+.canvasHud .compose button {
+  padding-inline: 8px;
+  padding-block: 4px;
+  font-size: 0.9rem;
+  box-shadow: var(--bevel);
+  transition: filter 0.12s steps(2);
+}
+
+.canvasHud .compose button:not(:disabled):hover {
+  filter: brightness(1.12);
+}
+
+.line {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--pal-line-soft);
+}
+
+.canvasHud .line {
+  padding: 1px 0;
+  border-bottom: none;
+}
+
+.content {
+  word-break: break-word;
+}
+
+.user {
+  font-weight: 600;
+  color: var(--pal-cyan);
+}
+
+.canvasHud .user,
+.canvasHud .content,
+.canvasHud .content * {
+  -webkit-text-stroke: 3px #000;
+  paint-order: stroke fill;
+}
+
+.canvasHud .user {
+  color: var(--pal-cyan);
+}
+
+.canvasHud .content {
+  color: #fff;
+}
+
+.mentionHighlight {
+  background: var(--pal-magenta);
+  color: #fff;
+  border-radius: 0;
+  padding: 0 4px;
+  box-decoration-break: clone;
+  box-shadow: inset 0 0 0 1px #0c0d16;
+}
+
+.canvasHud .mentionHighlight {
+  box-shadow: inset 0 0 0 1px #000;
+}

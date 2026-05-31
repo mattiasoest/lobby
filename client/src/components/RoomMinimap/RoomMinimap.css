@@ -1,0 +1,14 @@
+.minimap {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  z-index: 4;
+  width: 150px;
+  height: 100px;
+  opacity: 0.85;
+  border-radius: 0;
+  border: 2px solid var(--pal-line);
+  box-shadow: var(--pixel-shadow-sm);
+  pointer-events: none;
+  image-rendering: pixelated;
+}

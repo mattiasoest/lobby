@@ -1,0 +1,68 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.grid {
+  display: grid;
+  gap: clamp(12px, 3vw, 18px);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.grid h1 {
+  text-align: center;
+  font-size: clamp(14px, 5.5vw, 34px);
+  margin: clamp(16px, 5vw, 32px) 0;
+}
+
+.roomCards {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: clamp(4px, 1.5vw, 14px);
+  width: 100%;
+  min-width: 0;
+}
+
+.roomCard {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: clamp(6px, 1.5vw, 28px) clamp(6px, 2vw, 14px);
+  border: 3px solid var(--pal-line);
+  border-radius: 0;
+  background: var(--pal-panel);
+  text-decoration: none;
+  font-family: var(--heading);
+  font-size: clamp(0.55rem, 2.8vw, 12px);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-align: center;
+  line-height: 1.6;
+  white-space: nowrap;
+  color: var(--pal-cyan);
+  text-shadow: 2px 2px 0 #0c0d16;
+  cursor: pointer;
+  box-shadow: var(--bevel), var(--pixel-shadow);
+  transition:
+    background 0.1s steps(2),
+    color 0.1s steps(2),
+    border-color 0.1s steps(2);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.roomCard:hover {
+  background: var(--pal-panel-2);
+  color: var(--pal-cyan);
+  border-color: var(--pal-line);
+}

@@ -4,13 +4,14 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { APP_NAME } from './app/config.ts';
-import { AuthProvider } from './app/authContext.tsx';
-import { router } from './app/router.tsx';
-import { AppErrorBoundary } from './components/UI/AppErrorBoundary.tsx';
-import { queryClient } from './query/queryClient.ts';
-import { clearChunkReloadAttempt } from './utils/chunkLoadError.ts';
-import './index.css';
+import { APP_NAME } from '@/app/config.ts';
+import { AuthProvider } from '@/app/authContext.tsx';
+import { router } from '@/app/router.tsx';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary/AppErrorBoundary.tsx';
+import { queryClient } from '@/query/queryClient.ts';
+import { clearChunkReloadAttempt } from '@/utils/chunkLoadError.ts';
+import authPage from '@/styles/authPage.module.css';
+import '@/styles/global.css';
 
 clearChunkReloadAttempt();
 
@@ -23,7 +24,7 @@ createRoot(document.getElementById('root')!).render(
         <AuthProvider>
           <Suspense
             fallback={
-              <div className="auth-page">
+              <div className={authPage.page}>
                 <p className="muted">Loading…</p>
               </div>
             }

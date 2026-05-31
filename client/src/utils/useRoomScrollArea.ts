@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
-import { ROOM_VIEW_HEIGHT_MIN_PX, ROOM_VIEW_HEIGHT_PX } from '../components/Canvas/canvasLoaderLayout.ts';
+import { ROOM_VIEW_HEIGHT_MIN_PX, ROOM_VIEW_HEIGHT_PX } from '@/utils/canvasLoaderLayout.ts';
 
 const BOTTOM_MARGIN_PX = 8;
 const STACK_GAP_PX = 12;

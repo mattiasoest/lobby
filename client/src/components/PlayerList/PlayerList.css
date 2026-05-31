@@ -1,0 +1,49 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 3px solid var(--pal-line);
+  background: var(--pal-bg-2);
+  box-shadow: var(--bevel), var(--pixel-shadow-sm);
+  padding: 4px 12px 8px;
+  box-sizing: border-box;
+}
+
+.title {
+  flex-shrink: 0;
+  font-family: var(--heading);
+  font-size: 11px;
+  font-weight: 400;
+  margin: 0 0 2px;
+  padding: 0;
+  color: var(--pal-green);
+  text-shadow: 2px 2px 0 #0c0d16;
+}
+
+.names {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.root ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.root li {
+  color: var(--text-h);
+  line-height: 135%;
+}
+
+.root small {
+  color: var(--text);
+}

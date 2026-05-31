@@ -1,0 +1,93 @@
+.errorPage {
+  min-height: calc(100svh - 48px);
+  padding: clamp(48px, 10vh, 88px) var(--page-gutter-x) 32px;
+  place-items: start center;
+  align-content: start;
+}
+
+.shell {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  padding: 2.5rem 2rem 2rem;
+  border: 3px solid var(--pal-line);
+  border-radius: 0;
+  background: var(--pal-bg-2);
+  box-shadow:
+    var(--bevel),
+    6px 6px 0 0 #0c0d16;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.kicker {
+  margin: 0;
+  font-family: var(--heading);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pal-cyan);
+  text-shadow: 2px 2px 0 #0c0d16;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--heading);
+  font-size: clamp(1rem, 3.2vw, 1.35rem);
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--pal-yellow);
+  text-shadow: 3px 3px 0 #0c0d16;
+}
+
+.message {
+  margin: 0;
+  max-width: 36ch;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.actions {
+  width: 100%;
+  max-width: 280px;
+  margin-top: 8px;
+  display: grid;
+  gap: 12px;
+}
+
+.btn {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.1s steps(2);
+}
+
+.btnPrimary {
+  border: 2px solid #0c0d16;
+  background: var(--pal-blue);
+  color: var(--accent-ink);
+  box-shadow: var(--bevel), var(--pixel-shadow-sm);
+}
+
+.btnPrimary:not(:disabled):hover {
+  filter: brightness(1.12);
+}
+
+.btnSecondary {
+  border: 2px solid var(--pal-line);
+  background: var(--pal-panel-2);
+  color: var(--text-h);
+  box-shadow: var(--bevel);
+}
+
+.btnSecondary:not(:disabled):hover {
+  background: var(--pal-panel);
+  border-color: var(--pal-cyan);
+  color: var(--pal-cyan);
+}

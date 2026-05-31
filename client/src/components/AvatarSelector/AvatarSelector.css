@@ -1,0 +1,158 @@
+.root {
+  display: grid;
+  gap: clamp(10px, 2.5vw, 12px);
+  padding: clamp(12px, 3vw, 18px) clamp(10px, 3vw, 20px);
+  border: 3px solid var(--pal-line);
+  border-radius: 0;
+  background: var(--pal-bg-2);
+  box-shadow: var(--bevel), var(--pixel-shadow);
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.root h2 {
+  font-size: 13px;
+  margin: 0;
+  color: var(--pal-cyan);
+}
+
+.previewRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.preview,
+.optionSprite {
+  display: block;
+  image-rendering: pixelated;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+.optionSpriteLocked {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+
+.preview {
+  border: 3px solid var(--pal-line);
+  box-shadow: var(--bevel);
+}
+
+.selectedLabel {
+  display: grid;
+  gap: 2px;
+  padding-top: 12px;
+}
+
+.selectedName {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.status {
+  font-size: 0.75rem;
+  min-height: 1.2em;
+  line-height: 1.2;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--avatar-option-size), 1fr));
+  gap: clamp(6px, 2vw, 12px);
+  width: 100%;
+  min-width: 0;
+  --avatar-option-sprite-size: 48px;
+  --avatar-option-size: calc(
+    var(--avatar-option-sprite-size) + clamp(12px, 4vw, 20px) + clamp(4px, 1.5vw, 8px) + 1.25em
+  );
+}
+
+.option {
+  position: relative;
+  border-radius: 0;
+  display: grid;
+  gap: clamp(4px, 1.5vw, 8px);
+  justify-items: center;
+  align-content: start;
+  padding: clamp(6px, 2vw, 10px) clamp(4px, 1.5vw, 8px);
+  border: 2px solid var(--pal-line-soft);
+  background: var(--pal-panel-2);
+  font-family: var(--heading);
+  font-weight: 400;
+  letter-spacing: 0;
+  cursor: pointer;
+  box-shadow: var(--bevel);
+  min-width: var(--avatar-option-size);
+  min-height: var(--avatar-option-size);
+  box-sizing: border-box;
+  transition:
+    background 0.1s steps(2),
+    border-color 0.1s steps(2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .option:hover:not(:disabled):not(.optionSelected) {
+    background: var(--pal-panel);
+    border-color: var(--pal-line);
+  }
+}
+
+.optionSelected {
+  background: var(--pal-panel);
+  border-color: var(--pal-yellow);
+  box-shadow:
+    var(--bevel),
+    0 0 0 2px var(--pal-yellow);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .optionSelected:hover:not(:disabled) {
+    background: var(--pal-panel);
+    border-color: var(--pal-yellow);
+  }
+}
+
+.optionLocked {
+  cursor: not-allowed;
+  opacity: 0.7;
+  background: var(--pal-bg);
+  box-shadow: none;
+}
+
+.lock {
+  width: 24px;
+  height: 24px;
+  fill: var(--pal-yellow);
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 2px 0 #0c0d16);
+}
+
+.lockShine {
+  fill: rgba(255, 255, 255, 0.35);
+}
+
+.lockKeyhole {
+  fill: var(--pal-bg);
+}
+
+.comingSoon {
+  font-family: inherit;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.optionLabel {
+  font-family: inherit;
+  font-size: clamp(0.45rem, 2vw, 0.625rem);
+  font-weight: 400;
+  color: var(--text-h);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+  line-height: 1.4;
+}

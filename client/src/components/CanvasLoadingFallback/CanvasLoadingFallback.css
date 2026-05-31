@@ -1,0 +1,70 @@
+.mountFallback {
+  display: grid;
+  place-items: center;
+  border-radius: 0;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 85% 70% at 50% 38%, rgba(65, 166, 246, 0.18), transparent 58%),
+    linear-gradient(168deg, var(--pal-panel) 0%, var(--pal-bg) 72%);
+}
+
+.mountFallbackOverlay {
+  border: 3px solid var(--pal-line);
+  box-shadow: var(--bevel);
+  box-sizing: border-box;
+}
+
+.loader {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loaderRings {
+  position: relative;
+  width: 52px;
+  height: 52px;
+}
+
+.loaderRing {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  border: 4px solid var(--pal-line-soft);
+  box-sizing: border-box;
+}
+
+.loaderRingTrack {
+  opacity: 0.4;
+}
+
+.loaderRingSpin {
+  border-color: transparent;
+  border-top-color: var(--pal-cyan);
+  border-right-color: var(--pal-blue);
+  animation: pixiCanvasLoaderSpin 0.8s steps(8) infinite;
+}
+
+@keyframes pixiCanvasLoaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loaderLabel {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loaderRingSpin {
+    animation: none;
+    opacity: 0.85;
+    transform: rotate(200deg);
+  }
+}

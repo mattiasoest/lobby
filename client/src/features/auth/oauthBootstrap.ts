@@ -1,4 +1,4 @@
-import { apiUrl } from '../../services/apiOrigin.ts';
+import { apiUrl } from '@/services/apiOrigin.ts';
 
 export type OAuthFragment = { access: string; refreshToken: string | null };
 

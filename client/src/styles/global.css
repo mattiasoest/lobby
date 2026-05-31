@@ -1,0 +1,170 @@
+/* ===========================================================================
+   16-bit retro theme — global tokens, reset, and shared typography.
+   Component layout lives in co-located `Component/Component.css` files (scoped via Vite).
+   =========================================================================== */
+:root {
+  /* Console palette */
+  --pal-bg: #1a1c2c;
+  --pal-bg-2: #232544;
+  --pal-panel: #29366f;
+  --pal-panel-2: #333c57;
+  --pal-line: #566c86;
+  --pal-line-soft: #3a4468;
+  --pal-text: #94b0c2;
+  --pal-text-h: #f4f4f4;
+  --pal-blue: #41a6f6;
+  --pal-cyan: #73eff7;
+  --pal-orange: #ef7d57;
+  --pal-yellow: #ffcd75;
+  --pal-green: #a7f070;
+  --pal-red: #b13e53;
+  --pal-magenta: #c247ac;
+
+  /* Mapped semantic tokens */
+  --text: var(--pal-text);
+  --text-h: var(--pal-text-h);
+  --text-muted: var(--pal-line);
+  --bg: var(--pal-bg);
+  --border: var(--pal-line);
+  --code-bg: var(--pal-panel-2);
+  --accent: var(--pal-cyan);
+  --accent-hover: var(--pal-blue);
+  --accent-ink: #06222b;
+  --accent-bg: rgba(115, 239, 247, 0.14);
+  --accent-border: rgba(115, 239, 247, 0.55);
+  --social-bg: rgba(51, 60, 87, 0.6);
+
+  /* Hard, blur-free retro shadows + bevels */
+  --pixel-shadow: 4px 4px 0 0 #0c0d16;
+  --pixel-shadow-sm: 3px 3px 0 0 #0c0d16;
+  --bevel: inset 2px 2px 0 0 rgba(255, 255, 255, 0.18), inset -2px -2px 0 0 rgba(0, 0, 0, 0.45);
+  --shadow: var(--pixel-shadow);
+
+  --page-gutter-x: clamp(16px, 4vw, 32px);
+  --room-canvas-gutter-x: clamp(4px, 1vw, 8px);
+  --game-frame-width-fallback: 960px;
+
+  --sans: 'Pixelify Sans', 'Segoe UI', system-ui, sans-serif;
+  --heading: 'Press Start 2P', 'Pixelify Sans', monospace;
+  --mono: 'Pixelify Sans', ui-monospace, Consolas, monospace;
+  --pixel: 'Pixelify Sans', monospace;
+
+  font: 18px/150% var(--sans);
+  letter-spacing: 0.3px;
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+#root {
+  max-width: 1320px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--page-gutter-x);
+  text-align: start;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background-color: var(--pal-bg);
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(65, 166, 246, 0.12), transparent 60%),
+    linear-gradient(rgba(86, 108, 134, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(86, 108, 134, 0.06) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    32px 32px,
+    32px 32px;
+  background-attachment: fixed;
+}
+
+button,
+input[type='button'],
+input[type='submit'],
+input[type='reset'],
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+/* CRT scanline overlay across the whole app */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 400;
+  color: var(--text-h);
+  text-shadow: 2px 2px 0 #0c0d16;
+}
+
+h1 {
+  font-size: 34px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  margin: 32px 0;
+  color: var(--pal-yellow);
+  @media (max-width: 1024px) {
+    font-size: 22px;
+    margin: 22px 0;
+  }
+}
+
+h2 {
+  font-size: 16px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  margin: 0 0 12px;
+  @media (max-width: 1024px) {
+    font-size: 14px;
+  }
+}
+
+p {
+  margin: 0;
+}
+
+code {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 0;
+  color: var(--text-h);
+  font-size: 16px;
+  line-height: 135%;
+  padding: 2px 8px;
+  background: var(--code-bg);
+  border: 2px solid var(--border);
+}
+
+.muted {
+  color: var(--text);
+  opacity: 0.8;
+  font-size: 0.95rem;
+}

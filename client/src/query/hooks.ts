@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { bootstrapServerSession, clearSessionBootstrapCache } from '../features/auth/oauthBootstrap.ts';
-import type { ProvidersResponse } from '../services/messagesApi.ts';
-import { devLogin, fetchProviders, fetchRoomMessages, guestLogin } from '../services/messagesApi.ts';
-import { fetchMe, updateAvatar } from '../services/meApi.ts';
+import { isRoomId } from '@/app/constants.ts';
+import { bootstrapServerSession, clearSessionBootstrapCache } from '@/features/auth/oauthBootstrap.ts';
+import type { ProvidersResponse } from '@/services/authApi.ts';
+import { devLogin, fetchProviders, guestLogin } from '@/services/authApi.ts';
+import { fetchRoomMessages } from '@/services/messagesApi.ts';
+import { fetchMe, updateAvatar } from '@/services/meApi.ts';
 import { queryKeys } from './keys.ts';
 
 export function useAuthProvidersQuery() {
@@ -14,7 +16,7 @@ export function useAuthProvidersQuery() {
 }
 
 export function useRoomMessagesQuery(roomId: number, token: string | null) {
-  const enabled = !!token && typeof roomId === 'number' && roomId >= 1 && roomId <= 4;
+  const enabled = !!token && isRoomId(roomId);
 
   return useQuery({
     queryKey: queryKeys.rooms.messages(roomId),

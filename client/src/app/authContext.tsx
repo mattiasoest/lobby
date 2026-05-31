@@ -1,11 +1,11 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { queryClient } from '../query/queryClient.ts';
-import { queryKeys } from '../query/keys.ts';
-import { configureAuthApi } from '../services/api.ts';
-import { apiUrl } from '../services/apiOrigin.ts';
-import { refreshAccessFromCookieSingleFlight } from '../services/credentialRefresh.ts';
-import { decodeJwtUsername } from './store';
+import { queryClient } from '@/query/queryClient.ts';
+import { queryKeys } from '@/query/keys.ts';
+import { configureAuthApi } from '@/services/api.ts';
+import { apiUrl } from '@/services/apiOrigin.ts';
+import { refreshAccessFromCookieSingleFlight } from '@/services/credentialRefresh.ts';
+import { decodeJwtUsername } from '@/utils/jwt.ts';
 
 type AuthValue = {
   token: string | null;

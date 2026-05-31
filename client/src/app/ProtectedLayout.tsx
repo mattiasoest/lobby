@@ -1,14 +1,15 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { AppChrome } from '../components/UI/AppChrome.tsx';
+import authPage from '@/styles/authPage.module.css';
 import { useAuth } from './authContext.tsx';
 import { AvatarProvider } from './avatarContext.tsx';
+import { AppChrome } from '@/components/AppChrome/AppChrome.tsx';
 
 export function ProtectedLayout() {
   const { token, sessionReady } = useAuth();
 
   if (!sessionReady) {
     return (
-      <div className="auth-page">
+      <div className={authPage.page}>
         <p>Loading session…</p>
       </div>
     );

@@ -1,4 +1,4 @@
-import { ROOM_TILE_SIZE, ROOM_WORLD_COLS } from '../components/Canvas/canvasLoaderLayout.ts';
+import { ROOM_TILE_SIZE, ROOM_WORLD_COLS } from '@/utils/canvasLoaderLayout.ts';
 
 export const GAME_FRAME_WIDTH_VAR = '--game-frame-width';
 

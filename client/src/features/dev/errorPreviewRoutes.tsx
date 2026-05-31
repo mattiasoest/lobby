@@ -4,11 +4,12 @@ import { errorFixtureFor, isErrorPreviewVariant } from './errorPreviewFixtures.t
 export const devErrorPreviewRoutes: RouteObject[] = [
   {
     path: '/dev/errors',
-    lazy: () => import('./ErrorPreviewIndexPage.tsx').then((m) => ({ Component: m.ErrorPreviewIndexPage })),
+    lazy: () =>
+      import('./ErrorPreviewIndexPage/ErrorPreviewIndexPage.tsx').then((m) => ({ Component: m.ErrorPreviewIndexPage })),
   },
   {
     path: '/dev/errors/preview/:variant',
-    lazy: () => import('./ErrorPreviewPage.tsx').then((m) => ({ Component: m.ErrorPreviewPage })),
+    lazy: () => import('./ErrorPreviewPage/ErrorPreviewPage.tsx').then((m) => ({ Component: m.ErrorPreviewPage })),
   },
   {
     path: '/dev/errors/live/:variant',
@@ -18,10 +19,16 @@ export const devErrorPreviewRoutes: RouteObject[] = [
       }
       throw errorFixtureFor(params.variant);
     },
-    lazy: () => import('./ErrorPreviewUnreachablePage.tsx').then((m) => ({ Component: m.ErrorPreviewUnreachablePage })),
+    lazy: () =>
+      import('./ErrorPreviewUnreachablePage/ErrorPreviewUnreachablePage.tsx').then((m) => ({
+        Component: m.ErrorPreviewUnreachablePage,
+      })),
   },
   {
     path: '/dev/errors/boundary/:variant',
-    lazy: () => import('./ErrorBoundaryThrowPage.tsx').then((m) => ({ Component: m.ErrorBoundaryThrowShell })),
+    lazy: () =>
+      import('./ErrorBoundaryThrowPage/ErrorBoundaryThrowPage.tsx').then((m) => ({
+        Component: m.ErrorBoundaryThrowShell,
+      })),
   },
 ];
