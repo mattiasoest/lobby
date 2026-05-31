@@ -25,9 +25,10 @@ export function dropRemoteStaleAnchors(samples: RemoteSample[]): void {
 }
 
 export function remoteRenderDelayMs(samples: RemoteSample[]): number {
-  if (samples.length <= 2) return REMOTE_RENDER_DELAY_MIN_MS;
+  // Prefer the deep end of the buffer — shallow playback is what causes hold-then-jump flicker.
+  if (samples.length <= 1) return REMOTE_RENDER_DELAY_MAX_MS;
   const span = REMOTE_RENDER_DELAY_MAX_MS - REMOTE_RENDER_DELAY_MIN_MS;
-  const depth = clamp((samples.length - 2) / 3, 0, 1);
+  const depth = clamp((samples.length - 2) / 2, 0, 1);
   return REMOTE_RENDER_DELAY_MIN_MS + span * depth;
 }
 
@@ -52,10 +53,9 @@ export function posFromRemoteBuffer(samples: RemoteSample[], playbackTime: numbe
     if (playbackTime <= segmentEnd.time) {
       const span = segmentEnd.time - segmentStart.time;
       const linearMix = span < 1e-6 ? 0 : clamp((playbackTime - segmentStart.time) / span, 0, 1);
-      const easedMix = smoothstep01(linearMix);
       return {
-        x: segmentStart.x + (segmentEnd.x - segmentStart.x) * easedMix,
-        y: segmentStart.y + (segmentEnd.y - segmentStart.y) * easedMix,
+        x: segmentStart.x + (segmentEnd.x - segmentStart.x) * linearMix,
+        y: segmentStart.y + (segmentEnd.y - segmentStart.y) * linearMix,
       };
     }
   }

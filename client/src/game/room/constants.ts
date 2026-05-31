@@ -29,13 +29,12 @@ export const ROOM_CAMERA_ZOOM = 2.4;
 export const REMOTE_EXPECTED_STEP_MS = 50;
 
 /**
- * Playback delay bounds: shallow buffers use the min so motion starts sooner;
- * once depth builds, ramp toward max for steadier bracketing. Sized to absorb production network
- * jitter — must comfortably exceed one server broadcast step so a late/clumped packet still has a
- * sample to interpolate toward instead of starving the buffer (which reads as a freeze + snap).
+ * Playback delay bounds. For a casual lobby we prefer smoothness over responsiveness — keep the
+ * buffer deep so playback rarely catches the newest sample (which causes hold-then-jump flicker).
+ * MIN is intentionally close to MAX so a shallow buffer still waits long enough to bracket jitter.
  */
-export const REMOTE_RENDER_DELAY_MAX_MS = 135;
-export const REMOTE_RENDER_DELAY_MIN_MS = 75;
+export const REMOTE_RENDER_DELAY_MAX_MS = 280;
+export const REMOTE_RENDER_DELAY_MIN_MS = 220;
 
 /** Drop buffered samples older than this to cap memory. */
 export const REMOTE_SAMPLE_TTL_MS = 2500;
@@ -43,10 +42,10 @@ export const REMOTE_SAMPLE_TTL_MS = 2500;
 export const MAX_REMOTE_SAMPLES = 48;
 
 /**
- * Drop front anchors if the gap before the next sample exceeds ~2 network steps.
- * Keeps interpolation segments short so idle→motion doesn't span huge time windows.
+ * Drop front anchors only when the gap before the next sample is very large (lost packets / long
+ * stall). A tight limit here collapses the buffer on routine prod jitter and reads as a snap.
  */
-export const MAX_REMOTE_SEGMENT_MS = REMOTE_EXPECTED_STEP_MS * 2 + 40;
+export const MAX_REMOTE_SEGMENT_MS = REMOTE_EXPECTED_STEP_MS * 8 + 80;
 
 /**
  * Remote snapshots carry the server send time. They're replayed on a local timeline anchored to the
@@ -56,21 +55,21 @@ export const MAX_REMOTE_SEGMENT_MS = REMOTE_EXPECTED_STEP_MS * 2 + 40;
  * accumulate; a large divergence (clock jump / long stall) hard re-anchors
  * ({@link REMOTE_CLOCK_REANCHOR_MS}).
  */
-export const REMOTE_CLOCK_CORRECTION = 0.03;
-export const REMOTE_CLOCK_REANCHOR_MS = 280;
+export const REMOTE_CLOCK_CORRECTION = 0.008;
+export const REMOTE_CLOCK_REANCHOR_MS = 520;
 
 /** Ignore jittery duplicate snapshots (world px). */
 export const REMOTE_SNAP_EPS_SQ = 0.06 * 0.06;
 
-/** Soft follow from last drawn pos → buffer target (higher = snappier, lower = silkier). */
-export const REMOTE_DISPLAY_LAMBDA = 48;
-/** After rest→motion, follow buffer target more tightly for a longer window. */
-export const REMOTE_DISPLAY_LAMBDA_BURST = 118;
-export const REMOTE_BURST_DURATION_MS = 308;
-/** Smoothed speed below this (px/s) counts as “idle” for wake detection. */
+/** Soft follow from last drawn pos → buffer target (lower = silkier; avoid high values — they read as flicker). */
+export const REMOTE_DISPLAY_LAMBDA = 18;
+/** Burst follow disabled for anti-flicker profile — kept equal to {@link REMOTE_DISPLAY_LAMBDA}. */
+export const REMOTE_DISPLAY_LAMBDA_BURST = 18;
+export const REMOTE_BURST_DURATION_MS = 0;
+/** Burst wake disabled — high threshold so the burst window never opens. */
 export const REMOTE_BURST_IDLE_SPEED_PX_S = 22;
-/** Smoothed speed above this after idle starts the burst window (lower = catches gentle starts). */
-export const REMOTE_BURST_WAKE_SPEED_PX_S = 43;
-/** During burst, shave ms off render delay (floor still applies). */
-export const REMOTE_BURST_DELAY_SHAVE_MS = 20;
-export const REMOTE_RENDER_DELAY_FLOOR_MS = 25;
+export const REMOTE_BURST_WAKE_SPEED_PX_S = 999;
+/** No delay shave during burst — deep buffer at all times. */
+export const REMOTE_BURST_DELAY_SHAVE_MS = 0;
+/** Floor matches MIN so playback never runs with a dangerously shallow buffer. */
+export const REMOTE_RENDER_DELAY_FLOOR_MS = 220;
