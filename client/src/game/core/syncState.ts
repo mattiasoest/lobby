@@ -11,11 +11,11 @@ export type RoomCanvasSyncState = {
   viewPixelH: number;
   worldCols: number;
   worldRows: number;
-  /** Client-authoritative local avatar position; survives view resizes and runner recycle. */
+  /** Client-authoritative local avatar position; survives view resizes and game recycle. */
   localPx: { x: number; y: number } | null;
   keysDisabled: boolean;
   onPositionSync: (pos: { x: number; y: number }) => void;
-  /** Set by {@link PixiCanvas} when the runner is ready; draws speech in the world layer only. */
+  /** Set by {@link PixiCanvas} when the game is ready; draws speech in the world layer only. */
   showSpeechBubble?: (playerSocketId: string, text: string) => void;
   /** Clears all speech graphics (e.g. on room switch). */
   clearSpeechBubbles?: () => void;

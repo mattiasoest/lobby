@@ -11,7 +11,7 @@ export type RoomMinimapProps = {
 
 /**
  * Screen-space minimap overlay. Reads {@link RoomCanvasSyncState.minimapSnapshot}, which the Pixi
- * runner updates each tick, and repaints on requestAnimationFrame.
+ * game updates each tick, and repaints on requestAnimationFrame.
  */
 export function RoomMinimap({ syncRef, active }: RoomMinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);

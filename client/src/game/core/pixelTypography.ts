@@ -10,7 +10,7 @@ import { ROOM_CAMERA_ZOOM } from './constants.ts';
 
 export const ROOM_PIXEL_FONT_STACK = '"Pixelify Sans", monospace';
 
-/** Passed to {@link FontFaceSet.load}; weights/sizes tuned for Pixi usages in the room runner. */
+/** Passed to {@link FontFaceSet.load}; weights/sizes tuned for Pixi usages in the room game. */
 export const ROOM_PIXEL_FACE_SPECS = ['400 11px Pixelify Sans', '400 13px Pixelify Sans'] as const;
 
 /** Cap avoids huge atlas surfaces on exotic `devicePixelRatio` values (e.g. 3–4× zoom simulators). */

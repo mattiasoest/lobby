@@ -32,7 +32,7 @@ export type PixiCanvasProps = {
   roomId: number;
   keysDisabled?: boolean;
   onPositionSync: (pos: { x: number; y: number }) => void;
-  /** Fires when the WebGL runner finishes bootstrap or tears down (recreates runner). */
+  /** Fires when the WebGL game finishes bootstrap or tears down (recreates game). */
   onCanvasReady?: (ready: boolean) => void;
 };
 
@@ -59,7 +59,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
   onCanvasReady,
 }: PixiCanvasProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const runnerRef = useRef<Game | null>(null);
+  const gameRef = useRef<Game | null>(null);
   const prevRoomIdRef = useRef(roomId);
   const [layoutViewWidthPx, setLayoutViewWidthPx] = useState(() => ROOM_VIEW_WIDTH_PX);
 
@@ -110,17 +110,17 @@ const PixiCanvasInner = memo(function PixiCanvas({
 
   useEffect(() => {
     const syncState = syncRef.current;
-    const runner = runnerRef.current;
-    if (!canvasReady || !runner) {
+    const game = gameRef.current;
+    if (!canvasReady || !game) {
       syncState.showSpeechBubble = undefined;
       syncState.clearSpeechBubbles = undefined;
       return;
     }
     syncState.showSpeechBubble = (playerSocketId, text) => {
-      runner.showSpeechBubble(playerSocketId, text);
+      game.showSpeechBubble(playerSocketId, text);
     };
     syncState.clearSpeechBubbles = () => {
-      runner.clearSpeechBubbles();
+      game.clearSpeechBubbles();
     };
     return () => {
       syncState.showSpeechBubble = undefined;
@@ -129,7 +129,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
   }, [canvasReady, syncRef]);
 
   const handleMoveVector = useCallback((x: number, y: number) => {
-    runnerRef.current?.setMoveVector(x, y);
+    gameRef.current?.setMoveVector(x, y);
   }, []);
 
   // Only view/world dimensions recreate Pixi; spawn is handled by applyRoomSpawn.
@@ -137,7 +137,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     let cancelled = false;
     const mount = mountRef.current;
     if (!mount) return;
-    const runner = new Game({
+    const game = new Game({
       mount,
       syncRef,
       dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewPixelH: viewHeightPx, worldCols, worldRows },
@@ -154,44 +154,44 @@ const PixiCanvasInner = memo(function PixiCanvas({
         if (!cancelled) setCanvasReady(true);
       },
     });
-    runnerRef.current = runner;
+    gameRef.current = game;
 
-    void runner.init();
+    void game.init();
 
     return () => {
       cancelled = true;
       setCanvasReady(false);
-      runner.destroy();
-      runnerRef.current = null;
+      game.destroy();
+      gameRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- room changes use switchRoom; worldSpawnPx only used for init
   }, [tileSize, worldCols, worldRows]);
 
   useEffect(() => {
-    const runner = runnerRef.current;
-    if (!runner || !canvasReady) return;
+    const game = gameRef.current;
+    if (!game || !canvasReady) return;
     if (prevRoomIdRef.current === roomId) return;
     prevRoomIdRef.current = roomId;
-    void runner.switchRoom(roomId, worldSpawnPx, backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, snowBg));
+    void game.switchRoom(roomId, worldSpawnPx, backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, snowBg));
   }, [canvasReady, roomId, worldSpawnPx]);
 
   useLayoutEffect(() => {
     if (!canvasReady) return;
-    runnerRef.current?.resizeView(layoutViewWidthPx, viewHeightPx);
+    gameRef.current?.resizeView(layoutViewWidthPx, viewHeightPx);
   }, [canvasReady, layoutViewWidthPx, viewHeightPx]);
 
   useEffect(() => {
-    const runner = runnerRef.current;
-    if (!runner || !canvasReady) return;
+    const game = gameRef.current;
+    if (!game || !canvasReady) return;
     // Re-run only when the player *set* changes (IDs), tile size, or local socket id—not on every
     // positional snapshot. Rebuilding wipes remote interpolation buffers and causes jitter.
-    runner.rebuildPlayerLayer(players, localId, tileSize);
+    game.rebuildPlayerLayer(players, localId, tileSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- players omitted on purpose; playerLayerSig gates rebuilds
   }, [canvasReady, localId, playerLayerSig, tileSize]);
 
   useEffect(() => {
     if (keysDisabled) {
-      runnerRef.current?.clearMovementKeys();
+      gameRef.current?.clearMovementKeys();
     }
   }, [keysDisabled]);
 
