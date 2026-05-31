@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RouteErrorPage } from '../components/UI/RouteErrorPage.tsx';
+import { devErrorPreviewRoutes } from '../features/dev/errorPreviewRoutes.tsx';
 import { importWithChunkRetry } from '../utils/chunkLoadError.ts';
 import { ProtectedLayout } from './ProtectedLayout.tsx';
 
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
           },
         ],
       },
+      ...(import.meta.env.DEV ? devErrorPreviewRoutes : []),
       { path: '/', element: <Navigate to="/lobby" replace /> },
       { path: '*', element: <Navigate to="/lobby" replace /> },
     ],

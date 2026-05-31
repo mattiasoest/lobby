@@ -587,6 +587,124 @@ code {
   color: var(--pal-cyan);
 }
 
+/* ---- Dev error gallery (dev-only routes) ---- */
+.dev-error-gallery {
+  display: grid;
+  gap: 24px;
+  padding: 24px 0 48px;
+}
+
+.dev-error-nav {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 2px dashed var(--pal-line);
+  background: rgba(35, 37, 68, 0.65);
+}
+
+.dev-error-nav-label {
+  margin: 0;
+  font-family: var(--heading);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pal-magenta);
+}
+
+.dev-error-nav-modes,
+.dev-error-nav-variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dev-error-nav-mode,
+.dev-error-nav-variant {
+  padding: 8px 12px;
+  border: 2px solid var(--pal-line);
+  background: var(--pal-panel-2);
+  color: var(--text-h);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: var(--bevel);
+}
+
+.dev-error-nav-mode--active,
+.dev-error-nav-variant--active,
+.dev-error-nav-mode:hover,
+.dev-error-nav-variant:hover {
+  border-color: var(--pal-cyan);
+  color: var(--pal-cyan);
+}
+
+.dev-error-index {
+  display: grid;
+  gap: 24px;
+  padding: 32px 0 48px;
+}
+
+.dev-error-index-title {
+  margin: 0;
+  font-family: var(--heading);
+  font-size: clamp(1rem, 3vw, 1.25rem);
+  color: var(--pal-yellow);
+  text-shadow: 2px 2px 0 #0c0d16;
+}
+
+.dev-error-index-lead {
+  margin: 0;
+  color: var(--text);
+}
+
+.dev-error-index-section {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 2px solid var(--pal-line);
+  background: var(--pal-bg-2);
+  box-shadow: var(--pixel-shadow-sm);
+}
+
+.dev-error-index-heading {
+  margin: 0;
+  font-family: var(--heading);
+  font-size: 0.75rem;
+  color: var(--pal-cyan);
+}
+
+.dev-error-index-copy {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.dev-error-index-links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dev-error-index-links a {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 2px solid var(--pal-line);
+  background: var(--pal-panel-2);
+  color: var(--text-h);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: var(--bevel);
+}
+
+.dev-error-index-links a:hover {
+  border-color: var(--pal-cyan);
+  color: var(--pal-cyan);
+}
+
 .chat-compose input {
   width: 100%;
   padding: 8px;
