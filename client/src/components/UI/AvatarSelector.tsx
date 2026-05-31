@@ -1,5 +1,5 @@
 import { useAvatar } from '../../app/avatarContext.tsx';
-import { AVATAR_OPTIONS, avatarPreviewStyle, getAvatarOption } from '../../game/room/avatars.ts';
+import { AVATAR_OPTIONS, avatarPreviewStyle, getAvatarOption } from '../../game/config/avatars.ts';
 import type { CSSProperties, PointerEvent } from 'react';
 
 const PREVIEW_SIZE_PX = 56;

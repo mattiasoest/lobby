@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
-import { DEFAULT_AVATAR_ID, isUnlockedAvatarId, sanitizeAvatarId } from '../game/room/avatars.ts';
+import { DEFAULT_AVATAR_ID, isUnlockedAvatarId, sanitizeAvatarId } from '../game/config/avatars.ts';
 import { useMeQuery, useUpdateAvatarMutation } from '../query/hooks.ts';
 import { useAuth } from './authContext.tsx';
 

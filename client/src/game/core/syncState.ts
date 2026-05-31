@@ -1,5 +1,5 @@
 import type { PlayerDTO } from '../../types.ts';
-import type { MinimapSnapshot } from './minimap.ts';
+import type { MinimapSnapshot } from '../views/Minimap.ts';
 
 export type RoomCanvasSyncState = {
   players: PlayerDTO[];
@@ -19,7 +19,7 @@ export type RoomCanvasSyncState = {
   showSpeechBubble?: (playerSocketId: string, text: string) => void;
   /** Clears all speech graphics (e.g. on room switch). */
   clearSpeechBubbles?: () => void;
-  /** Updated each Pixi tick by {@link RoomPixiRunner}; read by the minimap overlay. */
+  /** Updated each Pixi tick by {@link Game}; read by the minimap overlay. */
   minimapSnapshot: MinimapSnapshot | null;
   /** `serverNowMs - Date.now()` from the latest {@link room:clock} event; null until synced. */
   serverClockOffsetMs: number | null;

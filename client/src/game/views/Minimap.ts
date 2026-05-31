@@ -1,5 +1,5 @@
-import type { AnimalKind } from './animals.ts';
-import { rgbIntToCssHex } from './playerColor.ts';
+import type { AnimalKind } from '../entities/npcs/Animal.ts';
+import { rgbIntToCssHex } from '../config/playerColor.ts';
 
 export type MinimapPlayer = {
   id: string;

@@ -22,7 +22,7 @@ const ROOM_UI_TEXT_RESOLUTION_MAX_DPR = 3;
  *
  * Prefer an **integer** `ROOM_CAMERA_ZOOM` if sprites and text should all snap crisply together.
  */
-export function roomCanvasUiTextRasterResolution(): number {
+function roomCanvasUiTextRasterResolution(): number {
   const dprRaw =
     typeof globalThis !== 'undefined' &&
     'devicePixelRatio' in globalThis &&

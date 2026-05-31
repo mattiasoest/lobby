@@ -19,10 +19,10 @@ import { createPlayerListPositionStore } from '../../components/UI/playerListPos
 import { queryKeys } from '../../query/keys.ts';
 import { queryClient } from '../../query/queryClient.ts';
 import { useRoomMessagesQuery } from '../../query/hooks.ts';
-import { isTypingTarget } from '../../game/room/keyboard.ts';
+import { isTypingTarget } from '../../game/config/keyboard.ts';
 import { useAvatar } from '../../app/avatarContext.tsx';
 import { createRoomSocket } from '../../services/socket.ts';
-import { createInitialSyncState, type RoomCanvasSyncState } from '../../game/room/index.ts';
+import { createInitialSyncState, type RoomCanvasSyncState } from '../../game/core/syncState.ts';
 import type { ChatMessageDTO, PlayerDTO } from '../../types.ts';
 import { usernameForMentionMatch } from '../../utils/usernameForMentions.ts';
 import type { Socket } from 'socket.io-client';

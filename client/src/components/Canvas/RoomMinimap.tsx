@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
-import type { RoomCanvasSyncState } from '../../game/room/syncState.ts';
-import { Minimap } from '../../game/room/minimap.ts';
+import type { RoomCanvasSyncState } from '../../game/core/syncState.ts';
+import { Minimap } from '../../game/views/Minimap.ts';
 
 export type RoomMinimapProps = {
   syncRef: RefObject<RoomCanvasSyncState>;

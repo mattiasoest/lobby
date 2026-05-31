@@ -5,9 +5,10 @@ import cowSpriteSrc from '../../assets/entities/cow/cow.png';
 import deerIdleSpriteSrc from '../../assets/entities/deer/deer_idle.png';
 import deerWalkSpriteSrc from '../../assets/entities/deer/deer_walk.png';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { RoomPixiRunner, type RoomCanvasSyncState } from '../../game/room/index.ts';
-import { AVATAR_CHARACTER_TEXTURES } from '../../game/room/avatars.ts';
-import { backgroundTextureSrcForRoomId } from '../../game/room/roomBackground.ts';
+import { Game } from '../../game/Game.ts';
+import type { RoomCanvasSyncState } from '../../game/core/syncState.ts';
+import { AVATAR_CHARACTER_TEXTURES } from '../../game/config/avatars.ts';
+import { backgroundTextureSrcForRoomId } from '../../game/config/roomBackground.ts';
 import { TouchControls } from '../UI/TouchControls.tsx';
 import { useIsTouchDevice } from '../../utils/useIsTouchDevice.ts';
 import { clampGameViewWidthPx } from '../../utils/gameFrameLayout.ts';
@@ -39,7 +40,7 @@ function clampViewWidthPx(availablePx: number, tileSize: number, worldCols: numb
 }
 
 /**
- * React mount + prop sync for the room Pixi stack. Game loop and scene graph live in {@link RoomPixiRunner}.
+ * React mount + prop sync for the room Pixi stack. Game loop and scene graph live in {@link Game}.
  */
 const PixiCanvasInner = memo(function PixiCanvas({
   syncRef,
@@ -56,7 +57,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
   onCanvasReady,
 }: PixiCanvasProps) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const runnerRef = useRef<RoomPixiRunner | null>(null);
+  const runnerRef = useRef<Game | null>(null);
   const prevRoomIdRef = useRef(roomId);
   const [layoutViewWidthPx, setLayoutViewWidthPx] = useState(() => ROOM_VIEW_WIDTH_PX);
 
@@ -134,7 +135,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     let cancelled = false;
     const mount = mountRef.current;
     if (!mount) return;
-    const runner = new RoomPixiRunner({
+    const runner = new Game({
       mount,
       syncRef,
       dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewPixelH: viewHeightPx, worldCols, worldRows },
