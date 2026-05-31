@@ -10,7 +10,7 @@ import { Game } from '../../game/Game.ts';
 import type { RoomCanvasSyncState } from '../../game/core/syncState.ts';
 import { AVATAR_CHARACTER_TEXTURES } from '../../game/config/avatars.ts';
 import { backgroundTextureSrcForRoomId } from '../../game/config/roomBackground.ts';
-import { TouchControls } from '@/components/ui/TouchControls.tsx';
+import { TouchControls } from '@/components/TouchControls/TouchControls.tsx';
 import { useIsTouchDevice } from '@/utils/useIsTouchDevice.ts';
 import { clampGameViewWidthPx } from '@/utils/gameFrameLayout.ts';
 import { ROOM_VIEW_WIDTH_PX } from '@/utils/canvasLoaderLayout.ts';
