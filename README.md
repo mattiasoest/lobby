@@ -1,6 +1,6 @@
 # Lobby
 
-Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **PostgreSQL**, and **Socket.IO** for presence/chat-style features. Auth uses a **short-lived access JWT in memory** (React state). A **rotating refresh token** lives in an **httpOnly cookie** on `/api/auth`; the app calls **`POST /api/auth/refresh`** on startup to restore access in new tabs. Optional **Google/GitHub OAuth**, a one-click **guest login**, and a **dev login** shortcut round out the sign-in options.
+Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **PostgreSQL**, and **Socket.IO** for presence/chat-style features. Auth uses a **short-lived access JWT in memory** (React state). A **rotating refresh token** lives in an **httpOnly cookie** on `/auth`; the app calls **`POST /auth/refresh`** on startup to restore access in new tabs. Optional **Google/GitHub OAuth**, a one-click **guest login**, and a **dev login** shortcut round out the sign-in options.
 
 **Live app:** https://lobby-rho.vercel.app/
 
@@ -49,8 +49,8 @@ Create `server/.env` (see values below). The server **exits on startup** if `JWT
 | `JWT_SECRET`                                | **yes**     | Secret for signing JWTs (use a long random string; never commit real secrets)                                                 |
 | `FRONTEND_URL`                              | recommended | Origin of the Vite app for CORS (default `http://localhost:5173`)                                                             |
 | `SERVER_PUBLIC_URL`                         | for OAuth   | Public URL of this API (default `http://localhost:3001`); used in OAuth callback URLs                                         |
-| `ALLOW_DEV_LOGIN`                           | optional    | Set to `1` to enable **POST `/api/auth/dev-login`** and the dev login button on the sign-in page. **Turn off in production.** |
-| `ALLOW_GUEST_LOGIN`                         | optional    | Set to `0` to disable **POST `/api/auth/guest-login`** and the “Continue as guest” button. Defaults **on**.                   |
+| `ALLOW_DEV_LOGIN`                           | optional    | Set to `1` to enable **POST `/auth/dev-login`** and the dev login button on the sign-in page. **Turn off in production.** |
+| `ALLOW_GUEST_LOGIN`                         | optional    | Set to `0` to disable **POST `/auth/guest-login`** and the “Continue as guest” button. Defaults **on**.                   |
 | `GUEST_LOGIN_RATE_LIMIT_MAX`                | optional    | Max guest sign-ins per IP per window (default `5`).                                                                           |
 | `GUEST_LOGIN_RATE_LIMIT_WINDOW_MS`          | optional    | Guest sign-in rate-limit window in ms (default `900000`, 15 minutes).                                                         |
 | `TRUST_PROXY`                               | optional    | Express `trust proxy` hop count for correct client IP behind a reverse proxy (default `1`). Set to `0` for direct exposure.   |
@@ -72,15 +72,15 @@ After editing `server/.env`, restart the API process.
 
 ### Frontend (optional root `.env`)
 
-Vite **HTTP-proxies** `/api` to the API. In development, the Socket.IO client connects **directly** to the same URL (so WebSockets do not go through Vite’s proxy, which often breaks Engine.IO with `ECONNRESET`). Set this if the API is not on the default port:
+In development, the client talks to the API **directly** via `VITE_API_ORIGIN` or `VITE_PROXY_TARGET` (default `http://localhost:3001`) so cookies and Socket.IO work reliably. Set one of these if the API is not on the default port:
 
 ```env
-VITE_PROXY_TARGET=http://localhost:3001
+VITE_API_ORIGIN=http://localhost:3001
 ```
 
-(Default if unset: `http://localhost:3001` for both REST proxy and Socket.IO in dev.)
+(Default if unset in dev: `http://localhost:3001` for both REST and Socket.IO.)
 
-For production, set **`VITE_API_ORIGIN`** to your public API URL (e.g. `https://api.example.com`) when the frontend and API are on different hosts (Vercel + Docker, etc.). REST and Socket.IO both use that origin. Leave it unset when a reverse proxy serves the app and API on the same host (same-origin `/api` and `/socket.io`).
+For production, set **`VITE_API_ORIGIN`** to your public API URL (e.g. `https://api.example.com`) when the frontend and API are on different hosts (Vercel + Docker, etc.). REST and Socket.IO both use that origin.
 
 ## 4. Run the app (development)
 
@@ -105,7 +105,7 @@ npm run dev:server
 npm run dev:web
 ```
 
-Use the **Vite dev URL** (`http://localhost:5173`) so API routes are proxied. Opening only `http://localhost:3001` in the browser will not serve the React app.
+Use the **Vite dev URL** (`http://localhost:5173`) for the SPA. The client calls the API at `VITE_API_ORIGIN` / `VITE_PROXY_TARGET` (default `http://localhost:3001`). Opening only `http://localhost:3001` in the browser will not serve the React app.
 
 ## Sign-in options
 
@@ -114,16 +114,16 @@ Use the **Vite dev URL** (`http://localhost:5173`) so API routes are proxied. Op
 3. **Google** — Enable when **`GOOGLE_CLIENT_ID`** and **`GOOGLE_CLIENT_SECRET`** are both set in `server/.env` (see below).
 4. **GitHub** — Enable when **`GITHUB_CLIENT_ID`** and **`GITHUB_CLIENT_SECRET`** are both set in `server/.env` (see below).
 
-After a successful OAuth flow, the API redirects the browser to **`{FRONTEND_URL}/auth/callback#access=...&rt=...`**. The SPA reads the hash, calls **`POST /api/auth/session`** to install the refresh cookie, then keeps **`access`** in memory. Load the app from **`FRONTEND_URL`** (e.g. `http://localhost:5173` in dev) so that route runs correctly.
+After a successful OAuth flow, the API redirects the browser to **`{FRONTEND_URL}/auth/callback#access=...&rt=...`**. The SPA reads the hash, calls **`POST /auth/session`** to install the refresh cookie, then keeps **`access`** in memory. Load the app from **`FRONTEND_URL`** (e.g. `http://localhost:5173` in dev) so that route runs correctly.
 
 ### Local dev: two servers (Vite + API) and OAuth
 
 You run **two** processes: the **frontend** (Vite, e.g. `http://localhost:5173`) and the **API** (Express, e.g. `http://localhost:3001`). They work together like this:
 
 1. You open the app at **`http://localhost:5173`** and click **Continue with Google/GitHub**.
-2. The browser goes to **`/api/auth/...` on port 5173**; Vite **proxies** that to the API on **3001** (`VITE_PROXY_TARGET`).
+2. The browser goes to **`{API_ORIGIN}/auth/...`** (default `http://localhost:3001/auth/...`).
 3. You sign in at Google/GitHub. They **redirect your browser to the OAuth “callback” URL** — that URL must hit the **API**, not Vite:  
-   **`http://localhost:3001/api/auth/google/callback`** or **`.../github/callback`**.
+   **`http://localhost:3001/auth/google/callback`** or **`.../github/callback`**.
 4. The API finishes the flow and **redirects you to** **`http://localhost:5173/auth/callback#access=...&rt=...`** (`FRONTEND_URL`), where the refresh cookie is wired up and access is held in memory.
 
 So in the provider’s dashboard:
@@ -135,14 +135,14 @@ So in the provider’s dashboard:
 
 ### Callback URLs (must match `SERVER_PUBLIC_URL`)
 
-The server builds redirect URIs as **`${SERVER_PUBLIC_URL}/api/auth/.../callback`**. For default local dev (`SERVER_PUBLIC_URL=http://localhost:3001`):
+The server builds redirect URIs as **`${SERVER_PUBLIC_URL}/auth/.../callback`**. For default local dev (`SERVER_PUBLIC_URL=http://localhost:3001`):
 
 | Provider | Redirect / callback URL to register              |
 | -------- | ------------------------------------------------ |
-| Google   | `http://localhost:3001/api/auth/google/callback` |
-| GitHub   | `http://localhost:3001/api/auth/github/callback` |
+| Google   | `http://localhost:3001/auth/google/callback` |
+| GitHub   | `http://localhost:3001/auth/github/callback` |
 
-In production, use your real API origin (e.g. `https://api.example.com/api/auth/google/callback`).
+In production, use your real API origin (e.g. `https://api.example.com/auth/google/callback`).
 
 ### Google OAuth setup
 
@@ -150,8 +150,8 @@ In production, use your real API origin (e.g. `https://api.example.com/api/auth/
 2. **APIs & Services** → **Credentials** → **Create credentials** → **OAuth client ID**.
 3. Application type: **Web application**.
 4. Under **Authorized redirect URIs**, add exactly:  
-   `http://localhost:3001/api/auth/google/callback`  
-   (or your production URL: `{SERVER_PUBLIC_URL}/api/auth/google/callback`).
+   `http://localhost:3001/auth/google/callback`  
+   (or your production URL: `{SERVER_PUBLIC_URL}/auth/google/callback`).
 5. Copy the **Client ID** and **Client secret** into `server/.env`:
 
    ```env
@@ -167,8 +167,8 @@ In production, use your real API origin (e.g. `https://api.example.com/api/auth/
 2. **Application name** — any label (e.g. `Lobby local`).
 3. **Homepage URL** — your app URL, e.g. `http://localhost:5173`.
 4. **Authorization callback URL** — must be exactly:  
-   `http://localhost:3001/api/auth/github/callback`  
-   (or `{SERVER_PUBLIC_URL}/api/auth/github/callback` in production).
+   `http://localhost:3001/auth/github/callback`  
+   (or `{SERVER_PUBLIC_URL}/auth/github/callback` in production).
 5. After creating the app, generate a **Client secret** and put both into `server/.env`:
 
    ```env
@@ -184,7 +184,7 @@ In production, use your real API origin (e.g. `https://api.example.com/api/auth/
 npm run build
 ```
 
-Output is in `dist/`. Serving that static build still expects an API behind the same origin or a reverse proxy that forwards `/api` and `/socket.io` to the Node server. `npm run preview` runs Vite’s static preview only and does **not** start the API by default.
+Output is in `dist/`. Set **`VITE_API_ORIGIN`** to your API subdomain when building for production. `npm run preview` runs Vite’s static preview only and does **not** start the API by default.
 
 ## Troubleshooting
 
@@ -192,7 +192,7 @@ Output is in `dist/`. Serving that static build still expects an API behind the 
 - **`[vite] ws proxy error` / `ECONNRESET`** — Usually fixed here by not proxying Socket.IO; the client talks to the API host in dev. If you still see it, confirm the API is up before opening a room and that `VITE_PROXY_TARGET` matches `PORT` / `SERVER_PUBLIC_URL`.
 - **Database errors on login** — Postgres not running, wrong `DATABASE_URL`, or migrations not applied (`cd server && npm run migrate`).
 - **No sign-in methods** — Enable at least one of: leave `ALLOW_GUEST_LOGIN` unset (or `=1`), set `ALLOW_DEV_LOGIN=1`, or configure Google / GitHub credentials.
-- **“The redirect_uri is not associated with this application” (GitHub) / `redirect_uri_mismatch` (Google)** — Almost always: the **Authorization callback** / **Authorized redirect URI** in the provider still points at the **wrong host or port**. It must be the **API** URL (`http://localhost:3001/api/auth/github/callback` or `.../google/callback` with default settings), not `http://localhost:5173/...`. Copy-paste from the table above; save the app in GitHub/Google; ensure **`SERVER_PUBLIC_URL`** matches (no trailing slash). If you regenerated a GitHub **Client secret**, update `server/.env` and restart the server.
+- **“The redirect_uri is not associated with this application” (GitHub) / `redirect_uri_mismatch` (Google)** — Almost always: the **Authorization callback** / **Authorized redirect URI** in the provider still points at the **wrong host or port**. It must be the **API** URL (`http://localhost:3001/auth/github/callback` or `.../google/callback` with default settings), not `http://localhost:5173/...`. Copy-paste from the table above; save the app in GitHub/Google; ensure **`SERVER_PUBLIC_URL`** matches (no trailing slash). If you regenerated a GitHub **Client secret**, update `server/.env` and restart the server.
 - **Google “Access blocked” / consent screen** — Complete the OAuth consent screen and, if the app is in testing, add your Google account as a test user.
 
 ## Tech stack

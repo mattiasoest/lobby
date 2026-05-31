@@ -10,7 +10,7 @@ import { decodeJwtUsername } from './store';
 type AuthValue = {
   token: string | null;
   username: string | null;
-  /** False until the first `/api/auth/refresh` bootstrap attempt finishes (avoids flash to /login). */
+  /** False until the first `/auth/refresh` bootstrap attempt finishes (avoids flash to /login). */
   sessionReady: boolean;
   setToken: (token: string | null) => void;
   logout: () => Promise<void>;
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       try {
-        await fetch(apiUrl('/api/auth/logout'), {
+        await fetch(apiUrl('/auth/logout'), {
           method: 'POST',
           credentials: 'include',
         });

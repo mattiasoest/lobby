@@ -52,9 +52,9 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(passport.initialize());
 
-setupOAuth(app, db, JWT_SECRET, FRONTEND_URL);
+setupOAuth(app, db, JWT_SECRET, allowedOrigins, FRONTEND_URL);
 
-app.get('/api/auth/providers', (_req, res) => {
+app.get('/auth/providers', (_req, res) => {
   res.json({
     google: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     github: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
@@ -63,7 +63,7 @@ app.get('/api/auth/providers', (_req, res) => {
   });
 });
 
-app.post('/api/auth/guest-login', guestLoginRateLimit, async (_req, res) => {
+app.post('/auth/guest-login', guestLoginRateLimit, async (_req, res) => {
   if (process.env.ALLOW_GUEST_LOGIN === '0') {
     res.status(403).json({ error: 'disabled' });
     return;
@@ -98,7 +98,7 @@ app.post('/api/auth/guest-login', guestLoginRateLimit, async (_req, res) => {
   }
 });
 
-app.post('/api/auth/dev-login', async (req, res) => {
+app.post('/auth/dev-login', async (req, res) => {
   if (process.env.ALLOW_DEV_LOGIN !== '1') {
     res.status(403).json({ error: 'disabled' });
     return;
@@ -140,11 +140,11 @@ app.post('/api/auth/dev-login', async (req, res) => {
   }
 });
 
-app.use('/api/auth', createAuthTokensRouter(db, JWT_SECRET));
+app.use('/auth', createAuthTokensRouter(db, JWT_SECRET));
 
 const requireAuth = createRequireAuth(JWT_SECRET);
-app.use('/api', meRouter(db, requireAuth));
-app.use('/api', messagesRouter(db, requireAuth));
+app.use(meRouter(db, requireAuth));
+app.use(messagesRouter(db, requireAuth));
 
 const httpServer = createServer(app);
 const io = new IOServer(httpServer, {

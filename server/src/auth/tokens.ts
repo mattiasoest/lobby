@@ -54,7 +54,7 @@ function refreshCookieBase(): Omit<CookieOptions, 'maxAge'> {
     httpOnly: true,
     secure,
     sameSite: refreshCookieSameSite(),
-    path: '/api/auth',
+    path: '/auth',
   };
 }
 
@@ -64,6 +64,10 @@ export function refreshCookieOptions(): CookieOptions {
 
 export function clearRefreshCookieOptions(): CookieOptions {
   return refreshCookieBase();
+}
+
+export function authPathCookieOptions(maxAgeMs: number): CookieOptions {
+  return { ...refreshCookieBase(), maxAge: maxAgeMs };
 }
 
 export function hashRefreshToken(raw: string): string {

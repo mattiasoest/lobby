@@ -25,7 +25,7 @@ export function meRouter(db: AppDatabase, requireAuth: RequestHandler) {
       const avatarId = sanitizeAvatarId(row.avatarId);
       res.json({ avatarId } satisfies MeResponse);
     } catch (error) {
-      console.error('GET /api/me', error);
+      console.error('GET /me', error);
       res.status(500).json({ error: 'failed' });
     }
   });
@@ -50,7 +50,7 @@ export function meRouter(db: AppDatabase, requireAuth: RequestHandler) {
       }
       res.json({ avatarId: row.avatarId } satisfies MeResponse);
     } catch (error) {
-      console.error('PATCH /api/me', error);
+      console.error('PATCH /me', error);
       res.status(500).json({ error: 'failed' });
     }
   });

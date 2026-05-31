@@ -8,14 +8,14 @@ export type CredentialRefreshOutcome = {
 let credentialRefreshPromise: Promise<CredentialRefreshOutcome> | null = null;
 
 /**
- * Single-flight POST /api/auth/refresh. React Strict Mode mounts effects twice — without this,
+ * Single-flight POST /auth/refresh. React Strict Mode mounts effects twice — without this,
  * two requests race: the first rotates the refresh cookie hash, the second still sends the old
  * cookie and gets 401, and the survivor effect may skip applying the access token (`cancelled`).
  */
 export async function refreshAccessFromCookieSingleFlight(): Promise<CredentialRefreshOutcome> {
   if (!credentialRefreshPromise) {
     credentialRefreshPromise = (async (): Promise<CredentialRefreshOutcome> => {
-      const res = await fetch(apiUrl('/api/auth/refresh'), {
+      const res = await fetch(apiUrl('/auth/refresh'), {
         method: 'POST',
         credentials: 'include',
       });

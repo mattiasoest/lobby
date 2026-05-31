@@ -47,7 +47,7 @@ export function bootstrapServerSession(access: string, refreshToken: string | nu
   let pending = sessionByAccess.get(access);
   if (!pending) {
     pending = (async (): Promise<boolean> => {
-      const sessionRes = await fetch(apiUrl('/api/auth/session'), {
+      const sessionRes = await fetch(apiUrl('/auth/session'), {
         method: 'POST',
         credentials: 'include',
         headers: {

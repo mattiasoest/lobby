@@ -1,4 +1,4 @@
-import type { Express } from 'express';
+import type { Express, Request, RequestHandler, Response } from 'express';
 import passport from 'passport';
 import { Strategy as GitHubStrategy } from 'passport-github2';
 import {
@@ -9,10 +9,22 @@ import {
 import { sql } from 'drizzle-orm';
 import type { AppDatabase } from '../db/client.js';
 import { users } from '../db/schema.js';
-import { generateRefreshSecret, issueAccessToken, persistRefreshToken, refreshTtlMs } from './tokens.js';
+import { resolveFrontendReturnUrl } from '../allowedOrigins.js';
+import { readCookie } from '../http/cookieHeader.js';
+import {
+  authPathCookieOptions,
+  clearRefreshCookieOptions,
+  generateRefreshSecret,
+  issueAccessToken,
+  persistRefreshToken,
+  refreshTtlMs,
+} from './tokens.js';
 import { collapseUsernameWhitespace } from '../usernameNormalize.js';
 
 export type SerializedUser = { id: string; username: string };
+
+const OAUTH_RETURN_COOKIE = 'oauth_return_origin';
+const OAUTH_RETURN_MAX_AGE_MS = 10 * 60 * 1000;
 
 type GithubOAuthProfile = {
   id: string | number;
@@ -21,11 +33,40 @@ type GithubOAuthProfile = {
   photos?: Array<{ value: string }>;
 };
 
-export function setupOAuth(app: Express, db: AppDatabase, jwtSecret: string, frontendUrl: string) {
+export function setupOAuth(
+  app: Express,
+  db: AppDatabase,
+  jwtSecret: string,
+  allowedOrigins: string[],
+  fallbackFrontendUrl: string,
+) {
   const googleId = process.env.GOOGLE_CLIENT_ID;
   const googleSecret = process.env.GOOGLE_CLIENT_SECRET;
   const ghId = process.env.GITHUB_CLIENT_ID;
   const ghSecret = process.env.GITHUB_CLIENT_SECRET;
+
+  function readOAuthReturnOrigin(req: Request): string {
+    return resolveFrontendReturnUrl(
+      { cookieReturnOrigin: readCookie(req, OAUTH_RETURN_COOKIE) },
+      allowedOrigins,
+      fallbackFrontendUrl,
+    );
+  }
+
+  function clearOAuthReturnCookie(res: Response): void {
+    res.clearCookie(OAUTH_RETURN_COOKIE, clearRefreshCookieOptions());
+  }
+
+  const captureOAuthReturnOrigin: RequestHandler = (req, res, next) => {
+    const queryReturn = typeof req.query.returnOrigin === 'string' ? req.query.returnOrigin : undefined;
+    const returnBase = resolveFrontendReturnUrl(
+      { queryReturnOrigin: queryReturn, referer: req.get('referer') },
+      allowedOrigins,
+      fallbackFrontendUrl,
+    );
+    res.cookie(OAUTH_RETURN_COOKIE, returnBase, authPathCookieOptions(OAUTH_RETURN_MAX_AGE_MS));
+    next();
+  };
 
   async function upsertUser(
     provider: string,
@@ -55,7 +96,7 @@ export function setupOAuth(app: Express, db: AppDatabase, jwtSecret: string, fro
         {
           clientID: googleId,
           clientSecret: googleSecret,
-          callbackURL: `${process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3001'}/api/auth/google/callback`,
+          callbackURL: `${process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3001'}/auth/google/callback`,
         },
         async (_accessToken: string, _refreshToken: string, profile: GoogleProfile, done: VerifyCallback) => {
           try {
@@ -78,7 +119,7 @@ export function setupOAuth(app: Express, db: AppDatabase, jwtSecret: string, fro
         {
           clientID: ghId,
           clientSecret: ghSecret,
-          callbackURL: `${process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3001'}/api/auth/github/callback`,
+          callbackURL: `${process.env.SERVER_PUBLIC_URL ?? 'http://localhost:3001'}/auth/github/callback`,
         },
         async (_accessToken: string, _refreshToken: string, profile: GithubOAuthProfile, done: VerifyCallback) => {
           try {
@@ -95,63 +136,61 @@ export function setupOAuth(app: Express, db: AppDatabase, jwtSecret: string, fro
     );
   }
 
-  async function redirectWithOAuthSession(res: import('express').Response, user: SerializedUser): Promise<void> {
+  async function redirectWithOAuthSession(
+    res: Response,
+    user: SerializedUser,
+    returnBase: string,
+  ): Promise<void> {
     const raw = generateRefreshSecret();
     await persistRefreshToken(db, user.id, raw, refreshTtlMs());
     const access = issueAccessToken({ id: user.id, username: user.username }, jwtSecret);
-    const base = frontendUrl.replace(/\/$/, '');
+    const base = returnBase.replace(/\/$/, '');
     const hash = `access=${encodeURIComponent(access)}&rt=${encodeURIComponent(raw)}`;
     const target = `${base}/auth/callback#${hash}`;
     res.redirect(target);
   }
 
+  function oauthCallback(provider: 'google' | 'github'): RequestHandler {
+    return (req, res, next) => {
+      passport.authenticate(provider, { session: false }, (err: unknown, user: SerializedUser | false) => {
+        const returnBase = readOAuthReturnOrigin(req);
+        clearOAuthReturnCookie(res);
+        if (err) {
+          next(err);
+          return;
+        }
+        if (!user) {
+          res.redirect(`${returnBase}/login?error=${provider}`);
+          return;
+        }
+        redirectWithOAuthSession(res, user, returnBase).catch(next);
+      })(req, res, next);
+    };
+  }
+
   if (googleId && googleSecret) {
     app.get(
-      '/api/auth/google',
+      '/auth/google',
+      captureOAuthReturnOrigin,
       passport.authenticate('google', {
         scope: ['profile', 'email'],
         session: false,
       }),
     );
 
-    app.get(
-      '/api/auth/google/callback',
-      passport.authenticate('google', {
-        failureRedirect: `${frontendUrl}/login?error=google`,
-        session: false,
-      }),
-      async (req, res, next) => {
-        try {
-          await redirectWithOAuthSession(res, req.user as SerializedUser);
-        } catch (error) {
-          next(error);
-        }
-      },
-    );
+    app.get('/auth/google/callback', oauthCallback('google'));
   }
 
   if (ghId && ghSecret) {
     app.get(
-      '/api/auth/github',
+      '/auth/github',
+      captureOAuthReturnOrigin,
       passport.authenticate('github', {
         scope: ['user:email'],
         session: false,
       }),
     );
 
-    app.get(
-      '/api/auth/github/callback',
-      passport.authenticate('github', {
-        failureRedirect: `${frontendUrl}/login?error=github`,
-        session: false,
-      }),
-      async (req, res, next) => {
-        try {
-          await redirectWithOAuthSession(res, req.user as SerializedUser);
-        } catch (error) {
-          next(error);
-        }
-      },
-    );
+    app.get('/auth/github/callback', oauthCallback('github'));
   }
 }

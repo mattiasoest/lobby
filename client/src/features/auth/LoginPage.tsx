@@ -78,11 +78,13 @@ export function LoginPage() {
   const displayError = formatLoginError(paramError, devLoginMut.error ?? guestLoginMut.error, error);
 
   const startGoogle = useCallback(() => {
-    window.location.href = apiUrl('/api/auth/google');
+    const returnOrigin = encodeURIComponent(window.location.origin);
+    window.location.href = apiUrl(`/auth/google?returnOrigin=${returnOrigin}`);
   }, []);
 
   const startGithub = useCallback(() => {
-    window.location.href = apiUrl('/api/auth/github');
+    const returnOrigin = encodeURIComponent(window.location.origin);
+    window.location.href = apiUrl(`/auth/github?returnOrigin=${returnOrigin}`);
   }, []);
 
   const handleDevLogin = useCallback(() => {
