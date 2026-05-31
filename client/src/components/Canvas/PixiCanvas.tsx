@@ -11,6 +11,7 @@ import { backgroundTextureSrcForRoomId } from '../../game/room/roomBackground.ts
 import { TouchControls } from '../UI/TouchControls.tsx';
 import { useIsTouchDevice } from '../../utils/useIsTouchDevice.ts';
 import { clampGameViewWidthPx } from '../../utils/gameFrameLayout.ts';
+import { ROOM_VIEW_WIDTH_PX } from './canvasLoaderLayout.ts';
 import type { PlayerDTO } from '../../types.ts';
 
 const MIN_VIEW_WIDTH_PX = 1;
@@ -19,8 +20,7 @@ export type PixiCanvasProps = {
   /** Shared with {@link RoomPage}: socket updates `players` here; React props are for structure/rebuilds only. */
   syncRef: RefObject<RoomCanvasSyncState>;
   tileSize: number;
-  viewCols: number;
-  viewRows: number;
+  viewHeightPx: number;
   worldCols: number;
   worldRows: number;
   worldSpawnPx: { x: number; y: number };
@@ -44,8 +44,7 @@ function clampViewWidthPx(availablePx: number, tileSize: number, worldCols: numb
 const PixiCanvasInner = memo(function PixiCanvas({
   syncRef,
   tileSize,
-  viewCols,
-  viewRows,
+  viewHeightPx,
   worldCols,
   worldRows,
   worldSpawnPx,
@@ -59,7 +58,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
   const mountRef = useRef<HTMLDivElement>(null);
   const runnerRef = useRef<RoomPixiRunner | null>(null);
   const prevRoomIdRef = useRef(roomId);
-  const [layoutViewWidthPx, setLayoutViewWidthPx] = useState(() => viewCols * tileSize);
+  const [layoutViewWidthPx, setLayoutViewWidthPx] = useState(() => ROOM_VIEW_WIDTH_PX);
 
   useLayoutEffect(() => {
     const mount = mountRef.current;
@@ -87,13 +86,12 @@ const PixiCanvasInner = memo(function PixiCanvas({
     syncState.localId = localId;
     syncState.tileSize = tileSize;
     syncState.viewPixelW = layoutViewWidthPx;
-    syncState.viewCols = layoutViewWidthPx / tileSize;
-    syncState.viewRows = viewRows;
+    syncState.viewPixelH = viewHeightPx;
     syncState.worldCols = worldCols;
     syncState.worldRows = worldRows;
     syncState.keysDisabled = keysDisabled ?? false;
     syncState.onPositionSync = onPositionSync;
-  }, [syncRef, localId, tileSize, layoutViewWidthPx, viewRows, worldCols, worldRows, keysDisabled, onPositionSync]);
+  }, [syncRef, localId, tileSize, layoutViewWidthPx, viewHeightPx, worldCols, worldRows, keysDisabled, onPositionSync]);
 
   const playerLayerSig = useMemo(
     () =>
@@ -139,7 +137,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     const runner = new RoomPixiRunner({
       mount,
       syncRef,
-      dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewRows, worldCols, worldRows },
+      dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewPixelH: viewHeightPx, worldCols, worldRows },
       worldSpawnPx,
       roomId,
       grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, snowBg),
@@ -176,8 +174,8 @@ const PixiCanvasInner = memo(function PixiCanvas({
 
   useLayoutEffect(() => {
     if (!canvasReady) return;
-    runnerRef.current?.resizeView(layoutViewWidthPx, viewRows);
-  }, [canvasReady, layoutViewWidthPx, viewRows]);
+    runnerRef.current?.resizeView(layoutViewWidthPx, viewHeightPx);
+  }, [canvasReady, layoutViewWidthPx, viewHeightPx]);
 
   useEffect(() => {
     const runner = runnerRef.current;
@@ -199,7 +197,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     onCanvasReady?.(canvasReady);
   }, [canvasReady, onCanvasReady]);
 
-  const frameH = viewRows * tileSize;
+  const frameH = viewHeightPx;
 
   return (
     <div

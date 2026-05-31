@@ -64,7 +64,7 @@ export type RoomPixiRunnerOptions = {
   dimensions: {
     tileSize: number;
     viewPixelW: number;
-    viewRows: number;
+    viewPixelH: number;
     worldCols: number;
     worldRows: number;
   };
@@ -152,7 +152,7 @@ export class RoomPixiRunner {
   async init(): Promise<void> {
     const {
       mount,
-      dimensions: { tileSize, viewPixelW, viewRows, worldCols, worldRows },
+      dimensions: { tileSize, viewPixelW, viewPixelH, worldCols, worldRows },
       worldSpawnPx,
       grassTextureSrc,
       characterTextureSrcByAvatarId,
@@ -164,7 +164,6 @@ export class RoomPixiRunner {
       /** Remote fonts blocked or offline — labels fall back to generic monospace stack. */
     });
 
-    const viewPixelH = viewRows * tileSize;
     const worldPixelW = worldCols * tileSize;
     const worldPixelH = worldRows * tileSize;
 
@@ -261,12 +260,12 @@ export class RoomPixiRunner {
     const tickRun = (ticker: Ticker) => {
       const now = performance.now();
       const syncState = this.opts.syncRef.current;
-      const { tileSize, worldCols, worldRows, viewPixelW, viewRows, localId } = syncState;
+      const { tileSize, worldCols, worldRows, viewPixelW, viewPixelH, localId } = syncState;
       const { pad, size } = entityInnerQuad(tileSize);
       const worldW = worldCols * tileSize;
       const worldH = worldRows * tileSize;
       const viewW = viewPixelW / ROOM_CAMERA_ZOOM;
-      const viewH = (viewRows * tileSize) / ROOM_CAMERA_ZOOM;
+      const viewH = viewPixelH / ROOM_CAMERA_ZOOM;
 
       const local = this.localPxRef;
       const dt = ticker.deltaMS / 1000;
@@ -831,7 +830,7 @@ export class RoomPixiRunner {
     this.lastSyncAtRef = 0;
 
     const worldContainer = this.worldRef;
-    const { tileSize, worldCols, worldRows, viewPixelW, viewRows } = syncState;
+    const { tileSize, worldCols, worldRows, viewPixelW, viewPixelH } = syncState;
     if (worldContainer) {
       const pad = tileSize * 0.14;
       const size = tileSize - pad * 2;
@@ -841,7 +840,7 @@ export class RoomPixiRunner {
         loc.y,
         size,
         viewPixelW / ROOM_CAMERA_ZOOM,
-        (viewRows * tileSize) / ROOM_CAMERA_ZOOM,
+        viewPixelH / ROOM_CAMERA_ZOOM,
         worldCols * tileSize,
         worldRows * tileSize,
       );
@@ -939,23 +938,22 @@ export class RoomPixiRunner {
   }
 
   /** Resize the renderer to match the host without tearing down the scene. */
-  resizeView(viewPixelW: number, viewRows?: number): void {
+  resizeView(viewPixelW: number, viewPixelH?: number): void {
     const { tileSize, worldCols } = this.opts.dimensions;
     const maxW = worldCols * tileSize;
     const clampedW = Math.max(tileSize, Math.min(maxW, Math.round(viewPixelW)));
     this.opts.dimensions.viewPixelW = clampedW;
-    if (viewRows !== undefined) {
-      this.opts.dimensions.viewRows = viewRows;
+    if (viewPixelH !== undefined) {
+      this.opts.dimensions.viewPixelH = viewPixelH;
     }
-    const rows = this.opts.dimensions.viewRows;
+    const heightPx = this.opts.dimensions.viewPixelH;
     const syncState = this.opts.syncRef.current;
     syncState.viewPixelW = clampedW;
-    syncState.viewCols = clampedW / tileSize;
-    syncState.viewRows = rows;
+    syncState.viewPixelH = heightPx;
 
     const app = this.app;
     if (!app) return;
-    app.renderer.resize(clampedW, rows * tileSize);
+    app.renderer.resize(clampedW, heightPx);
   }
 
   /** Keep the local avatar at its live coords when the runner (re)boots mid-session. */

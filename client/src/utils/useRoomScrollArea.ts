@@ -1,73 +1,67 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
-import { ROOM_VIEW_ROWS, ROOM_VIEW_ROWS_MIN } from '../components/Canvas/canvasLoaderLayout.ts';
+import { ROOM_VIEW_HEIGHT_MIN_PX, ROOM_VIEW_HEIGHT_PX } from '../components/Canvas/canvasLoaderLayout.ts';
 
 const BOTTOM_MARGIN_PX = 8;
-const MIN_PANEL_PX = 200;
 const STACK_GAP_PX = 12;
 const PANEL_GAP_PX = 8;
-/** Fixed chrome above `.player-list__names` (title, border, padding). */
-const PLAYER_LIST_CHROME_PX = 44;
-/** ~one list row at 18px/150% line-height. */
-const PLAYER_ROW_PX = 27;
-const PLAYER_ROW_GAP_PX = 8;
-const MIN_VISIBLE_PLAYERS = 1;
 
-const MIN_PLAYER_LIST_NAMES_PX = MIN_VISIBLE_PLAYERS * PLAYER_ROW_PX + (MIN_VISIBLE_PLAYERS - 1) * PLAYER_ROW_GAP_PX;
-const MIN_PLAYER_LIST_BLOCK_PX = PLAYER_LIST_CHROME_PX + MIN_PLAYER_LIST_NAMES_PX;
+const PLAYER_LIST_MIN_PX = 66;
 
 function viewportHeightPx(): number {
   return window.visualViewport?.height ?? window.innerHeight;
 }
 
-export function measureRoomPanelMaxHeight(stackEl: HTMLElement | null): number {
-  if (!stackEl) return MIN_PANEL_PX;
-  const top = stackEl.getBoundingClientRect().top;
-  const available = viewportHeightPx() - top - BOTTOM_MARGIN_PX;
-  return Math.max(MIN_PANEL_PX, Math.floor(available));
+function switcherHeightPx(): number {
+  return document.querySelector('.room-switcher-bar')?.getBoundingClientRect().height ?? 0;
 }
 
 export type RoomPanelLayout = {
   stackMaxHeightPx: number;
-  viewRows: number;
+  viewHeightPx: number;
   showPlayerList: boolean;
 };
 
-function resolveRoomPanelLayout(stackEl: HTMLElement | null, tileSize: number, fullViewRows: number): RoomPanelLayout {
-  const stackMaxHeightPx = measureRoomPanelMaxHeight(stackEl);
-  const switcher = document.querySelector('.room-switcher-bar');
-  const switcherH = switcher?.getBoundingClientRect().height ?? 0;
-  const panelMaxPx = stackMaxHeightPx - switcherH - STACK_GAP_PX;
-  const fullCanvasPx = fullViewRows * tileSize;
+function resolveRoomPanelLayout(stackEl: HTMLElement | null, defaultCanvasHeightPx: number): RoomPanelLayout {
+  const stackTop = stackEl?.getBoundingClientRect().top ?? 0;
+  const stackMaxHeightPx = Math.max(
+    ROOM_VIEW_HEIGHT_MIN_PX,
+    Math.floor(viewportHeightPx() - stackTop - BOTTOM_MARGIN_PX),
+  );
+  const panelMaxPx = stackMaxHeightPx - switcherHeightPx() - STACK_GAP_PX;
 
-  const listSpacePx = panelMaxPx - fullCanvasPx - PANEL_GAP_PX;
-  const showPlayerList = listSpacePx >= MIN_PLAYER_LIST_BLOCK_PX;
+  const listFits = panelMaxPx >= defaultCanvasHeightPx + PANEL_GAP_PX + PLAYER_LIST_MIN_PX;
 
-  if (fullCanvasPx <= panelMaxPx) {
-    return { stackMaxHeightPx, viewRows: fullViewRows, showPlayerList };
+  if (listFits) {
+    return {
+      stackMaxHeightPx,
+      viewHeightPx: defaultCanvasHeightPx,
+      showPlayerList: true,
+    };
   }
 
-  const rows = Math.max(ROOM_VIEW_ROWS_MIN, Math.min(fullViewRows, Math.floor(panelMaxPx / tileSize)));
-  return { stackMaxHeightPx, viewRows: rows, showPlayerList: false };
+  return {
+    stackMaxHeightPx,
+    viewHeightPx: Math.max(ROOM_VIEW_HEIGHT_MIN_PX, Math.floor(panelMaxPx)),
+    showPlayerList: false,
+  };
 }
 
 /**
- * Caps the in-room column to the viewport. Keeps the full canvas when it fits; shows the player
- * list only if at least one name fits below it, otherwise hides the list entirely (no canvas
- * shrink for the list).
+ * Sizes the room panel to the viewport. Shows the in-room player list when the default canvas
+ * plus one name row fit; otherwise hides the list and grows the canvas to the bottom of the panel.
  */
 export function useRoomPanelLayout(
   stackRef: RefObject<HTMLElement | null>,
-  tileSize: number,
-  fullViewRows = ROOM_VIEW_ROWS,
+  defaultCanvasHeightPx = ROOM_VIEW_HEIGHT_PX,
 ): RoomPanelLayout {
   const [layout, setLayout] = useState<RoomPanelLayout>(() => ({
-    stackMaxHeightPx: MIN_PANEL_PX,
-    viewRows: fullViewRows,
+    stackMaxHeightPx: ROOM_VIEW_HEIGHT_MIN_PX,
+    viewHeightPx: defaultCanvasHeightPx,
     showPlayerList: true,
   }));
 
   useLayoutEffect(() => {
-    const update = () => setLayout(resolveRoomPanelLayout(stackRef.current, tileSize, fullViewRows));
+    const update = () => setLayout(resolveRoomPanelLayout(stackRef.current, defaultCanvasHeightPx));
 
     update();
     window.addEventListener('resize', update);
@@ -87,7 +81,7 @@ export function useRoomPanelLayout(
       vv?.removeEventListener('resize', update);
       ro.disconnect();
     };
-  }, [stackRef, tileSize, fullViewRows]);
+  }, [stackRef, defaultCanvasHeightPx]);
 
   return layout;
 }

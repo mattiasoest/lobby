@@ -6,10 +6,9 @@ import { useAuth } from '../../app/authContext.tsx';
 import { CanvasLoadingFallback } from '../../components/Canvas/CanvasLoadingFallback.tsx';
 import { RoomMinimap } from '../../components/Canvas/RoomMinimap.tsx';
 import {
-  canvasViewPixels,
+  roomCanvasViewLayout,
   ROOM_TILE_SIZE,
-  ROOM_VIEW_COLS,
-  ROOM_VIEW_ROWS,
+  ROOM_VIEW_HEIGHT_PX,
   ROOM_WORLD_COLS,
   ROOM_WORLD_ROWS,
 } from '../../components/Canvas/canvasLoaderLayout.ts';
@@ -147,11 +146,11 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const roomStackRef = useRef<HTMLDivElement>(null);
   const {
     stackMaxHeightPx: roomPanelMaxHeightPx,
-    viewRows: roomViewRows,
+    viewHeightPx: roomViewHeightPx,
     showPlayerList,
-  } = useRoomPanelLayout(roomStackRef, ROOM_TILE_SIZE, ROOM_VIEW_ROWS);
+  } = useRoomPanelLayout(roomStackRef, ROOM_VIEW_HEIGHT_PX);
 
-  const canvasViewBox = useMemo(() => canvasViewPixels(ROOM_TILE_SIZE, ROOM_VIEW_COLS, roomViewRows), [roomViewRows]);
+  const canvasViewBox = useMemo(() => roomCanvasViewLayout(roomViewHeightPx), [roomViewHeightPx]);
 
   const [pixiCanvasReady, setPixiCanvasReady] = useState(false);
 
@@ -348,8 +347,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
                   <LazyPixiRoomCanvas
                     syncRef={syncRef}
                     tileSize={ROOM_TILE_SIZE}
-                    viewCols={ROOM_VIEW_COLS}
-                    viewRows={roomViewRows}
+                    viewHeightPx={roomViewHeightPx}
                     worldCols={ROOM_WORLD_COLS}
                     worldRows={ROOM_WORLD_ROWS}
                     worldSpawnPx={spawnPx}

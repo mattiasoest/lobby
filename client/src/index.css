@@ -45,7 +45,7 @@
   /* Room game canvas only — tighter than page gutter (see .room-canvas-gutter). */
   /* --room-canvas-gutter-x: clamp(4px, 1vw, 8px); */
   --room-canvas-gutter-x: clamp(4px, 1vw, 8px);
-  /* ROOM_VIEW_COLS × ROOM_TILE_SIZE — lobby + pre-measure room chrome */
+  /* Default room canvas width — lobby + pre-measure room chrome */
   --game-frame-width-fallback: 960px;
 
   --sans: 'Pixelify Sans', 'Segoe UI', system-ui, sans-serif;
@@ -816,7 +816,7 @@ code {
   min-width: 0;
 }
 
-/* Capped to viewport via useRoomPanelMaxHeight; player positions scroll in .player-list-scroll */
+/* Capped to viewport via useRoomPanelLayout; player names scroll in .player-list__names */
 .room-game-stack {
   display: flex;
   flex-direction: column;
@@ -1036,7 +1036,7 @@ code {
   border: 3px solid var(--pal-line);
   background: var(--pal-bg-2);
   box-shadow: var(--bevel), var(--pixel-shadow-sm);
-  padding: 8px 12px 8px;
+  padding: 4px 12px 8px;
   box-sizing: border-box;
 }
 
@@ -1045,8 +1045,8 @@ code {
   font-family: var(--heading);
   font-size: 11px;
   font-weight: 400;
-  margin: 0 0 4px;
-  padding: 0 2px;
+  margin: 0 0 2px;
+  padding: 0;
   color: var(--pal-green);
   text-shadow: 2px 2px 0 #0c0d16;
 }
@@ -1054,7 +1054,7 @@ code {
 .player-list__names {
   flex: 1;
   min-height: 0;
-  margin: 0 -2px;
+  margin: 0;
   padding: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -1067,11 +1067,12 @@ code {
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .player-list li {
   color: var(--text-h);
+  line-height: 135%;
 }
 
 .player-list small {

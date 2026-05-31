@@ -5,11 +5,10 @@ export type RoomCanvasSyncState = {
   players: PlayerDTO[];
   localId: string | null;
   tileSize: number;
-  /** Viewport width in pixels (may differ from whole tile columns during resize). */
+  /** Viewport width in pixels (may differ from the default view width during resize). */
   viewPixelW: number;
-  /** Legacy tile-column estimate; `viewPixelW / tileSize`. */
-  viewCols: number;
-  viewRows: number;
+  /** Viewport height in pixels (may shrink when the panel is shorter than the default view). */
+  viewPixelH: number;
   worldCols: number;
   worldRows: number;
   /** Client-authoritative local avatar position; survives view resizes and runner recycle. */
@@ -37,9 +36,8 @@ export function createInitialSyncState(): RoomCanvasSyncState {
     players: [],
     localId: null,
     tileSize: 32,
-    viewPixelW: 24 * 32,
-    viewCols: 24,
-    viewRows: 16,
+    viewPixelW: 960,
+    viewPixelH: 576,
     worldCols: 48,
     worldRows: 32,
     localPx: null,
