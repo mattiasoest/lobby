@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PORT: z.coerce.number().int().positive().default(3001),
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
@@ -23,6 +25,8 @@ const envSchema = z.object({
 });
 
 export type AppConfig = {
+  nodeEnv: 'development' | 'production' | 'test';
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
   port: number;
   jwtSecret: string;
   databaseUrl: string;
@@ -53,6 +57,8 @@ export function loadConfig(): AppConfig {
   }
   const env = result.data;
   return {
+    nodeEnv: env.NODE_ENV,
+    logLevel: env.LOG_LEVEL,
     port: env.PORT,
     jwtSecret: env.JWT_SECRET,
     databaseUrl: env.DATABASE_URL,

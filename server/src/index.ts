@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { loadConfig } from './config/env.js';
 import { createDatabase } from './infrastructure/db/createDatabase.js';
+import { Logger } from './infrastructure/logging/Logger.js';
 import { AuthGuard } from './auth/AuthGuard.js';
 import { createServices } from './services/createServices.js';
 import { createHttpControllers } from './http/createHttpControllers.js';
@@ -11,6 +12,7 @@ import { RealtimeServer } from './app/RealtimeServer.js';
 // Composition root — see server/README.md for layered architecture (HTTP + realtime → services).
 
 const config = loadConfig();
+const logger = Logger.fromConfig(config);
 const { db } = createDatabase(config.databaseUrl);
 const services = createServices(db, config);
 const httpControllers = createHttpControllers(services, config);
@@ -27,13 +29,13 @@ const realtimeServer = new RealtimeServer(httpApp.express, {
 try {
   await services.seed.ensureChatNpcUsers();
 } catch (error) {
-  console.error('ensureChatNpcUsers failed', error);
+  logger.error('ensureChatNpcUsers failed', error);
   process.exit(1);
 }
 
 realtimeServer.httpServer.listen(config.port, () => {
-  console.log(`Server listening on http://localhost:${config.port}`);
+  logger.info('Server listening', { url: `http://localhost:${config.port}` });
   if (!config.groqApiKey) {
-    console.warn('GROQ_API_KEY is not set — room ChatNpcs will not reply to chat');
+    logger.warn('GROQ_API_KEY is not set — room ChatNpcs will not reply to chat');
   }
 });

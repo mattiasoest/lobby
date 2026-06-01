@@ -7,6 +7,7 @@ import { corsOriginDelegate, parseAllowedOrigins } from '../config/cors.js';
 import { setupOAuth } from '../auth/passportSetup.js';
 import type { AuthGuard } from '../auth/AuthGuard.js';
 import { createGuestLoginRateLimit } from '../http/middleware/guestLoginRateLimit.js';
+import { createErrorHandler, createRequestLogger } from '../http/middleware/requestLogger.js';
 import { createAuthRouter } from '../http/routes/AuthRoutes.js';
 import { createAuthTokensRouter } from '../http/routes/AuthTokensRoutes.js';
 import { createMeRouter } from '../http/routes/MeRoutes.js';
@@ -28,6 +29,7 @@ export class HttpApp {
     const allowedOrigins = parseAllowedOrigins(config.frontendUrl);
 
     app.set('trust proxy', config.trustProxy);
+    app.use(createRequestLogger(config));
 
     app.use(
       cors({
@@ -48,6 +50,7 @@ export class HttpApp {
     app.use('/auth', createAuthTokensRouter(controllers.authTokens));
     app.use(createMeRouter(controllers.me, authGuard.requireAuth));
     app.use(createMessagesRouter(controllers.messages, authGuard.requireAuth));
+    app.use(createErrorHandler(config));
 
     this.express = app;
   }

@@ -30,8 +30,8 @@ export class RoomController {
     try {
       const avatar = await this.services.user.getAvatar(user.sub);
       avatarId = avatar?.avatarId ?? 'default';
-    } catch (error) {
-      console.error('player:join avatar lookup failed', error);
+    } catch {
+      // Fall back to default avatar when lookup fails.
     }
     this.presence.join(socket.id, user, payload, avatarId);
   }

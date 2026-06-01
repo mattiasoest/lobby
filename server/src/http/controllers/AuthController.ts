@@ -51,7 +51,6 @@ export class AuthController {
       res.cookie(REFRESH_COOKIE_NAME, result.refreshRaw, refreshCookieOptions(this.config));
       res.json({ accessToken: result.accessToken });
     } catch (error) {
-      console.error('guest-login', error);
       const message = error instanceof Error ? error.message : 'failed';
       res.status(500).json({ error: message });
     }
@@ -72,7 +71,6 @@ export class AuthController {
       res.cookie(REFRESH_COOKIE_NAME, result.refreshRaw, refreshCookieOptions(this.config));
       res.json({ accessToken: result.accessToken });
     } catch (error) {
-      console.error('dev-login', error);
       const message = error instanceof Error ? error.message : 'failed';
       res.status(500).json({ error: message });
     }

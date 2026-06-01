@@ -46,5 +46,5 @@ src/
     controllers/ RoomController (socket)
     createRealtimeControllers, PlayerPresence, registerRoomNamespaces
   services/      Use cases + Drizzle queries
-  infrastructure/ DB, Groq, profanity, cookies
+  infrastructure/ DB, Groq, profanity, cookies, logging
 ```

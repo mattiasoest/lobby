@@ -56,7 +56,6 @@ async function callGroq(
     }
 
     if (!res.ok) {
-      console.error('groq request failed', res.status, await res.text().catch(() => ''));
       return { ok: false, status: res.status, retryAfterMs: 0 };
     }
 
@@ -68,8 +67,7 @@ async function callGroq(
       return { ok: false, status: res.status, retryAfterMs: 0 };
     }
     return { ok: true, content };
-  } catch (error) {
-    console.error('groq request error', error);
+  } catch {
     return { ok: false, status: 0, retryAfterMs: 0 };
   } finally {
     clearTimeout(timer);

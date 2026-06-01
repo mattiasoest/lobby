@@ -18,8 +18,7 @@ export class MeController {
         return;
       }
       res.json({ avatarId: result.avatarId } satisfies MeResponse);
-    } catch (error) {
-      console.error('GET /me', error);
+    } catch {
       res.status(500).json({ error: 'failed' });
     }
   };
@@ -43,8 +42,7 @@ export class MeController {
         return;
       }
       res.json({ avatarId: result.avatarId } satisfies MeResponse);
-    } catch (error) {
-      console.error('PATCH /me', error);
+    } catch {
       res.status(500).json({ error: 'failed' });
     }
   };

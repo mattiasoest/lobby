@@ -37,8 +37,7 @@ export class AuthTokensController {
       }
       res.cookie(REFRESH_COOKIE_NAME, bound.newRaw, refreshCookieOptions(this.config));
       res.status(204).end();
-    } catch (error) {
-      console.error('auth session', error);
+    } catch {
       res.status(500).json({ error: 'session_failed' });
     }
   };
@@ -58,8 +57,7 @@ export class AuthTokensController {
       }
       res.cookie(REFRESH_COOKIE_NAME, rotated.newRaw, refreshCookieOptions(this.config));
       res.json({ accessToken: rotated.accessToken });
-    } catch (error) {
-      console.error('auth refresh', error);
+    } catch {
       res.status(500).json({ error: 'refresh_failed' });
     }
   };
