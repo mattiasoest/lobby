@@ -2,6 +2,14 @@ import { isTypingTarget, MOVE_KEYS, createMoveKeysState, setMoveKey } from '../c
 import type { RoomCanvasSyncState } from '../core/syncState.ts';
 import type { MoveVector } from '../types.ts';
 
+/** Blur a focused link/button (e.g. a room-switcher link that kept focus after a click). */
+function blurLingeringFocus(): void {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || active === document.body) return;
+  if (isTypingTarget(active)) return;
+  if (active.closest('a, button') !== null) active.blur();
+}
+
 export class InputSystem {
   private keysInternal = createMoveKeysState();
   private touchVecRef = { x: 0, y: 0 };
@@ -14,6 +22,9 @@ export class InputSystem {
   private keyDown = (keyEvent: KeyboardEvent) => {
     if (this.syncRef.current.keysDisabled || isTypingTarget(keyEvent.target)) return;
     if (!MOVE_KEYS.has(keyEvent.key)) return;
+    // Drop focus from a lingering control (e.g. a room-switcher link kept focus after a click) so it
+    // does not stay visually highlighted/selected while the avatar is driven with the keyboard.
+    blurLingeringFocus();
     setMoveKey(this.keysInternal, keyEvent.key, true);
     keyEvent.preventDefault();
   };
