@@ -39,69 +39,6 @@
   box-sizing: border-box;
 }
 
-.switcherBar {
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  gap: clamp(4px, 1.5vw, 12px);
-}
-
-.switcher {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: nowrap;
-  gap: clamp(4px, 1.5vw, 8px);
-  justify-content: center;
-  width: 100%;
-  min-width: 0;
-}
-
-.switcherBtn {
-  position: relative;
-  border-radius: 0;
-  display: inline-flex;
-  flex: 1 1 0;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  padding: clamp(6px, 1.5vw, 9px) clamp(6px, 2vw, 14px);
-  border: 2px solid #0c0d16;
-  background: var(--pal-panel-2);
-  color: var(--text-h);
-  font-size: clamp(0.72rem, 2.8vw, 0.95rem);
-  font-weight: 600;
-  white-space: nowrap;
-  text-decoration: none;
-  cursor: pointer;
-  box-shadow: var(--bevel);
-  transition:
-    background 0.1s steps(2),
-    color 0.1s steps(2);
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  touch-action: manipulation;
-}
-
-@media (hover: hover) {
-  .switcherBtn:hover {
-    background: var(--pal-panel);
-    color: var(--pal-cyan);
-  }
-}
-
-.switcherBtnActive {
-  border-color: var(--pal-yellow);
-  background: var(--pal-blue);
-  color: #06222b;
-  box-shadow:
-    var(--bevel),
-    0 0 0 2px var(--pal-yellow);
-  pointer-events: none;
-}
-
 .panel {
   display: flex;
   flex-direction: column;
