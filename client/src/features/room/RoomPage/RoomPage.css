@@ -85,9 +85,11 @@
   touch-action: manipulation;
 }
 
-.switcherBtn:hover {
-  background: var(--pal-panel);
-  color: var(--pal-cyan);
+@media (hover: hover) {
+  .switcherBtn:hover {
+    background: var(--pal-panel);
+    color: var(--pal-cyan);
+  }
 }
 
 .switcherBtnActive {
