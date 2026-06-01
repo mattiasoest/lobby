@@ -1,4 +1,5 @@
 import type { AnimalKind } from '../entities/npcs/Animal.ts';
+import { CHAT_NPC_MARKER_COLOR_CSS } from '../config/chatNpc.ts';
 import { rgbIntToCssHex } from '../config/playerColor.ts';
 
 export type MinimapPlayer = {
@@ -15,12 +16,18 @@ export type MinimapAnimal = {
   y: number;
 };
 
+export type MinimapChatNpc = {
+  x: number;
+  y: number;
+};
+
 export type MinimapSnapshot = {
   worldW: number;
   worldH: number;
   viewport: { x: number; y: number; w: number; h: number };
   players: MinimapPlayer[];
   animals: MinimapAnimal[];
+  chatNpc: MinimapChatNpc | null;
 };
 
 /** Screen-space minimap painter. Reads a world-space snapshot and draws to a 2D canvas. */
@@ -63,6 +70,15 @@ export class Minimap {
       const px = animal.x * scaleX;
       const py = animal.y * scaleY;
       ctx.fillStyle = '#94a3b8';
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (snap.chatNpc) {
+      const px = snap.chatNpc.x * scaleX;
+      const py = snap.chatNpc.y * scaleY;
+      ctx.fillStyle = CHAT_NPC_MARKER_COLOR_CSS;
       ctx.beginPath();
       ctx.arc(px, py, 3, 0, Math.PI * 2);
       ctx.fill();

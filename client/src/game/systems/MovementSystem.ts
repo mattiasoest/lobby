@@ -1,8 +1,10 @@
 import { MOVE_PX_PER_SEC, SYNC_MS } from '../core/constants.ts';
 import { clampWorldTopLeft, moveTopLeftWithEntityCollisions, resolveEntityOverlaps } from '../core/worldMath.ts';
+import type { EntityObstacle } from '../core/worldMath.ts';
 import type { RoomCanvasSyncState } from '../core/syncState.ts';
 import { roomServerTimeMs } from '../core/syncState.ts';
 import type { AnimalSystem } from './AnimalSystem.ts';
+import type { ChatNpcSystem } from './ChatNpcSystem.ts';
 import type { RemoteInterpolationSystem } from './RemoteInterpolationSystem.ts';
 import type { MovementResult, MoveVector } from '../types.ts';
 
@@ -37,6 +39,7 @@ export class MovementSystem {
     worldCols: number,
     worldRows: number,
     animalSystem: AnimalSystem,
+    chatNpcSystem: ChatNpcSystem,
     remoteSystem: RemoteInterpolationSystem,
   ): void {
     const localPlayer = syncState.localId
@@ -44,7 +47,7 @@ export class MovementSystem {
       : undefined;
     const source = syncState.localPx ?? localPlayer ?? fallbackSpawn;
     this.localPx = clampWorldTopLeft(source.x, source.y, tileSize, worldCols, worldRows);
-    this.resolveLocalSpawnOverlap(syncState, tileSize, worldCols, worldRows, animalSystem, remoteSystem);
+    this.resolveLocalSpawnOverlap(syncState, tileSize, worldCols, worldRows, animalSystem, chatNpcSystem, remoteSystem);
   }
 
   resolveLocalSpawnOverlap(
@@ -53,6 +56,7 @@ export class MovementSystem {
     worldCols: number,
     worldRows: number,
     animalSystem: AnimalSystem,
+    chatNpcSystem: ChatNpcSystem,
     remoteSystem: RemoteInterpolationSystem,
   ): void {
     const localId = syncState.localId;
@@ -66,6 +70,21 @@ export class MovementSystem {
         spawnX,
         spawnY,
         animalObstacles,
+        tileSize,
+        worldCols,
+        worldRows,
+        1,
+        Number.POSITIVE_INFINITY,
+      );
+      spawnX = cleared.x;
+      spawnY = cleared.y;
+    }
+    const staticObstacles = chatNpcSystem.getObstacles();
+    if (staticObstacles.length > 0) {
+      const cleared = resolveEntityOverlaps(
+        spawnX,
+        spawnY,
+        staticObstacles,
         tileSize,
         worldCols,
         worldRows,
@@ -91,15 +110,16 @@ export class MovementSystem {
   update(
     dt: number,
     move: MoveVector,
-    remotePlayerObstacles: { x: number; y: number }[],
-    animalObstacles: { x: number; y: number }[],
+    remotePlayerObstacles: EntityObstacle[],
+    animalObstacles: EntityObstacle[],
+    staticObstacles: EntityObstacle[],
     tileSize: number,
     worldCols: number,
     worldRows: number,
   ): MovementResult {
     const local = this.localPx;
     const { vx, vy, len } = move;
-    const blockObstacles = [...remotePlayerObstacles, ...animalObstacles];
+    const blockObstacles = [...remotePlayerObstacles, ...animalObstacles, ...staticObstacles];
     const step = MOVE_PX_PER_SEC * dt;
     const localBeforeMove = { x: local.x, y: local.y };
 
@@ -162,6 +182,7 @@ export class MovementSystem {
     worldSpawnX: number,
     worldSpawnY: number,
     animalSystem: AnimalSystem,
+    chatNpcSystem: ChatNpcSystem,
     remoteSystem: RemoteInterpolationSystem,
   ): void {
     const spawn = clampWorldTopLeft(
@@ -178,6 +199,7 @@ export class MovementSystem {
       syncState.worldCols,
       syncState.worldRows,
       animalSystem,
+      chatNpcSystem,
       remoteSystem,
     );
     syncState.localPx = { x: this.localPx.x, y: this.localPx.y };

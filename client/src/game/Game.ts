@@ -5,7 +5,9 @@ import { ROOM_CAMERA_ZOOM } from './core/constants.ts';
 import { roomServerTimeMs } from './core/syncState.ts';
 import { entityInnerQuad, scrollWorldPx } from './core/worldMath.ts';
 import { Scene } from './scenes/Scene.ts';
+import type { MerchantIdleFrames } from './entities/Merchant.ts';
 import { AnimalSystem } from './systems/AnimalSystem.ts';
+import { ChatNpcSystem } from './systems/ChatNpcSystem.ts';
 import { CameraSystem } from './systems/CameraSystem.ts';
 import { InputSystem } from './systems/InputSystem.ts';
 import { MinimapSystem } from './systems/MinimapSystem.ts';
@@ -33,10 +35,12 @@ export class Game {
   private readonly remoteSystem = new RemoteInterpolationSystem();
   private readonly cameraSystem = new CameraSystem();
   private readonly animalSystem = new AnimalSystem();
+  private readonly chatNpcSystem = new ChatNpcSystem();
   private readonly playerRenderSystem = new PlayerRenderSystem();
   private readonly speechBubbleSystem = new SpeechBubbleSystem();
   private readonly weatherSystem = new WeatherSystem();
   private readonly minimapSystem = new MinimapSystem();
+  private merchantIdleFrames: MerchantIdleFrames | null = null;
 
   constructor(opts: GameOptions) {
     this.opts = opts;
@@ -51,6 +55,7 @@ export class Game {
       grassTextureSrc,
       characterTextureSrcByAvatarId,
       animalTextureSrc,
+      merchantTextureSrc,
       onBootstrapComplete,
     } = this.opts;
 
@@ -75,7 +80,12 @@ export class Game {
     mount.appendChild(canvas);
     this.app = app;
 
-    const assets = await Scene.loadAssets(grassTextureSrc, characterTextureSrcByAvatarId, animalTextureSrc);
+    const assets = await Scene.loadAssets(
+      grassTextureSrc,
+      characterTextureSrcByAvatarId,
+      animalTextureSrc,
+      merchantTextureSrc,
+    );
     if (this.cancelBootstrap) {
       await app.destroy();
       return;
@@ -90,11 +100,13 @@ export class Game {
     app.stage.addChild(scene.viewRoot);
 
     this.animalSystem.setTextures(assets.animalTextures);
-    this.animalSystem.spawn(this.opts.roomId, this.opts.dimensions, scene.actorLayer);
-    this.weatherSystem.init(this.opts.roomId, scene.weatherWorld);
-
     this.playerRenderSystem.setLayers(scene.actorLayer, scene.playerNameLayer);
     this.playerRenderSystem.setCharacterTextures(assets.characterTexturesByAvatarId);
+    this.merchantIdleFrames = assets.merchantIdleFrames;
+    this.animalSystem.spawn(this.opts.roomId, this.opts.dimensions, scene.actorLayer);
+    this.spawnRoomChatNpc(scene, this.merchantIdleFrames);
+    this.weatherSystem.init(this.opts.roomId, scene.weatherWorld);
+
     this.speechBubbleSystem.setWorldContainer(scene.speechBubbleWorld);
     this.speechBubbleSystem.setCharacterTextureCount(assets.characterTexturesByAvatarId.size);
 
@@ -105,6 +117,7 @@ export class Game {
       worldCols,
       worldRows,
       this.animalSystem,
+      this.chatNpcSystem,
       this.remoteSystem,
     );
     this.movementSystem.resetSyncTimer();
@@ -162,12 +175,23 @@ export class Game {
     const { now, dt, roomNowMs, syncState, tileSize, worldCols, worldRows, localId } = fc;
 
     this.animalSystem.update(roomNowMs);
+    this.chatNpcSystem.update(fc.dtMs);
 
     const remotePlayerObstacles = this.remoteSystem.getObstacles(localId, syncState);
     const animalObstacles = this.animalSystem.getObstacles();
+    const staticObstacles = this.chatNpcSystem.getObstacles();
 
     const move = this.inputSystem.getMoveVector();
-    this.movementSystem.update(dt, move, remotePlayerObstacles, animalObstacles, tileSize, worldCols, worldRows);
+    this.movementSystem.update(
+      dt,
+      move,
+      remotePlayerObstacles,
+      animalObstacles,
+      staticObstacles,
+      tileSize,
+      worldCols,
+      worldRows,
+    );
 
     this.remoteSystem.update(now, dt, syncState);
 
@@ -203,6 +227,7 @@ export class Game {
       fc.worldH,
       fc.size,
       this.animalSystem,
+      this.chatNpcSystem,
     );
 
     this.weatherSystem.update(fc.dtMs, this.viewport);
@@ -212,6 +237,12 @@ export class Game {
     const fc = this.buildFrameContext(ticker);
     this.update(fc);
     this.render(fc);
+  }
+
+  private spawnRoomChatNpc(scene: Scene, merchantIdleFrames: MerchantIdleFrames | null): void {
+    this.chatNpcSystem.spawn(this.opts.roomId, this.opts.dimensions, scene.actorLayer, merchantIdleFrames, () => {
+      this.opts.syncRef.current.onChatNpcTap?.();
+    });
   }
 
   rebuildPlayerLayer(players: PlayerDTO[], localId: string | null, tileSize: number): void {
@@ -224,6 +255,7 @@ export class Game {
       worldSpawnX,
       worldSpawnY,
       this.animalSystem,
+      this.chatNpcSystem,
       this.remoteSystem,
     );
     this.remoteSystem.reset();
@@ -251,6 +283,10 @@ export class Game {
       x: this.movementSystem.getLocalPx().x,
       y: this.movementSystem.getLocalPx().y,
     });
+  }
+
+  showChatNpcSpeechBubble(text: string): void {
+    this.chatNpcSystem.showSpeechBubble(text);
   }
 
   showSpeechBubble(playerSocketId: string, text: string): void {
@@ -283,6 +319,7 @@ export class Game {
 
     this.weatherSystem.switchRoom(roomId);
     this.animalSystem.spawn(roomId, this.opts.dimensions, this.scene.actorLayer);
+    this.spawnRoomChatNpc(this.scene, this.merchantIdleFrames);
     this.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
 
     const syncState = this.opts.syncRef.current;
@@ -326,6 +363,7 @@ export class Game {
     this.playerRenderSystem.clear();
     this.remoteSystem.reset();
     this.animalSystem.destroy();
+    this.chatNpcSystem.destroy();
     this.opts.syncRef.current.minimapSnapshot = null;
     this.scene?.destroy();
     this.scene = null;

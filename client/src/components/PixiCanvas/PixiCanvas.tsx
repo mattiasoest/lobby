@@ -5,6 +5,7 @@ import bullSpriteSrc from '@/assets/entities/bull/bull.png';
 import cowSpriteSrc from '@/assets/entities/cow/cow.png';
 import deerIdleSpriteSrc from '@/assets/entities/deer/deer_idle.png';
 import deerWalkSpriteSrc from '@/assets/entities/deer/deer_walk.png';
+import merchantSpriteSrc from '@/assets/entities/merchant/merchant.png';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Game } from '../../game/Game.ts';
 import type { RoomCanvasSyncState } from '../../game/core/syncState.ts';
@@ -113,17 +114,22 @@ const PixiCanvasInner = memo(function PixiCanvas({
     const game = gameRef.current;
     if (!canvasReady || !game) {
       syncState.showSpeechBubble = undefined;
+      syncState.showChatNpcSpeechBubble = undefined;
       syncState.clearSpeechBubbles = undefined;
       return;
     }
     syncState.showSpeechBubble = (playerSocketId, text) => {
       game.showSpeechBubble(playerSocketId, text);
     };
+    syncState.showChatNpcSpeechBubble = (text) => {
+      game.showChatNpcSpeechBubble(text);
+    };
     syncState.clearSpeechBubbles = () => {
       game.clearSpeechBubbles();
     };
     return () => {
       syncState.showSpeechBubble = undefined;
+      syncState.showChatNpcSpeechBubble = undefined;
       syncState.clearSpeechBubbles = undefined;
     };
   }, [canvasReady, syncRef]);
@@ -150,6 +156,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
         cow: cowSpriteSrc,
         deer: { idle: deerIdleSpriteSrc, walk: deerWalkSpriteSrc },
       },
+      merchantTextureSrc: merchantSpriteSrc,
       onBootstrapComplete: () => {
         if (!cancelled) setCanvasReady(true);
       },

@@ -8,6 +8,35 @@ import {
 
 export type RemoteSample = { time: number; x: number; y: number };
 
+/** Entity top-left for player-sized obstacles; optional width/height for static rects (e.g. merchant stall). */
+export type EntityObstacle = {
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+};
+
+type Aabb = { x: number; y: number; w: number; h: number };
+
+function obstacleAabb(obs: EntityObstacle, tileSize: number): Aabb {
+  if (obs.width != null && obs.height != null) {
+    return { x: obs.x, y: obs.y, w: obs.width, h: obs.height };
+  }
+  const inset = entityCollisionInset(tileSize);
+  const collSize = ENTITY_COLLISION_SIZE_PX;
+  return { x: obs.x + inset, y: obs.y + inset, w: collSize, h: collSize };
+}
+
+function playerCollisionAabb(topLeftX: number, topLeftY: number, tileSize: number): Aabb {
+  const inset = entityCollisionInset(tileSize);
+  const collSize = ENTITY_COLLISION_SIZE_PX;
+  return { x: topLeftX + inset, y: topLeftY + inset, w: collSize, h: collSize };
+}
+
+function aabbRectOverlap(a: Aabb, b: Aabb): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -101,18 +130,13 @@ export function aabbOverlap(ax: number, ay: number, bx: number, by: number, size
 export function entityCollidesWithAny(
   topLeftX: number,
   topLeftY: number,
-  others: ReadonlyArray<{ x: number; y: number }>,
+  others: ReadonlyArray<EntityObstacle>,
   tileSize: number,
 ): boolean {
   if (others.length === 0) return false;
-  const collSize = ENTITY_COLLISION_SIZE_PX;
-  const inset = entityCollisionInset(tileSize);
-  const collX = topLeftX + inset;
-  const collY = topLeftY + inset;
+  const player = playerCollisionAabb(topLeftX, topLeftY, tileSize);
   for (const other of others) {
-    const obsCollX = other.x + inset;
-    const obsCollY = other.y + inset;
-    if (aabbOverlap(collX, collY, obsCollX, obsCollY, collSize)) return true;
+    if (aabbRectOverlap(player, obstacleAabb(other, tileSize))) return true;
   }
   return false;
 }
@@ -123,12 +147,12 @@ export function entityCollisionCenter(topLeftX: number, topLeftY: number, tileSi
   return { x: topLeftX + inset + half, y: topLeftY + inset + half };
 }
 
-function overlap1D(aMin: number, bMin: number, size: number): number {
-  return Math.min(aMin + size, bMin + size) - Math.max(aMin, bMin);
+function overlap1DRect(aMin: number, aSize: number, bMin: number, bSize: number): number {
+  return Math.min(aMin + aSize, bMin + bSize) - Math.max(aMin, bMin);
 }
 
-function overlaps1D(aMin: number, bMin: number, size: number): boolean {
-  return aMin < bMin + size && aMin + size > bMin;
+function overlaps1DRect(aMin: number, aSize: number, bMin: number, bSize: number): boolean {
+  return aMin < bMin + bSize && aMin + aSize > bMin;
 }
 
 /**
@@ -142,17 +166,23 @@ function overlaps1D(aMin: number, bMin: number, size: number): boolean {
  *     refuse moves that increase overlap depth. Allow moves that reduce it (escape).
  *   - Never teleport: the returned position is between {@link prevPos} and {@link newPos}.
  */
-function blockAxisAgainstObstacle(prevPos: number, newPos: number, obsPos: number, collSize: number): number {
-  if (!overlaps1D(newPos, obsPos, collSize)) return newPos;
+function blockAxisAgainstRect(
+  prevPos: number,
+  newPos: number,
+  playerSize: number,
+  obsPos: number,
+  obsSize: number,
+): number {
+  if (!overlaps1DRect(newPos, playerSize, obsPos, obsSize)) return newPos;
 
-  if (overlaps1D(prevPos, obsPos, collSize)) {
-    const prevDepth = overlap1D(prevPos, obsPos, collSize);
-    const newDepth = overlap1D(newPos, obsPos, collSize);
+  if (overlaps1DRect(prevPos, playerSize, obsPos, obsSize)) {
+    const prevDepth = overlap1DRect(prevPos, playerSize, obsPos, obsSize);
+    const newDepth = overlap1DRect(newPos, playerSize, obsPos, obsSize);
     return newDepth <= prevDepth ? newPos : prevPos;
   }
 
   const delta = newPos - prevPos;
-  return delta > 0 ? obsPos - collSize : obsPos + collSize;
+  return delta > 0 ? obsPos - playerSize : obsPos + obsSize;
 }
 
 /**
@@ -163,7 +193,7 @@ function blockAxisAgainstObstacle(prevPos: number, newPos: number, obsPos: numbe
 export function resolveEntityOverlaps(
   topLeftX: number,
   topLeftY: number,
-  obstacles: ReadonlyArray<{ x: number; y: number }>,
+  obstacles: ReadonlyArray<EntityObstacle>,
   tileSize: number,
   worldCols: number,
   worldRows: number,
@@ -175,42 +205,39 @@ export function resolveEntityOverlaps(
     return clampWorldTopLeft(topLeftX, topLeftY, tileSize, worldCols, worldRows);
   }
 
-  const collSize = ENTITY_COLLISION_SIZE_PX;
   const inset = entityCollisionInset(tileSize);
   const maxStep = maxStepPx ?? ENTITY_OVERLAP_RESOLVE_PX_PER_SEC * Math.max(dtSec, 1e-4);
-  let collX = topLeftX + inset;
-  let collY = topLeftY + inset;
+  const player = playerCollisionAabb(topLeftX, topLeftY, tileSize);
   const maxPasses = Math.max(1, obstacles.length);
 
   for (let pass = 0; pass < maxPasses; pass += 1) {
     let moved = false;
     for (const obs of obstacles) {
-      const obsCollX = obs.x + inset;
-      const obsCollY = obs.y + inset;
-      if (!aabbOverlap(collX, collY, obsCollX, obsCollY, collSize)) continue;
-      const ox = overlap1D(collX, obsCollX, collSize);
-      const oy = overlap1D(collY, obsCollY, collSize);
+      const obsAabb = obstacleAabb(obs, tileSize);
+      if (!aabbRectOverlap(player, obsAabb)) continue;
+      const ox = overlap1DRect(player.x, player.w, obsAabb.x, obsAabb.w);
+      const oy = overlap1DRect(player.y, player.h, obsAabb.y, obsAabb.h);
       if (ox <= 0 || oy <= 0) continue;
 
       if (ox < oy) {
         const push = Math.min(ox, maxStep);
-        collX += collX < obsCollX ? -push : push;
+        player.x += player.x < obsAabb.x ? -push : push;
       } else {
         const push = Math.min(oy, maxStep);
-        collY += collY < obsCollY ? -push : push;
+        player.y += player.y < obsAabb.y ? -push : push;
       }
       moved = true;
     }
     if (!moved) break;
   }
 
-  return clampWorldTopLeft(collX - inset, collY - inset, tileSize, worldCols, worldRows);
+  return clampWorldTopLeft(player.x - inset, player.y - inset, tileSize, worldCols, worldRows);
 }
 
 /**
- * Axis-separated movement with AABB blocking against same-size entity quads.
+ * Axis-separated movement with AABB blocking against entity obstacles.
  *
- * `blockObstacles` (e.g. animals + remote players) stop the move at their edge.
+ * `blockObstacles` (e.g. merchant stall + remote players) stop the move at their edge.
  * `resolveObstacles` (typically just remote players) are also gently separated post-move so
  * a remote player teleporting onto us doesn't leave us permanently overlapping.
  */
@@ -219,17 +246,16 @@ export function moveTopLeftWithEntityCollisions(
   fromY: number,
   deltaX: number,
   deltaY: number,
-  blockObstacles: ReadonlyArray<{ x: number; y: number }>,
+  blockObstacles: ReadonlyArray<EntityObstacle>,
   tileSize: number,
   worldCols: number,
   worldRows: number,
   dtSec: number,
-  resolveObstacles: ReadonlyArray<{ x: number; y: number }> = [],
+  resolveObstacles: ReadonlyArray<EntityObstacle> = [],
 ): { x: number; y: number } {
-  const collSize = ENTITY_COLLISION_SIZE_PX;
+  const playerSize = ENTITY_COLLISION_SIZE_PX;
   const inset = entityCollisionInset(tileSize);
-  const startCollX = fromX + inset;
-  const startCollY = fromY + inset;
+  const startPlayer = playerCollisionAabb(fromX, fromY, tileSize);
   let x = fromX;
   let y = fromY;
 
@@ -238,10 +264,9 @@ export function moveTopLeftWithEntityCollisions(
     let collX = candidateX + inset;
     const collY = y + inset;
     for (const obs of blockObstacles) {
-      const obsCollX = obs.x + inset;
-      const obsCollY = obs.y + inset;
-      if (!overlaps1D(collY, obsCollY, collSize)) continue;
-      collX = blockAxisAgainstObstacle(startCollX, collX, obsCollX, collSize);
+      const obsAabb = obstacleAabb(obs, tileSize);
+      if (!overlaps1DRect(collY, playerSize, obsAabb.y, obsAabb.h)) continue;
+      collX = blockAxisAgainstRect(startPlayer.x, collX, playerSize, obsAabb.x, obsAabb.w);
     }
     x = collX - inset;
   }
@@ -251,10 +276,9 @@ export function moveTopLeftWithEntityCollisions(
     const collX = x + inset;
     let collY = candidateY + inset;
     for (const obs of blockObstacles) {
-      const obsCollX = obs.x + inset;
-      const obsCollY = obs.y + inset;
-      if (!overlaps1D(collX, obsCollX, collSize)) continue;
-      collY = blockAxisAgainstObstacle(startCollY, collY, obsCollY, collSize);
+      const obsAabb = obstacleAabb(obs, tileSize);
+      if (!overlaps1DRect(collX, playerSize, obsAabb.x, obsAabb.w)) continue;
+      collY = blockAxisAgainstRect(startPlayer.y, collY, playerSize, obsAabb.y, obsAabb.h);
     }
     y = collY - inset;
   }

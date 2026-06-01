@@ -24,6 +24,8 @@ export type GameOptions = {
     cow: string;
     deer: { idle: string; walk: string };
   };
+  /** Merchant stall spritesheet URL for room ChatNpc (Vite import). */
+  merchantTextureSrc: string;
   onBootstrapComplete?: () => void;
 };
 

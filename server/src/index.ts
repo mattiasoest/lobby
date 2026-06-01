@@ -23,6 +23,7 @@ import { createAuthTokensRouter } from './routes/authTokens.js';
 import { meRouter } from './routes/me.js';
 import { messagesRouter } from './routes/messages.js';
 import { registerRoomNamespaces } from './sockets/roomHandler.js';
+import { ensureChatNpcUsers } from './db/ensureChatNpcUsers.js';
 import { collapseUsernameWhitespace } from './usernameNormalize.js';
 import { corsOriginDelegate, parseAllowedOrigins, primaryFrontendUrl } from './allowedOrigins.js';
 
@@ -31,6 +32,7 @@ const JWT_SECRET = process.env.JWT_SECRET ?? '';
 const allowedOrigins = parseAllowedOrigins(process.env.FRONTEND_URL);
 const FRONTEND_URL = primaryFrontendUrl(process.env.FRONTEND_URL);
 const DATABASE_URL = process.env.DATABASE_URL ?? '';
+const GROQ_API_KEY = process.env.GROQ_API_KEY?.trim() || undefined;
 
 if (!JWT_SECRET) {
   console.error('JWT_SECRET is required');
@@ -159,8 +161,18 @@ const io = new IOServer(httpServer, {
   path: '/socket.io',
 });
 
-registerRoomNamespaces(io, { jwtSecret: JWT_SECRET, db });
+registerRoomNamespaces(io, { jwtSecret: JWT_SECRET, db, groqApiKey: GROQ_API_KEY });
+
+try {
+  await ensureChatNpcUsers(db);
+} catch (error) {
+  console.error('ensureChatNpcUsers failed', error);
+  process.exit(1);
+}
 
 httpServer.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
+  if (!GROQ_API_KEY) {
+    console.warn('GROQ_API_KEY is not set — room ChatNpcs will not reply to chat');
+  }
 });

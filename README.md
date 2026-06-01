@@ -58,6 +58,7 @@ Create `server/.env` (see values below). The server **exits on startup** if `JWT
 | `REFRESH_COOKIE_SECURE`                     | optional    | Force the `Secure` flag on the refresh cookie (`1` / `0`). Auto: on when the API or SPA URL is HTTPS.                          |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional    | Enable “Continue with Google” when both are set                                                                               |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional    | Enable “Continue with GitHub” when both are set                                                                               |
+| `GROQ_API_KEY`                              | optional    | Groq API key for room ChatNpc replies ([console.groq.com](https://console.groq.com)). Without it, ChatNpcs render but use canned fallback lines only. |
 
 Example for local Docker Postgres and dev login:
 

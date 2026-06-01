@@ -17,6 +17,10 @@ export type RoomCanvasSyncState = {
   onPositionSync: (pos: { x: number; y: number }) => void;
   /** Set by {@link PixiCanvas} when the game is ready; draws speech in the world layer only. */
   showSpeechBubble?: (playerSocketId: string, text: string) => void;
+  /** Speech bubble above the room ChatNpc (not keyed to player roster). */
+  showChatNpcSpeechBubble?: (text: string) => void;
+  /** Fired when the room ChatNpc is tapped on the canvas. */
+  onChatNpcTap?: () => void;
   /** Clears all speech graphics (e.g. on room switch). */
   clearSpeechBubbles?: () => void;
   /** Updated each Pixi tick by {@link Game}; read by the minimap overlay. */

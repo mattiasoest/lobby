@@ -23,6 +23,7 @@ import { isTypingTarget } from '../../../game/config/keyboard.ts';
 import { useAvatar } from '@/app/avatarContext.tsx';
 import { createRoomSocket } from '@/services/socket.ts';
 import { createInitialSyncState, type RoomCanvasSyncState } from '../../../game/core/syncState.ts';
+import { getRoomChatNpc, isRoomChatNpcUserId } from '../../../game/config/chatNpc.ts';
 import type { ChatMessageDTO } from '@/services/messagesApi.ts';
 import type { PlayerDTO } from '@/types.ts';
 import { usernameForMentionMatch } from '@/utils/usernameForMentions.ts';
@@ -100,6 +101,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
   const [socketId, setSocketId] = useState<string | null>(null);
   const [serverPlayers, setServerPlayers] = useState<PlayerDTO[]>([]);
   const [typingFocus, setTypingFocus] = useState(false);
+  const [composerSeed, setComposerSeed] = useState<{ key: number; text: string } | undefined>();
   const chatComposerRef = useRef<HTMLInputElement>(null);
   const serverPlayersRef = useRef<PlayerDTO[]>([]);
   const selfUserIdRef = useRef<string>('');
@@ -134,6 +136,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     syncRef.current.serverClockOffsetMs = null;
     syncRef.current.playersServerStampMs = 0;
     syncRef.current.clearSpeechBubbles?.();
+    syncRef.current.onChatNpcTap = undefined;
     playerListStore.publish([]);
   }, [playerListStore, roomId]);
 
@@ -232,6 +235,11 @@ export function RoomPage({ roomId }: { roomId: number }) {
         return;
       }
 
+      if (isRoomChatNpcUserId(msg.user_id, roomId)) {
+        syncRef.current.showChatNpcSpeechBubble?.(msg.content);
+        return;
+      }
+
       const rosterAtEvent = serverPlayersRef.current;
       if (tryShowRemoteBubble(msg, rosterAtEvent)) return;
 
@@ -300,10 +308,24 @@ export function RoomPage({ roomId }: { roomId: number }) {
     [avatarId, claims, serverPlayers, socketId, spawnPx, username],
   );
 
-  const roomUsernamesLower = useMemo(
-    () => new Set(displayPlayers.map((player) => usernameForMentionMatch(player.username)).filter(Boolean)),
-    [displayPlayers],
-  );
+  const roomUsernamesLower = useMemo(() => {
+    const names = new Set(displayPlayers.map((player) => usernameForMentionMatch(player.username)).filter(Boolean));
+    const chatNpc = getRoomChatNpc(roomId);
+    if (chatNpc) names.add(usernameForMentionMatch(chatNpc.username));
+    return names;
+  }, [displayPlayers, roomId]);
+
+  useEffect(() => {
+    const chatNpc = getRoomChatNpc(roomId);
+    const sync = syncRef.current;
+    sync.onChatNpcTap = () => {
+      if (!chatNpc) return;
+      setComposerSeed({ key: Date.now(), text: `@${chatNpc.username} ` });
+    };
+    return () => {
+      sync.onChatNpcTap = undefined;
+    };
+  }, [roomId]);
 
   const sendChat = useCallback((text: string) => {
     socketRef.current?.emit('chat:send', { content: text });
@@ -384,6 +406,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
                   onSend={sendChat}
                   onTypingChange={setTypingFocus}
                   composerRef={chatComposerRef}
+                  composerSeed={composerSeed}
                 />
               </div>
               {showPlayerList && (

@@ -1,6 +1,7 @@
 import { Assets, Container, TilingSprite, type Texture } from 'pixi.js';
 import { ROOM_CAMERA_ZOOM } from '../core/constants.ts';
 import { Animal, type AnimalTextureMap } from '../entities/npcs/Animal.ts';
+import { Merchant, type MerchantIdleFrames } from '../entities/Merchant.ts';
 import { Player, type CharacterTextureSet } from '../entities/Player.ts';
 import { ROOM_PIXEL_FACE_SPECS } from '../core/pixelTypography.ts';
 
@@ -8,6 +9,7 @@ export type RoomAssets = {
   grassTexture: Texture | null;
   characterTexturesByAvatarId: Map<string, CharacterTextureSet>;
   animalTextures: AnimalTextureMap | null;
+  merchantIdleFrames: MerchantIdleFrames | null;
 };
 
 export type SceneOptions = {
@@ -39,9 +41,10 @@ export class Scene {
     grassTextureSrc: string,
     characterTextureSrcByAvatarId: Record<string, { idle: string; walk: string }>,
     animalTextureSrc: { bull: string; cow: string; deer: { idle: string; walk: string } },
+    merchantTextureSrc: string,
   ): Promise<RoomAssets> {
     const characterLoadEntries = Object.entries(characterTextureSrcByAvatarId);
-    const [grassResult, characterResults, animalResult] = await Promise.all([
+    const [grassResult, characterResults, animalResult, merchantIdleFrames] = await Promise.all([
       Assets.load(grassTextureSrc).catch(() => null),
       Promise.all(
         characterLoadEntries.map(async ([avatarId, src]) => {
@@ -50,6 +53,7 @@ export class Scene {
         }),
       ),
       Animal.loadTextures(animalTextureSrc.bull, animalTextureSrc.cow, animalTextureSrc.deer),
+      Merchant.loadIdleFrames(merchantTextureSrc),
     ]);
 
     const characterTexturesByAvatarId = new Map(
@@ -60,6 +64,7 @@ export class Scene {
       grassTexture: (grassResult as Texture | null) ?? null,
       characterTexturesByAvatarId,
       animalTextures: animalResult,
+      merchantIdleFrames,
     };
   }
 

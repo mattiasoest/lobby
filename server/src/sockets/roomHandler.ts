@@ -1,10 +1,22 @@
-import type { Server } from 'socket.io';
+import type { Server, Namespace } from 'socket.io';
 import jwt from 'jsonwebtoken';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { sanitizeAvatarId } from '../avatars.js';
 import type { AppDatabase } from '../db/client.js';
 import { messages, users } from '../db/schema.js';
+import { generateChatNpcReply, type GroqChatMessage } from '../lib/groq.js';
 import { maskProfanity } from '../lib/profanity.js';
+import { ChatNpcRateLimiter } from './chatNpcRateLimiter.js';
+import {
+  getRoomChatNpcConfig,
+  chatNpcMentionIncludesMessage,
+  messageMentionsChatNpc,
+  pickRandomChatNpcFallbackMessage,
+  ROOM_IDS,
+  type RoomChatNpcConfig,
+} from './chatNpcConfig.js';
+
+export { ROOM_IDS };
 
 const TILE_PX = 32;
 const WORLD_COLS_CONST = 48;
@@ -35,8 +47,6 @@ function clampPlayerPx(rawX: unknown, rawY: unknown): { x: number; y: number } {
   };
 }
 
-export const ROOM_IDS = [1, 2, 3, 4] as const;
-
 export type PlayerPublic = {
   id: string;
   username: string;
@@ -55,8 +65,130 @@ export type PlayersUpdate = {
   players: PlayerPublic[];
 };
 
-export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db: AppDatabase }) {
-  const { jwtSecret, db } = opts;
+type ChatMessagePayload = {
+  id: string;
+  room_id: number;
+  user_id: string;
+  username: string;
+  content: string;
+  created_at: string;
+};
+
+const chatNpcRateLimiter = new ChatNpcRateLimiter();
+const NPC_TYPING_DELAY_MS = 600;
+const NPC_HISTORY_LIMIT = 10;
+
+async function loadRecentRoomHistory(
+  db: AppDatabase,
+  roomId: number,
+  chatNpc: RoomChatNpcConfig,
+): Promise<GroqChatMessage[]> {
+  const rows = await db
+    .select({
+      userId: messages.userId,
+      content: messages.content,
+      username: users.username,
+    })
+    .from(messages)
+    .innerJoin(users, eq(messages.userId, users.id))
+    .where(eq(messages.roomId, roomId))
+    .orderBy(desc(messages.createdAt))
+    .limit(NPC_HISTORY_LIMIT);
+
+  return rows
+    .reverse()
+    .map((row) =>
+      row.userId === chatNpc.userId
+        ? ({ role: 'assistant', content: row.content } satisfies GroqChatMessage)
+        : ({ role: 'user', content: `${row.username}: ${row.content}` } satisfies GroqChatMessage),
+    );
+}
+
+async function persistAndEmitChatMessage(
+  db: AppDatabase,
+  nsp: Namespace,
+  roomId: number,
+  userId: string,
+  username: string,
+  content: string,
+  contentRaw: string,
+): Promise<ChatMessagePayload | null> {
+  try {
+    const ins = await db
+      .insert(messages)
+      .values({
+        roomId,
+        userId,
+        content,
+        contentRaw,
+      })
+      .returning({
+        id: messages.id,
+        roomId: messages.roomId,
+        userId: messages.userId,
+        content: messages.content,
+        createdAt: messages.createdAt,
+      });
+    const row = ins[0];
+    if (!row) return null;
+    const msg: ChatMessagePayload = {
+      id: row.id,
+      room_id: row.roomId,
+      user_id: row.userId,
+      username,
+      content: row.content,
+      created_at: row.createdAt.toISOString(),
+    };
+    nsp.emit('chat:message', msg);
+    return msg;
+  } catch (error) {
+    console.error('chat persist failed', error);
+    return null;
+  }
+}
+
+async function maybeReplyAsChatNpc(
+  db: AppDatabase,
+  nsp: Namespace,
+  roomId: number,
+  userContent: string,
+  groqApiKey: string | undefined,
+): Promise<void> {
+  const chatNpc = getRoomChatNpcConfig(roomId);
+  if (!chatNpc) return;
+  if (!messageMentionsChatNpc(userContent, chatNpc.username)) return;
+  if (!chatNpcMentionIncludesMessage(userContent, chatNpc.username)) return;
+  if (!chatNpcRateLimiter.canReplyInRoom(roomId)) return;
+
+  let reply: string | null = null;
+  if (groqApiKey && chatNpcRateLimiter.canCallGroq()) {
+    chatNpcRateLimiter.consumeGroqSlot();
+    const history = await loadRecentRoomHistory(db, roomId, chatNpc);
+    reply = await generateChatNpcReply({
+      systemPrompt: chatNpc.systemPrompt,
+      history,
+      model: chatNpc.primaryModel,
+      fallbackModel: chatNpc.fallbackModel,
+      apiKey: groqApiKey,
+    });
+  }
+
+  if (!reply) {
+    reply = pickRandomChatNpcFallbackMessage();
+  }
+
+  chatNpcRateLimiter.markReplied(roomId);
+
+  await new Promise((resolve) => setTimeout(resolve, NPC_TYPING_DELAY_MS));
+  const masked = maskProfanity(reply);
+  await persistAndEmitChatMessage(db, nsp, roomId, chatNpc.userId, chatNpc.username, masked, reply);
+}
+
+export function registerRoomNamespaces(
+  io: Server,
+  opts: { jwtSecret: string; db: AppDatabase; groqApiKey?: string },
+) {
+  const { jwtSecret, db, groqApiKey } = opts;
 
   for (const roomId of ROOM_IDS) {
     const nsp = io.of(`/room-${roomId}`);
@@ -198,6 +330,7 @@ export function registerRoomNamespaces(io: Server, opts: { jwtSecret: string; db
         }
 
         nsp.emit('chat:message', msg);
+        void maybeReplyAsChatNpc(db, nsp, roomId, raw, groqApiKey);
       });
 
       socket.on('disconnect', () => {

@@ -26,6 +26,7 @@ export function ChatBox({
   onSend,
   onTypingChange,
   composerRef,
+  composerSeed,
   variant = 'default',
 }: {
   messages: ChatMessageDTO[];
@@ -37,9 +38,17 @@ export function ChatBox({
   /** Disables Pixi WASD/arrows while the composer is focused */
   onTypingChange?: (typing: boolean) => void;
   composerRef?: RefObject<HTMLInputElement | null>;
+  /** When `key` changes, focus the composer and set its value (e.g. NPC tap). */
+  composerSeed?: { key: number; text: string };
   variant?: 'default' | 'canvasHud';
 }) {
   const [text, setText] = useState('');
+  const [prevComposerSeedKey, setPrevComposerSeedKey] = useState<number | undefined>();
+
+  if (composerSeed && composerSeed.key !== prevComposerSeedKey) {
+    setPrevComposerSeedKey(composerSeed.key);
+    setText(composerSeed.text);
+  }
 
   const ordered = useMemo(
     () => [...messages].sort((first, second) => Date.parse(first.created_at) - Date.parse(second.created_at)),
@@ -67,6 +76,16 @@ export function ChatBox({
     if (!el || !followLatestRef.current) return;
     el.scrollTop = el.scrollHeight;
   }, [ordered]);
+
+  useLayoutEffect(() => {
+    if (!composerSeed) return;
+    const input = composerRef?.current;
+    if (input) {
+      input.focus();
+      const len = composerSeed.text.length;
+      input.setSelectionRange(len, len);
+    }
+  }, [composerRef, composerSeed]);
 
   const submit = useCallback(
     (event: FormEvent) => {
