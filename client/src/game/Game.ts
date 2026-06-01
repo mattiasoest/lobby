@@ -3,7 +3,7 @@ import { Application, Assets } from 'pixi.js';
 import type { PlayerDTO } from '../types.ts';
 import { ROOM_CAMERA_ZOOM } from './core/constants.ts';
 import { roomServerTimeMs } from './core/syncState.ts';
-import { entityInnerQuad, scrollWorldPx } from './core/worldMath.ts';
+import { entityInnerQuad, scrollWorldPx, clampWorldTopLeft } from './core/worldMath.ts';
 import { Scene } from './scenes/Scene.ts';
 import type { MerchantIdleFrames } from './entities/Merchant.ts';
 import { AnimalSystem } from './systems/AnimalSystem.ts';
@@ -140,6 +140,7 @@ export class Game {
     scene.world.position.set(-left, -top);
 
     this.inputSystem.attach();
+    this.syncPlayerLayer();
     onBootstrapComplete?.();
   }
 
@@ -210,6 +211,10 @@ export class Game {
   }
 
   private render(fc: FrameContext): void {
+    if (!this.playerRenderSystem.hasLocalDisplay()) {
+      this.syncPlayerLayer();
+    }
+
     const localPx = this.movementSystem.getLocalPx();
     const remotePx = this.remoteSystem.getRemotePxMap();
 
@@ -245,8 +250,39 @@ export class Game {
     });
   }
 
-  rebuildPlayerLayer(players: PlayerDTO[], localId: string | null, tileSize: number): void {
-    this.playerRenderSystem.rebuild(players, localId, tileSize, this.movementSystem.getLocalPx(), this.remoteSystem);
+  syncPlayerLayer(players?: PlayerDTO[], localId?: string | null, tileSize?: number): void {
+    const syncState = this.opts.syncRef.current;
+    this.playerRenderSystem.sync(
+      players ?? syncState.players,
+      localId ?? syncState.localId,
+      this.movementSystem.getLocalPx(),
+      tileSize ?? syncState.tileSize,
+      this.remoteSystem,
+    );
+  }
+
+  private snapLocalAndCamera(worldSpawnPx: { x: number; y: number }): void {
+    const syncState = this.opts.syncRef.current;
+    const { tileSize, worldCols, worldRows, viewPixelW, viewPixelH } = syncState;
+    const spawn = clampWorldTopLeft(worldSpawnPx.x, worldSpawnPx.y, tileSize, worldCols, worldRows);
+    this.movementSystem.setLocalPx(spawn.x, spawn.y);
+    syncState.localPx = { x: spawn.x, y: spawn.y };
+
+    const scene = this.scene;
+    if (scene) {
+      const pad = tileSize * 0.14;
+      const size = tileSize - pad * 2;
+      const { left, top } = scrollWorldPx(
+        spawn.x,
+        spawn.y,
+        size,
+        viewPixelW / ROOM_CAMERA_ZOOM,
+        viewPixelH / ROOM_CAMERA_ZOOM,
+        worldCols * tileSize,
+        worldRows * tileSize,
+      );
+      scene.world.position.set(-left, -top);
+    }
   }
 
   applyRoomSpawn(worldSpawnX: number, worldSpawnY: number): void {
@@ -313,6 +349,10 @@ export class Game {
     this.opts.roomId = roomId;
     this.opts.worldSpawnPx = worldSpawnPx;
 
+    // Show the local avatar at the new spawn immediately — do not wait for background load or websocket.
+    this.snapLocalAndCamera(worldSpawnPx);
+    this.syncPlayerLayer();
+
     const backgroundTexture = await Assets.load(backgroundTextureSrc).catch(() => null);
     const { tileSize, worldCols, worldRows } = this.opts.dimensions;
     const worldPixelW = worldCols * tileSize;
@@ -325,9 +365,6 @@ export class Game {
     this.animalSystem.spawn(roomId, this.opts.dimensions, this.scene.actorLayer);
     this.spawnRoomChatNpc(this.scene, this.merchantIdleFrames);
     this.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
-
-    const syncState = this.opts.syncRef.current;
-    this.rebuildPlayerLayer(syncState.players, syncState.localId, syncState.tileSize);
   }
 
   resizeView(viewPixelW: number, viewPixelH?: number): void {

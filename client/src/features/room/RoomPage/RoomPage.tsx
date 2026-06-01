@@ -22,6 +22,7 @@ import { useRoomMessagesQuery } from '@/query/hooks.ts';
 import { isTypingTarget } from '../../../game/config/keyboard.ts';
 import { useAvatar } from '@/app/avatarContext.tsx';
 import { createRoomSocket } from '@/services/socket.ts';
+import { LOCAL_DISPLAY_ID } from '../../../game/core/constants.ts';
 import { createInitialSyncState, type RoomCanvasSyncState } from '../../../game/core/syncState.ts';
 import { getRoomChatNpc, isRoomChatNpcUserId } from '../../../game/config/chatNpc.ts';
 import type { ChatMessageDTO } from '@/services/messagesApi.ts';
@@ -66,7 +67,32 @@ function rosterStructureKey(players: PlayerDTO[]): string {
     .join('|');
 }
 
-/** Until the server echoes our socket id, the ticker still needs a local row (see {@link syncRef}). */
+/** Stable id for the local avatar row before the room socket connects (rekeyed to socket id on connect). */
+export function resolveLocalPlayerId(socketId: string | null, claims: ReturnType<typeof decodeJwtPayload>): string {
+  if (socketId) return socketId;
+  if (typeof claims?.sub === 'string' && claims.sub.length > 0) return claims.sub;
+  return LOCAL_DISPLAY_ID;
+}
+
+function buildLocalPreviewPlayer(
+  localId: string,
+  spawnPx: { x: number; y: number },
+  username: string | null | undefined,
+  claims: ReturnType<typeof decodeJwtPayload>,
+  avatarId: string,
+): PlayerDTO {
+  const userId = typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : localId;
+  return {
+    id: localId,
+    username: username ?? claims?.username ?? 'You',
+    x: spawnPx.x,
+    y: spawnPx.y,
+    userId,
+    avatarId,
+  };
+}
+
+/** Ensures the ticker always has a local row — uses JWT auth before the room socket connects. */
 function withGhostPlayerIfNeeded(
   server: PlayerDTO[],
   socketId: string | null,
@@ -75,19 +101,11 @@ function withGhostPlayerIfNeeded(
   claims: ReturnType<typeof decodeJwtPayload>,
   avatarId: string,
 ): PlayerDTO[] {
-  if (!socketId || server.some((p) => p.id === socketId)) return server;
-  const ghostUserId = typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : (socketId ?? 'local');
-  return [
-    ...server,
-    {
-      id: socketId,
-      username: username ?? claims?.username ?? 'You',
-      x: spawnPx.x,
-      y: spawnPx.y,
-      userId: ghostUserId,
-      avatarId,
-    },
-  ];
+  const localId = resolveLocalPlayerId(socketId, claims);
+  if (server.some((player) => player.id === localId)) return server;
+  const selfUserId = typeof claims?.sub === 'string' && claims.sub.length ? claims.sub : null;
+  if (selfUserId && server.some((player) => player.userId === selfUserId)) return server;
+  return [...server, buildLocalPreviewPlayer(localId, spawnPx, username, claims, avatarId)];
 }
 
 export function RoomPage({ roomId }: { roomId: number }) {
@@ -127,19 +145,6 @@ export function RoomPage({ roomId }: { roomId: number }) {
     setServerPlayers([]);
   }
 
-  useLayoutEffect(() => {
-    rosterStructureKeyRef.current = '';
-    pendingRemoteSpeechRef.current.clear();
-    syncRef.current.players = [];
-    syncRef.current.localPx = null;
-    syncRef.current.minimapSnapshot = null;
-    syncRef.current.serverClockOffsetMs = null;
-    syncRef.current.playersServerStampMs = 0;
-    syncRef.current.clearSpeechBubbles?.();
-    syncRef.current.onChatNpcTap = undefined;
-    playerListStore.publish([]);
-  }, [playerListStore, roomId]);
-
   const spawnPx = useMemo(() => {
     // Spawn coordinates do not use room geometry (same WORLD_* everywhere). We still key this memo on
     // roomId so navigating to another room draws a fresh jittered spawn; to reuse one spawn for all
@@ -150,6 +155,17 @@ export function RoomPage({ roomId }: { roomId: number }) {
   }, [roomId]);
 
   const claims = useMemo(() => decodeJwtPayload(token), [token]);
+
+  useLayoutEffect(() => {
+    rosterStructureKeyRef.current = '';
+    pendingRemoteSpeechRef.current.clear();
+    syncRef.current.localPx = { x: spawnPx.x, y: spawnPx.y };
+    syncRef.current.minimapSnapshot = null;
+    syncRef.current.serverClockOffsetMs = null;
+    syncRef.current.playersServerStampMs = 0;
+    syncRef.current.clearSpeechBubbles?.();
+    syncRef.current.onChatNpcTap = undefined;
+  }, [playerListStore, roomId, spawnPx]);
 
   const roomStackRef = useRef<HTMLDivElement>(null);
   const {
@@ -259,10 +275,9 @@ export function RoomPage({ roomId }: { roomId: number }) {
         y: spawnPx.y,
       });
       const sid = sock.id ?? null;
-      if (sid) {
-        const merged = withGhostPlayerIfNeeded(serverPlayersRef.current, sid, spawnPx, username, claims, avatarId);
-        playerListStore.publish(merged.map((p) => ({ ...p })));
-      }
+      const merged = withGhostPlayerIfNeeded(serverPlayersRef.current, sid, spawnPx, username, claims, avatarId);
+      syncRef.current.players = merged;
+      playerListStore.publish(merged.map((p) => ({ ...p })));
     });
 
     sock.on('players:update', handlePlayers);
@@ -307,6 +322,14 @@ export function RoomPage({ roomId }: { roomId: number }) {
       ),
     [avatarId, claims, serverPlayers, socketId, spawnPx, username],
   );
+
+  const effectiveLocalId = resolveLocalPlayerId(socketId, claims);
+
+  useLayoutEffect(() => {
+    syncRef.current.localId = effectiveLocalId;
+    syncRef.current.players = displayPlayers.map((player) => ({ ...player }));
+    playerListStore.publish(displayPlayers.map((player) => ({ ...player })));
+  }, [displayPlayers, effectiveLocalId, playerListStore]);
 
   const roomUsernamesLower = useMemo(() => {
     const names = new Set(displayPlayers.map((player) => usernameForMentionMatch(player.username)).filter(Boolean));
@@ -385,7 +408,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
                     worldRows={ROOM_WORLD_ROWS}
                     worldSpawnPx={spawnPx}
                     players={displayPlayers}
-                    localId={socketId}
+                    localId={effectiveLocalId}
                     roomId={roomId}
                     keysDisabled={typingFocus}
                     onPositionSync={handlePositionSync}

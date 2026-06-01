@@ -170,7 +170,19 @@ const PixiCanvasInner = memo(function PixiCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- room changes use switchRoom; worldSpawnPx only used for init
   }, [tileSize, worldCols, worldRows]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!canvasReady) return;
+    gameRef.current?.resizeView(layoutViewWidthPx, viewHeightPx);
+  }, [canvasReady, layoutViewWidthPx, viewHeightPx]);
+
+  useLayoutEffect(() => {
+    const game = gameRef.current;
+    if (!game || !canvasReady) return;
+    game.syncPlayerLayer(players, localId, tileSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- players omitted on purpose; playerLayerSig gates syncs
+  }, [canvasReady, localId, playerLayerSig, tileSize, roomId]);
+
+  useLayoutEffect(() => {
     const game = gameRef.current;
     if (!game || !canvasReady) return;
     if (prevRoomIdRef.current === roomId) return;
@@ -186,15 +198,6 @@ const PixiCanvasInner = memo(function PixiCanvas({
     if (!canvasReady) return;
     gameRef.current?.resizeView(layoutViewWidthPx, viewHeightPx);
   }, [canvasReady, layoutViewWidthPx, viewHeightPx]);
-
-  useEffect(() => {
-    const game = gameRef.current;
-    if (!game || !canvasReady) return;
-    // Re-run only when the player *set* changes (IDs), tile size, or local socket id—not on every
-    // positional snapshot. Rebuilding wipes remote interpolation buffers and causes jitter.
-    game.rebuildPlayerLayer(players, localId, tileSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- players omitted on purpose; playerLayerSig gates rebuilds
-  }, [canvasReady, localId, playerLayerSig, tileSize]);
 
   useEffect(() => {
     if (keysDisabled) {

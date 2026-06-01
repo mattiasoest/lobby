@@ -1,3 +1,6 @@
+/** Stable Pixi/roster id for the local avatar before the room socket connects (rekeyed to socket id on connect). */
+export const LOCAL_DISPLAY_ID = '__local__';
+
 /** World position sync to server (Hz) */
 export const POSITION_SYNC_HZ = 60;
 export const SYNC_MS = 1000 / POSITION_SYNC_HZ;
