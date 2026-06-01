@@ -18,8 +18,7 @@ type Drop = {
  */
 export class Rain {
   static enabledForRoomId(roomId: number): boolean {
-    const r = roomId | 0;
-    return r === 2 || r === 3;
+    return (roomId | 0) === 2;
   }
 
   private static readonly MIN_DROPS = 95;
