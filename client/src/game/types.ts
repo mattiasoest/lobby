@@ -14,8 +14,8 @@ export type GameOptions = {
   dimensions: GameDimensions;
   worldSpawnPx: { x: number; y: number };
   roomId: number;
-  /** Resolved asset URL (e.g. Vite import). */
-  grassTextureSrc: string;
+  /** Resolved room background asset URL (e.g. Vite import). */
+  backgroundTextureSrc: string;
   /** Character spritesheet URLs keyed by avatar id (Vite imports). */
   characterTextureSrcByAvatarId: Record<string, { idle: string; walk: string }>;
   /** Animal spritesheet URLs (Vite imports). */

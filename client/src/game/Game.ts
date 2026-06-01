@@ -52,7 +52,7 @@ export class Game {
       mount,
       dimensions: { tileSize, viewPixelW, viewPixelH, worldCols, worldRows },
       worldSpawnPx,
-      grassTextureSrc,
+      backgroundTextureSrc,
       characterTextureSrcByAvatarId,
       animalTextureSrc,
       merchantTextureSrc,
@@ -81,7 +81,7 @@ export class Game {
     this.app = app;
 
     const assets = await Scene.loadAssets(
-      grassTextureSrc,
+      backgroundTextureSrc,
       characterTextureSrcByAvatarId,
       animalTextureSrc,
       merchantTextureSrc,
@@ -94,7 +94,7 @@ export class Game {
     const scene = new Scene({
       worldPixelW,
       worldPixelH,
-      grassTexture: assets.grassTexture,
+      backgroundTexture: assets.backgroundTexture,
     });
     this.scene = scene;
     app.stage.addChild(scene.viewRoot);
@@ -301,7 +301,11 @@ export class Game {
     this.inputSystem.clear();
   }
 
-  async switchRoom(roomId: number, worldSpawnPx: { x: number; y: number }, grassTextureSrc: string): Promise<void> {
+  async switchRoom(
+    roomId: number,
+    worldSpawnPx: { x: number; y: number },
+    backgroundTextureSrc: string,
+  ): Promise<void> {
     if (!this.app || !this.scene) return;
 
     this.clearSpeechBubbles();
@@ -309,12 +313,12 @@ export class Game {
     this.opts.roomId = roomId;
     this.opts.worldSpawnPx = worldSpawnPx;
 
-    const grassTexture = await Assets.load(grassTextureSrc).catch(() => null);
+    const backgroundTexture = await Assets.load(backgroundTextureSrc).catch(() => null);
     const { tileSize, worldCols, worldRows } = this.opts.dimensions;
     const worldPixelW = worldCols * tileSize;
     const worldPixelH = worldRows * tileSize;
-    if (this.scene.background && grassTexture) {
-      this.scene.setBackgroundTexture(grassTexture, worldPixelW, worldPixelH);
+    if (this.scene.background && backgroundTexture) {
+      this.scene.setBackgroundTexture(backgroundTexture, worldPixelW, worldPixelH);
     }
 
     this.weatherSystem.switchRoom(roomId);

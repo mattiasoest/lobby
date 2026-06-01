@@ -150,7 +150,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
       dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewPixelH: viewHeightPx, worldCols, worldRows },
       worldSpawnPx,
       roomId,
-      grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, desertBg, snowBg),
+      backgroundTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, desertBg, snowBg),
       characterTextureSrcByAvatarId: AVATAR_CHARACTER_TEXTURES,
       animalTextureSrc: {
         bull: bullSpriteSrc,

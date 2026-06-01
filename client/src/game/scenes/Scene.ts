@@ -6,7 +6,7 @@ import { Player, type CharacterTextureSet } from '../entities/Player.ts';
 import { ROOM_PIXEL_FACE_SPECS } from '../core/pixelTypography.ts';
 
 export type RoomAssets = {
-  grassTexture: Texture | null;
+  backgroundTexture: Texture | null;
   characterTexturesByAvatarId: Map<string, CharacterTextureSet>;
   animalTextures: AnimalTextureMap | null;
   merchantIdleFrames: MerchantIdleFrames | null;
@@ -15,7 +15,7 @@ export type RoomAssets = {
 export type SceneOptions = {
   worldPixelW: number;
   worldPixelH: number;
-  grassTexture: Texture | null;
+  backgroundTexture: Texture | null;
 };
 
 /**
@@ -38,14 +38,14 @@ export class Scene {
   }
 
   static async loadAssets(
-    grassTextureSrc: string,
+    backgroundTextureSrc: string,
     characterTextureSrcByAvatarId: Record<string, { idle: string; walk: string }>,
     animalTextureSrc: { bull: string; cow: string; deer: { idle: string; walk: string } },
     merchantTextureSrc: string,
   ): Promise<RoomAssets> {
     const characterLoadEntries = Object.entries(characterTextureSrcByAvatarId);
-    const [grassResult, characterResults, animalResult, merchantIdleFrames] = await Promise.all([
-      Assets.load(grassTextureSrc).catch(() => null),
+    const [backgroundResult, characterResults, animalResult, merchantIdleFrames] = await Promise.all([
+      Assets.load(backgroundTextureSrc).catch(() => null),
       Promise.all(
         characterLoadEntries.map(async ([avatarId, src]) => {
           const textures = await Player.loadTextures(src.idle, src.walk);
@@ -61,7 +61,7 @@ export class Scene {
     );
 
     return {
-      grassTexture: (grassResult as Texture | null) ?? null,
+      backgroundTexture: (backgroundResult as Texture | null) ?? null,
       characterTexturesByAvatarId,
       animalTextures: animalResult,
       merchantIdleFrames,
@@ -69,19 +69,19 @@ export class Scene {
   }
 
   constructor(opts: SceneOptions) {
-    const { worldPixelW, worldPixelH, grassTexture } = opts;
+    const { worldPixelW, worldPixelH, backgroundTexture } = opts;
 
     const world = new Container();
     this.world = world;
 
-    if (grassTexture) {
-      const grass = new TilingSprite({
-        texture: grassTexture,
+    if (backgroundTexture) {
+      const backgroundTile = new TilingSprite({
+        texture: backgroundTexture,
         width: worldPixelW,
         height: worldPixelH,
       });
-      this.background = grass;
-      world.addChild(grass);
+      this.background = backgroundTile;
+      world.addChild(backgroundTile);
     }
 
     const actorLayer = new Container();
