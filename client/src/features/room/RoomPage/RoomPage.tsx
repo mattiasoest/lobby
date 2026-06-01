@@ -69,7 +69,7 @@ function rosterStructureKey(players: PlayerDTO[]): string {
 }
 
 /** Stable id for the local avatar row before the room socket connects (rekeyed to socket id on connect). */
-export function resolveLocalPlayerId(socketId: string | null, claims: ReturnType<typeof decodeJwtPayload>): string {
+function resolveLocalPlayerId(socketId: string | null, claims: ReturnType<typeof decodeJwtPayload>): string {
   if (socketId) return socketId;
   if (typeof claims?.sub === 'string' && claims.sub.length > 0) return claims.sub;
   return LOCAL_DISPLAY_ID;
