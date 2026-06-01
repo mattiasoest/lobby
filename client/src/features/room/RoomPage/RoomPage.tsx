@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { ROOM_IDS } from '@/app/constants.ts';
 import { decodeJwtPayload } from '@/utils/jwt.ts';
@@ -172,7 +173,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     stackMaxHeightPx: roomPanelMaxHeightPx,
     viewHeightPx: roomViewHeightPx,
     showPlayerList,
-  } = useRoomPanelLayout(roomStackRef, ROOM_VIEW_HEIGHT_PX);
+  } = useRoomPanelLayout(roomStackRef, ROOM_VIEW_HEIGHT_PX, typingFocus);
 
   const canvasViewBox = useMemo(() => roomCanvasViewLayout(roomViewHeightPx), [roomViewHeightPx]);
 
@@ -338,12 +339,28 @@ export function RoomPage({ roomId }: { roomId: number }) {
     return names;
   }, [displayPlayers, roomId]);
 
+  useLayoutEffect(() => {
+    if (!typingFocus) return;
+    const input = chatComposerRef.current;
+    if (!input || document.activeElement !== input) return;
+    input.focus({ preventScroll: true });
+  }, [roomViewHeightPx, typingFocus]);
+
   useEffect(() => {
     const chatNpc = getRoomChatNpc(roomId);
     const sync = syncRef.current;
     sync.onChatNpcTap = () => {
       if (!chatNpc) return;
-      setComposerSeed({ key: Date.now(), text: `@${chatNpc.username} ` });
+      const text = `@${chatNpc.username} `;
+      flushSync(() => {
+        setTypingFocus(true);
+        setComposerSeed({ key: Date.now(), text });
+      });
+      const input = chatComposerRef.current;
+      if (input) {
+        input.focus({ preventScroll: true });
+        input.setSelectionRange(text.length, text.length);
+      }
     };
     return () => {
       sync.onChatNpcTap = undefined;

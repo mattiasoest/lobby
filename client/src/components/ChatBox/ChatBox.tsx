@@ -58,6 +58,8 @@ export function ChatBox({
   const feedRef = useRef<HTMLDivElement>(null);
   /** When true, new messages snap the scroll position to the latest line. */
   const followLatestRef = useRef(true);
+  /** Ignore blur briefly after NPC/composer seed focus — same tap can otherwise dismiss the keyboard. */
+  const suppressBlurUntilRef = useRef(0);
 
   const onFeedScroll = useCallback(() => {
     const el = feedRef.current;
@@ -81,38 +83,46 @@ export function ChatBox({
     if (!composerSeed) return;
     const input = composerRef?.current;
     if (input) {
-      input.focus();
+      suppressBlurUntilRef.current = performance.now() + 500;
+      input.focus({ preventScroll: true });
       const len = composerSeed.text.length;
       input.setSelectionRange(len, len);
     }
   }, [composerRef, composerSeed]);
 
+  const dismissComposer = useCallback(() => {
+    onTypingChange?.(false);
+    composerRef?.current?.blur();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }, [composerRef, onTypingChange]);
+
+  const sendMessage = useCallback(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    jumpToLatest();
+    onSend(trimmed);
+    setText('');
+    return true;
+  }, [jumpToLatest, onSend, text]);
+
   const submit = useCallback(
     (event: FormEvent) => {
       event.preventDefault();
-      const trimmed = text.trim();
-      if (trimmed) {
-        jumpToLatest();
-        onSend(trimmed);
-        setText('');
-      }
+      if (sendMessage()) dismissComposer();
     },
-    [jumpToLatest, onSend, text],
+    [dismissComposer, sendMessage],
   );
 
   const onComposerKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLInputElement>) => {
       if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
       event.preventDefault();
-      const trimmed = text.trim();
-      if (trimmed) {
-        jumpToLatest();
-        onSend(trimmed);
-        setText('');
-      }
-      event.currentTarget.blur();
+      sendMessage();
+      dismissComposer();
     },
-    [jumpToLatest, onSend, text],
+    [dismissComposer, sendMessage],
   );
 
   const rootClass = variant === 'canvasHud' ? styles.canvasHud : styles.root;
@@ -137,12 +147,20 @@ export function ChatBox({
           onChange={(ev) => setText(ev.target.value)}
           onKeyDown={onComposerKeyDown}
           onFocus={() => onTypingChange?.(true)}
-          onBlur={() => onTypingChange?.(false)}
+          onBlur={() => {
+            if (performance.now() < suppressBlurUntilRef.current) {
+              composerRef?.current?.focus({ preventScroll: true });
+              return;
+            }
+            onTypingChange?.(false);
+          }}
           placeholder="Message"
           aria-label="Message"
           autoComplete="off"
         />
-        <button type="submit">Send</button>
+        <button type="submit" onMouseDown={(event) => event.preventDefault()}>
+          Send
+        </button>
       </form>
     </div>
   );

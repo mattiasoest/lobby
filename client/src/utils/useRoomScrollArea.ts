@@ -21,7 +21,11 @@ export type RoomPanelLayout = {
   showPlayerList: boolean;
 };
 
-function resolveRoomPanelLayout(stackEl: HTMLElement | null, defaultCanvasHeightPx: number): RoomPanelLayout {
+function resolveRoomPanelLayout(
+  stackEl: HTMLElement | null,
+  defaultCanvasHeightPx: number,
+  chatComposerFocused: boolean,
+): RoomPanelLayout {
   const stackTop = stackEl?.getBoundingClientRect().top ?? 0;
   const stackMaxHeightPx = Math.max(
     ROOM_VIEW_HEIGHT_MIN_PX,
@@ -29,7 +33,7 @@ function resolveRoomPanelLayout(stackEl: HTMLElement | null, defaultCanvasHeight
   );
   const panelMaxPx = stackMaxHeightPx - switcherHeightPx() - STACK_GAP_PX;
 
-  const listFits = panelMaxPx >= defaultCanvasHeightPx + PANEL_GAP_PX + PLAYER_LIST_MIN_PX;
+  const listFits = !chatComposerFocused && panelMaxPx >= defaultCanvasHeightPx + PANEL_GAP_PX + PLAYER_LIST_MIN_PX;
 
   if (listFits) {
     return {
@@ -49,10 +53,12 @@ function resolveRoomPanelLayout(stackEl: HTMLElement | null, defaultCanvasHeight
 /**
  * Sizes the room panel to the viewport. Shows the in-room player list when the default canvas
  * plus one name row fit; otherwise hides the list and grows the canvas to the bottom of the panel.
+ * While the chat composer is focused, the canvas shrinks with visualViewport so the input stays visible.
  */
 export function useRoomPanelLayout(
   stackRef: RefObject<HTMLElement | null>,
   defaultCanvasHeightPx = ROOM_VIEW_HEIGHT_PX,
+  chatComposerFocused = false,
 ): RoomPanelLayout {
   const [layout, setLayout] = useState<RoomPanelLayout>(() => ({
     stackMaxHeightPx: ROOM_VIEW_HEIGHT_MIN_PX,
@@ -61,12 +67,15 @@ export function useRoomPanelLayout(
   }));
 
   useLayoutEffect(() => {
-    const update = () => setLayout(resolveRoomPanelLayout(stackRef.current, defaultCanvasHeightPx));
+    const update = () => {
+      setLayout(resolveRoomPanelLayout(stackRef.current, defaultCanvasHeightPx, chatComposerFocused));
+    };
 
     update();
     window.addEventListener('resize', update);
     const vv = window.visualViewport;
     vv?.addEventListener('resize', update);
+    vv?.addEventListener('scroll', update);
 
     const ro = new ResizeObserver(update);
     const stack = stackRef.current;
@@ -79,9 +88,10 @@ export function useRoomPanelLayout(
     return () => {
       window.removeEventListener('resize', update);
       vv?.removeEventListener('resize', update);
+      vv?.removeEventListener('scroll', update);
       ro.disconnect();
     };
-  }, [stackRef, defaultCanvasHeightPx]);
+  }, [chatComposerFocused, stackRef, defaultCanvasHeightPx]);
 
   return layout;
 }

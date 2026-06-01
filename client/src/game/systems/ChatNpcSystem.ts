@@ -1,4 +1,4 @@
-import { Container, Rectangle, Text } from 'pixi.js';
+import { Container, FederatedPointerEvent, Rectangle, Text } from 'pixi.js';
 import { chatNpcAnchorPx, CHAT_NPC_MARKER_COLOR, getRoomChatNpc } from '../config/chatNpc.ts';
 import { Merchant, type MerchantIdleFrames } from '../entities/Merchant.ts';
 import type { EntityObstacle } from '../core/worldMath.ts';
@@ -58,7 +58,12 @@ export class ChatNpcSystem {
     root.eventMode = 'static';
     root.cursor = 'pointer';
     root.hitArea = new Rectangle(0, 0, displayW, displayH);
-    root.on('pointertap', () => {
+    root.on('pointertap', (event: FederatedPointerEvent) => {
+      event.stopPropagation();
+      const native = event.nativeEvent;
+      if (native instanceof Event && 'preventDefault' in native) {
+        native.preventDefault();
+      }
       this.onTap?.();
     });
 

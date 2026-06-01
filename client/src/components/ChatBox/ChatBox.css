@@ -38,7 +38,7 @@
   flex-direction: column;
 }
 
-.canvasHud:focus-within {
+.canvasHud:has(input:focus) {
   background: rgba(26, 28, 44, 0.78);
   border-color: var(--pal-line);
   box-shadow: var(--pixel-shadow-sm);
@@ -92,7 +92,7 @@
     border-color 0.12s steps(2);
 }
 
-.canvasHud:focus-within .compose input {
+.canvasHud:has(input:focus) .compose input {
   background: var(--pal-bg);
   border-color: var(--pal-line);
 }
