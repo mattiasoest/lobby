@@ -1,5 +1,8 @@
-export const ROOM_IDS = [1, 2, 3, 4] as const;
-export type RoomId = (typeof ROOM_IDS)[number];
+import type { RoomId } from './rooms.js';
+import { ROOM_IDS } from './rooms.js';
+
+export { ROOM_IDS };
+export type { RoomId };
 
 /** Fixed UUIDs shared with the client (`client/src/game/config/chatNpc.ts`). */
 export const CHAT_NPC_USER_IDS = {
