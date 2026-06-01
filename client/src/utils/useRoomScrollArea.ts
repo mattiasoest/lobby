@@ -1,5 +1,6 @@
 import { useLayoutEffect, useState, type RefObject } from 'react';
 import { ROOM_VIEW_HEIGHT_MIN_PX, ROOM_VIEW_HEIGHT_PX } from '@/utils/canvasLoaderLayout.ts';
+import { useIsTouchDevice } from '@/utils/useIsTouchDevice.ts';
 
 const BOTTOM_MARGIN_PX = 8;
 const STACK_GAP_PX = 12;
@@ -53,13 +54,17 @@ function resolveRoomPanelLayout(
 /**
  * Sizes the room panel to the viewport. Shows the in-room player list when the default canvas
  * plus one name row fit; otherwise hides the list and grows the canvas to the bottom of the panel.
- * While the chat composer is focused, the canvas shrinks with visualViewport so the input stays visible.
+ * On touch devices, while the chat composer is focused, the canvas shrinks with visualViewport so
+ * the input stays visible above the virtual keyboard.
  */
 export function useRoomPanelLayout(
   stackRef: RefObject<HTMLElement | null>,
   defaultCanvasHeightPx = ROOM_VIEW_HEIGHT_PX,
   chatComposerFocused = false,
 ): RoomPanelLayout {
+  const isTouchDevice = useIsTouchDevice();
+  const layoutComposerFocused = chatComposerFocused && isTouchDevice;
+
   const [layout, setLayout] = useState<RoomPanelLayout>(() => ({
     stackMaxHeightPx: ROOM_VIEW_HEIGHT_MIN_PX,
     viewHeightPx: defaultCanvasHeightPx,
@@ -68,7 +73,7 @@ export function useRoomPanelLayout(
 
   useLayoutEffect(() => {
     const update = () => {
-      setLayout(resolveRoomPanelLayout(stackRef.current, defaultCanvasHeightPx, chatComposerFocused));
+      setLayout(resolveRoomPanelLayout(stackRef.current, defaultCanvasHeightPx, layoutComposerFocused));
     };
 
     update();
@@ -91,7 +96,7 @@ export function useRoomPanelLayout(
       vv?.removeEventListener('scroll', update);
       ro.disconnect();
     };
-  }, [chatComposerFocused, stackRef, defaultCanvasHeightPx]);
+  }, [layoutComposerFocused, stackRef, defaultCanvasHeightPx]);
 
   return layout;
 }

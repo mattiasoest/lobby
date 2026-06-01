@@ -14,6 +14,7 @@ import {
   ROOM_WORLD_ROWS,
 } from '@/utils/canvasLoaderLayout.ts';
 import { useRoomPanelLayout } from '@/utils/useRoomScrollArea.ts';
+import { useIsTouchDevice } from '@/utils/useIsTouchDevice.ts';
 import { ChatBox } from '@/components/ChatBox/ChatBox.tsx';
 import { RoomPlayerList } from '@/components/RoomPlayerList/RoomPlayerList.tsx';
 import { createPlayerListPositionStore } from '@/utils/playerListPositionStore.ts';
@@ -168,6 +169,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
     syncRef.current.onChatNpcTap = undefined;
   }, [playerListStore, roomId, spawnPx]);
 
+  const isTouchDevice = useIsTouchDevice();
   const roomStackRef = useRef<HTMLDivElement>(null);
   const {
     stackMaxHeightPx: roomPanelMaxHeightPx,
@@ -340,11 +342,11 @@ export function RoomPage({ roomId }: { roomId: number }) {
   }, [displayPlayers, roomId]);
 
   useLayoutEffect(() => {
-    if (!typingFocus) return;
+    if (!typingFocus || !isTouchDevice) return;
     const input = chatComposerRef.current;
     if (!input || document.activeElement !== input) return;
     input.focus({ preventScroll: true });
-  }, [roomViewHeightPx, typingFocus]);
+  }, [isTouchDevice, roomViewHeightPx, typingFocus]);
 
   useEffect(() => {
     const chatNpc = getRoomChatNpc(roomId);
