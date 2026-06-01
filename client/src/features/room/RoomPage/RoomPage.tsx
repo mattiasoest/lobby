@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ROOM_IDS } from '@/app/constants.ts';
 import { decodeJwtPayload } from '@/utils/jwt.ts';
 import { useAuth } from '@/app/authContext.tsx';
-import { CanvasLoadingFallback } from '@/components/CanvasLoadingFallback/CanvasLoadingFallback.tsx';
+import { LoadingIndicatorFallback } from '@/components/LoadingIndicatorFallback/LoadingIndicatorFallback.tsx';
 import { RoomMinimap } from '@/components/RoomMinimap/RoomMinimap.tsx';
 import {
   roomCanvasViewLayout,
@@ -434,7 +434,7 @@ export function RoomPage({ roomId }: { roomId: number }) {
                 </Suspense>
                 {showRoomCanvasLoader && (
                   <div className={roomStyles.bootstrapOverlay}>
-                    <CanvasLoadingFallback overlay />
+                    <LoadingIndicatorFallback overlay />
                   </div>
                 )}
                 {pixiCanvasReady && <RoomMinimap syncRef={syncRef} active={pixiCanvasReady} />}

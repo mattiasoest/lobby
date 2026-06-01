@@ -107,3 +107,72 @@ export function avatarPreviewStyle(
     backgroundPosition: `${-preview.col * CHARACTER_FRAME_SIZE * scale}px ${-preview.row * CHARACTER_FRAME_SIZE * scale}px`,
   };
 }
+
+/**
+ * Holds the decoded preview <img> elements for their whole lifetime. Keeping a live reference
+ * keeps the image in the browser's available-image list so it is not evicted under memory
+ * pressure (e.g. the WebGL context churn from entering/leaving rooms). Without this, the URL
+ * would still be cached as "loaded" while the bitmap was dropped, painting blank CSS sprites.
+ */
+const retainedPreviewImages = new Map<string, HTMLImageElement>();
+
+export function getUnlockedAvatarPreviewSheetUrls(): string[] {
+  const urls = new Set<string>();
+  for (const option of AVATAR_OPTIONS) {
+    if (option.unlocked && option.preview?.sheetSrc) {
+      urls.add(option.preview.sheetSrc);
+    }
+  }
+  return [...urls];
+}
+
+export function areAvatarPreviewSheetsLoaded(urls: string[] = getUnlockedAvatarPreviewSheetUrls()): boolean {
+  return urls.every((url) => retainedPreviewImages.has(url));
+}
+
+function loadPreviewSheet(url: string): Promise<void> {
+  if (retainedPreviewImages.has(url)) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    let settled = false;
+    const markLoaded = () => {
+      if (settled) return;
+      settled = true;
+      retainedPreviewImages.set(url, img);
+      resolve();
+    };
+
+    img.onload = () => {
+      const decoded = img.decode?.();
+      if (decoded) {
+        void decoded.finally(markLoaded);
+        return;
+      }
+      markLoaded();
+    };
+    img.onerror = markLoaded;
+    img.src = url;
+    if (img.complete) {
+      markLoaded();
+    }
+  });
+}
+
+export function preloadAvatarPreviewSheets(urls: string[] = getUnlockedAvatarPreviewSheetUrls()): Promise<void> {
+  return Promise.all(urls.map(loadPreviewSheet)).then(() => undefined);
+}
+
+let previewSheetsLoadPromise: Promise<void> | null = null;
+
+/** Suspend until unlocked avatar preview spritesheets are decoded (cached after first load). */
+export function readAvatarPreviewSheets(): void {
+  if (areAvatarPreviewSheetsLoaded()) return;
+
+  if (previewSheetsLoadPromise == null) {
+    previewSheetsLoadPromise = preloadAvatarPreviewSheets().finally(() => {
+      previewSheetsLoadPromise = null;
+    });
+  }
+  throw previewSheetsLoadPromise;
+}

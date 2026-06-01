@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { isRoomId } from '@/app/constants.ts';
 import { bootstrapServerSession, clearSessionBootstrapCache } from '@/features/auth/oauthBootstrap.ts';
@@ -30,6 +30,13 @@ export function useMeQuery(token: string | null) {
     queryKey: queryKeys.me,
     queryFn: () => fetchMe(token as string),
     enabled: !!token,
+  });
+}
+
+export function useSuspenseMeQuery(token: string) {
+  return useSuspenseQuery({
+    queryKey: queryKeys.me,
+    queryFn: () => fetchMe(token),
   });
 }
 

@@ -1,5 +1,15 @@
+import { Suspense } from 'react';
+import { useAuth } from '@/app/authContext.tsx';
 import { useAvatar } from '@/app/avatarContext.tsx';
-import { AVATAR_OPTIONS, avatarPreviewStyle, getAvatarOption } from '../../game/config/avatars.ts';
+import { LoadingIndicatorFallback } from '@/components/LoadingIndicatorFallback/LoadingIndicatorFallback.tsx';
+import { useSuspenseMeQuery } from '@/query/hooks.ts';
+import {
+  AVATAR_OPTIONS,
+  avatarPreviewStyle,
+  getAvatarOption,
+  readAvatarPreviewSheets,
+  sanitizeAvatarId,
+} from '../../game/config/avatars.ts';
 import type { CSSProperties, PointerEvent } from 'react';
 import styles from './AvatarSelector.css';
 
@@ -47,10 +57,15 @@ function AvatarSpritePreview({
   );
 }
 
-export function AvatarSelector() {
-  const { avatarId, avatarLoading, avatarUpdating, setAvatarId } = useAvatar();
+function AvatarSelectorContent() {
+  const { token } = useAuth();
+  const { setAvatarId, avatarUpdating } = useAvatar();
+  const { data: me } = useSuspenseMeQuery(token as string);
+  readAvatarPreviewSheets();
+
+  const avatarId = sanitizeAvatarId(me.avatarId);
   const selectedOption = getAvatarOption(avatarId);
-  const selectionLocked = avatarLoading || avatarUpdating;
+  const selectionLocked = avatarUpdating;
 
   const selectAvatar = (id: string) => {
     if (selectionLocked || id === avatarId) return;
@@ -64,8 +79,7 @@ export function AvatarSelector() {
   };
 
   return (
-    <section className={styles.root} aria-labelledby="avatar-selector-heading">
-      <h2 id="avatar-selector-heading">Your avatar</h2>
+    <>
       <p className="muted">Pick an avatar before entering a room. You can change it here anytime.</p>
 
       <div className={styles.previewRow}>
@@ -73,7 +87,7 @@ export function AvatarSelector() {
         <div className={styles.selectedLabel}>
           <span className={styles.selectedName}>{selectedOption?.label ?? 'Traveler'}</span>
           <span className={`muted ${styles.status}`} aria-live="polite">
-            {avatarLoading || avatarUpdating ? (avatarUpdating ? 'Saving…' : 'Loading…') : null}
+            {avatarUpdating ? 'Saving…' : null}
           </span>
         </div>
       </div>
@@ -129,6 +143,17 @@ export function AvatarSelector() {
           );
         })}
       </div>
+    </>
+  );
+}
+
+export function AvatarSelector() {
+  return (
+    <section className={styles.root} aria-labelledby="avatar-selector-heading">
+      <h2 id="avatar-selector-heading">Your avatar</h2>
+      <Suspense fallback={<LoadingIndicatorFallback inline label="Loading avatar…" ariaLabel="Loading avatar" />}>
+        <AvatarSelectorContent />
+      </Suspense>
     </section>
   );
 }

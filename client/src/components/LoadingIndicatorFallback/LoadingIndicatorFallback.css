@@ -47,10 +47,10 @@
   border-color: transparent;
   border-top-color: var(--pal-cyan);
   border-right-color: var(--pal-blue);
-  animation: pixiCanvasLoaderSpin 0.8s steps(8) infinite;
+  animation: loadingIndicatorSpin 0.8s steps(8) infinite;
 }
 
-@keyframes pixiCanvasLoaderSpin {
+@keyframes loadingIndicatorSpin {
   to {
     transform: rotate(360deg);
   }
@@ -59,6 +59,14 @@
 .loaderLabel {
   margin: 0;
   font-size: 0.9rem;
+}
+
+.inlineShell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: 12px 0 8px;
 }
 
 @media (prefers-reduced-motion: reduce) {
