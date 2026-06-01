@@ -95,6 +95,12 @@ export class PlayerRenderSystem {
     }
   }
 
+  /** Face forward idle and clear motion history so a spawn teleport does not skew direction. */
+  resetLocalFacing(localPx: { x: number; y: number }): void {
+    this.PlayerByIdRef.get(LOCAL_DISPLAY_ID)?.resetToIdle('front');
+    this.prevRenderedPxRef.set(LOCAL_DISPLAY_ID, { x: localPx.x, y: localPx.y });
+  }
+
   clear(): void {
     this.playerRootByIdRef.clear();
     this.playerNameLabelByIdRef.clear();

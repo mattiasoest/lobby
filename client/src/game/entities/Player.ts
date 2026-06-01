@@ -90,6 +90,15 @@ export class Player extends Entity {
     }
   }
 
+  /** Snap to idle facing (default: toward camera). Used on room enter/switch. */
+  resetToIdle(direction: CharacterDirection = 'front'): void {
+    this.direction = direction;
+    this.state = 'idle';
+    this.frameIndex = 0;
+    this.frameTimerMs = 0;
+    this.applyFrame();
+  }
+
   update(dtMs: number, vx: number, vy: number): void {
     const speed = Math.hypot(vx, vy);
     const moving = speed > MOTION_THRESHOLD_PX_S;

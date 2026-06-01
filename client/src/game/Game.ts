@@ -141,6 +141,7 @@ export class Game {
 
     this.inputSystem.attach();
     this.syncPlayerLayer();
+    this.playerRenderSystem.resetLocalFacing(this.movementSystem.getLocalPx());
     onBootstrapComplete?.();
   }
 
@@ -351,6 +352,7 @@ export class Game {
 
     // Show the local avatar at the new spawn immediately — do not wait for background load or websocket.
     this.snapLocalAndCamera(worldSpawnPx);
+    this.playerRenderSystem.resetLocalFacing(this.movementSystem.getLocalPx());
     this.syncPlayerLayer();
 
     const backgroundTexture = await Assets.load(backgroundTextureSrc).catch(() => null);
@@ -365,6 +367,7 @@ export class Game {
     this.animalSystem.spawn(roomId, this.opts.dimensions, this.scene.actorLayer);
     this.spawnRoomChatNpc(this.scene, this.merchantIdleFrames);
     this.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
+    this.playerRenderSystem.resetLocalFacing(this.movementSystem.getLocalPx());
   }
 
   resizeView(viewPixelW: number, viewPixelH?: number): void {
