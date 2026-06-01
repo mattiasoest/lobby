@@ -1,3 +1,4 @@
+import desertBg from '@/assets/bg/desert.jpg';
 import grassBg from '@/assets/bg/grass.jpg';
 import spaceBg from '@/assets/bg/space.jpg';
 import snowBg from '@/assets/bg/snow.jpg';
@@ -149,7 +150,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
       dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewPixelH: viewHeightPx, worldCols, worldRows },
       worldSpawnPx,
       roomId,
-      grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, snowBg),
+      grassTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, desertBg, snowBg),
       characterTextureSrcByAvatarId: AVATAR_CHARACTER_TEXTURES,
       animalTextureSrc: {
         bull: bullSpriteSrc,
@@ -179,7 +180,11 @@ const PixiCanvasInner = memo(function PixiCanvas({
     if (!game || !canvasReady) return;
     if (prevRoomIdRef.current === roomId) return;
     prevRoomIdRef.current = roomId;
-    void game.switchRoom(roomId, worldSpawnPx, backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, snowBg));
+    void game.switchRoom(
+      roomId,
+      worldSpawnPx,
+      backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, desertBg, snowBg),
+    );
   }, [canvasReady, roomId, worldSpawnPx]);
 
   useLayoutEffect(() => {
