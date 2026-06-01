@@ -1,4 +1,4 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import { Container, Graphics, Text, type TextStyleOptions } from 'pixi.js';
 import { ROOM_PIXEL_FONT_STACK, roomWorldCanvasTextOptions } from '../core/pixelTypography.ts';
 
 /** Light bubble — white fill, soft gray shadow, no outline. */
@@ -21,11 +21,18 @@ export class SpeechBubble {
     SpeechBubble.PLAYER_NAME_LABEL_TEXT_HEIGHT_PX +
     SpeechBubble.SPEECH_CLEAR_BELOW_BUBBLE_PX;
 
+  /** Total bubble width including shadow (px). */
+  private static readonly SPEECH_MAX_WIDTH = 190;
   private static readonly SPEECH_TAIL_H = 9;
-  private static readonly SPEECH_PAD = 8;
-  private static readonly SPEECH_SHADOW = 3;
+  private static readonly SPEECH_PAD = 7;
+  private static readonly SPEECH_SHADOW = 2;
   private static readonly TAIL_BODY_OVERLAP_PX = 1;
-  private static readonly SPEECH_WRAP = 204;
+  private static readonly SPEECH_WRAP =
+    SpeechBubble.SPEECH_MAX_WIDTH - SpeechBubble.SPEECH_PAD * 2 - SpeechBubble.SPEECH_SHADOW;
+  private static readonly SPEECH_FONT_SIZE = 10;
+  private static readonly SPEECH_LINE_HEIGHT = 13;
+  private static readonly SPEECH_MAX_LINES = 2;
+  private static readonly SPEECH_ELLIPSIS = '...';
 
   readonly group: Container;
   readonly width: number;
@@ -38,23 +45,20 @@ export class SpeechBubble {
   }
 
   static create(trimmed: string): SpeechBubble {
+    const displayText = SpeechBubble.truncateToMaxLines(trimmed);
+
     const label = new Text({
-      text: trimmed,
+      text: displayText,
       ...roomWorldCanvasTextOptions(),
-      style: {
-        fontFamily: ROOM_PIXEL_FONT_STACK,
-        fontSize: 13,
-        letterSpacing: 0,
-        lineHeight: 18,
-        fill: PAL.text,
-        wordWrap: true,
-        wordWrapWidth: SpeechBubble.SPEECH_WRAP,
-      },
+      style: SpeechBubble.bubbleTextStyle(),
     });
 
     const innerW = Math.max(label.width, 1);
     const innerH = Math.max(label.height, 1);
-    const bubbleW = Math.ceil(innerW + SpeechBubble.SPEECH_PAD * 2);
+    const bubbleW = Math.min(
+      Math.ceil(innerW + SpeechBubble.SPEECH_PAD * 2),
+      SpeechBubble.SPEECH_MAX_WIDTH - SpeechBubble.SPEECH_SHADOW,
+    );
     const bubbleBodyH = Math.ceil(innerH + SpeechBubble.SPEECH_PAD * 2);
 
     const gfx = new Graphics();
@@ -76,6 +80,51 @@ export class SpeechBubble {
 
     const totalH = bubbleBodyH + SpeechBubble.SPEECH_TAIL_H - SpeechBubble.TAIL_BODY_OVERLAP_PX;
     return new SpeechBubble(group, bubbleW + SpeechBubble.SPEECH_SHADOW, totalH + SpeechBubble.SPEECH_SHADOW);
+  }
+
+  private static bubbleTextStyle(): TextStyleOptions {
+    return {
+      fontFamily: ROOM_PIXEL_FONT_STACK,
+      fontSize: SpeechBubble.SPEECH_FONT_SIZE,
+      letterSpacing: 0,
+      lineHeight: SpeechBubble.SPEECH_LINE_HEIGHT,
+      fill: PAL.text,
+      wordWrap: true,
+      wordWrapWidth: SpeechBubble.SPEECH_WRAP,
+    };
+  }
+
+  private static maxTextHeightPx(): number {
+    return SpeechBubble.SPEECH_LINE_HEIGHT * SpeechBubble.SPEECH_MAX_LINES;
+  }
+
+  private static fitsInMaxLines(text: string): boolean {
+    const label = new Text({
+      text,
+      ...roomWorldCanvasTextOptions(),
+      style: SpeechBubble.bubbleTextStyle(),
+    });
+    const fits = label.height <= SpeechBubble.maxTextHeightPx() + 0.5;
+    label.destroy(true);
+    return fits;
+  }
+
+  private static truncateToMaxLines(text: string): string {
+    if (SpeechBubble.fitsInMaxLines(text)) return text;
+
+    const ellipsis = SpeechBubble.SPEECH_ELLIPSIS;
+    let lo = 0;
+    let hi = text.length;
+
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      const candidate = `${text.slice(0, mid).trimEnd()}${ellipsis}`;
+      if (SpeechBubble.fitsInMaxLines(candidate)) lo = mid;
+      else hi = mid - 1;
+    }
+
+    if (lo === 0) return ellipsis;
+    return `${text.slice(0, lo).trimEnd()}${ellipsis}`;
   }
 
   private static drawPixelTail(
