@@ -6,6 +6,7 @@ import { Cow } from '../entities/npcs/Cow.ts';
 import { Deer } from '../entities/npcs/Deer.ts';
 import { Penguin } from '../entities/npcs/Penguin.ts';
 import { Slime } from '../entities/npcs/Slime.ts';
+import { HighlandBull } from '../entities/npcs/HighlandBull.ts';
 import type { MinimapAnimal } from '../views/Minimap.ts';
 import type { GameDimensions } from '../types.ts';
 
@@ -17,6 +18,7 @@ type AnimalHomeAnchors = {
 
 export class AnimalSystem {
   private static readonly ROOM_2_SLIME_COUNT = 10;
+  private static readonly ROOM_3_HIGHLAND_BULL_COUNT = 5;
   private static readonly ROOM_4_PENGUIN_COUNT = 8;
 
   private animals: Animal[] = [];
@@ -81,6 +83,32 @@ export class AnimalSystem {
       deer.view.zIndex = home.y;
       actorLayer.addChild(deer.view);
       this.animals.push(deer);
+    }
+
+    if (roomId === 3 && textures.highlandBull) {
+      const highlandBullHomes = this.highlandBullHomes(
+        tileSize,
+        worldCols,
+        worldRows,
+        AnimalSystem.ROOM_3_HIGHLAND_BULL_COUNT,
+      );
+      for (let i = 0; i < highlandBullHomes.length; i++) {
+        const home = highlandBullHomes[i];
+        if (!home) continue;
+        const highlandBull = new HighlandBull(
+          textures.highlandBull,
+          tileSize,
+          worldCols,
+          worldRows,
+          home.x,
+          home.y,
+          this.seedBase(roomId, 'highlandBull', i),
+          roomId,
+        );
+        highlandBull.view.zIndex = home.y;
+        actorLayer.addChild(highlandBull.view);
+        this.animals.push(highlandBull);
+      }
     }
 
     if (roomId === 2 && textures.slime) {
@@ -186,6 +214,30 @@ export class AnimalSystem {
       cow: clampWorldTopLeft(cowRaw.x, cowRaw.y, tileSize, worldCols, worldRows),
       deer: deerHomes,
     };
+  }
+
+  /** Deterministic spawn anchors for room 3 highland bulls, spread across the world. */
+  private highlandBullHomes(
+    tileSize: number,
+    worldCols: number,
+    worldRows: number,
+    count: number,
+  ): { x: number; y: number }[] {
+    const worldW = worldCols * tileSize;
+    const worldH = worldRows * tileSize;
+    const marginX = worldW * 0.1;
+    const marginY = worldH * 0.1;
+    const spanX = worldW - marginX * 2;
+    const spanY = worldH - marginY * 2;
+    const homes: { x: number; y: number }[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const prng = Animal.mulberry32(Animal.fnv1aHash(3, Animal.KIND_SEED_SALT.highlandBull, i, 0x6869_6768));
+      const raw = { x: marginX + prng() * spanX, y: marginY + prng() * spanY };
+      homes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));
+    }
+
+    return homes;
   }
 
   /** Deterministic spawn anchors for room 2 slimes, spread across the world. */

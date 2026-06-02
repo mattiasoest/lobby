@@ -44,6 +44,7 @@ export class Scene {
       bull: string;
       cow: string;
       deer: { idle: string; walk: string };
+      highlandBull: string;
       penguin: string;
       slime: { idle: string; walk: string };
     },
@@ -62,6 +63,7 @@ export class Scene {
         animalTextureSrc.bull,
         animalTextureSrc.cow,
         animalTextureSrc.deer,
+        animalTextureSrc.highlandBull,
         animalTextureSrc.penguin,
         animalTextureSrc.slime,
       ),

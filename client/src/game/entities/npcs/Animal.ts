@@ -8,7 +8,7 @@ import {
 import { clampWorldTopLeft } from '../../core/worldMath.ts';
 import { Entity } from '../Entity.ts';
 
-export type AnimalKind = 'bull' | 'cow' | 'deer' | 'penguin' | 'slime';
+export type AnimalKind = 'bull' | 'cow' | 'deer' | 'highlandBull' | 'penguin' | 'slime';
 export type AnimalDirection = 'left' | 'right' | 'down' | 'up';
 
 export type AnimalTextureSet = {
@@ -24,6 +24,7 @@ export type AnimalTextureMap = {
   bull: AnimalTextureSet;
   cow: AnimalTextureSet;
   deer: AnimalTextureSet;
+  highlandBull: AnimalTextureSet | null;
   penguin: AnimalTextureSet | null;
   slime: AnimalTextureSet | null;
 };
@@ -59,6 +60,11 @@ const MOVE_PX_PER_SEC = 26;
 const SHEET_ROW_LEFT = 0;
 const SHEET_ROW_DOWN = 1;
 const SHEET_ROW_UP = 2;
+const HIGHLAND_BULL_ROW_WALK_LEFT = 0;
+const HIGHLAND_BULL_ROW_WALK_DOWN = 1;
+const HIGHLAND_BULL_ROW_WALK_UP = 2;
+const HIGHLAND_BULL_ROW_IDLE_LEFT = 3;
+const HIGHLAND_BULL_ROW_IDLE_DOWN = 4;
 /** Bull/cow down/up rows sit high in their cells; trim bleed from the row above. */
 const BULL_COW_ROW_INSET = {
   down: { top: 1 },
@@ -85,6 +91,7 @@ export abstract class Animal extends Entity {
     bull: 0x6b75_6c00,
     cow: 0x636f_7700,
     deer: 0x6465_6572,
+    highlandBull: 0x6869_6768,
     penguin: 0x7065_6e67,
     slime: 0x736c_696d,
   };
@@ -144,18 +151,20 @@ export abstract class Animal extends Entity {
     bullSrc: string,
     cowSrc: string,
     deerSrc: { idle: string; walk: string },
+    highlandBullSrc: string,
     penguinSrc: string,
     slimeSrc: { idle: string; walk: string },
   ): Promise<AnimalTextureMap | null> {
-    const [bull, cow, deer, penguin, slime] = await Promise.all([
+    const [bull, cow, deer, highlandBull, penguin, slime] = await Promise.all([
       Animal.loadOneSheet(bullSrc, BULL_COW_ROW_INSET),
       Animal.loadOneSheet(cowSrc, BULL_COW_ROW_INSET),
       Animal.loadDeerSheet(deerSrc.idle, deerSrc.walk),
+      Animal.loadHighlandBullSheet(highlandBullSrc),
       Animal.loadPenguinSheet(penguinSrc),
       Animal.loadSlimeSheet(slimeSrc.idle, slimeSrc.walk),
     ]);
     if (!bull || !cow || !deer) return null;
-    return { bull, cow, deer, penguin, slime };
+    return { bull, cow, deer, highlandBull, penguin, slime };
   }
 
   static fnv1aHash(...values: number[]): number {
@@ -314,6 +323,34 @@ export abstract class Animal extends Entity {
         left: Entity.sliceSpritesheetRow(base, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.left),
         down: Entity.sliceSpritesheetRow(base, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.down),
         up: Entity.sliceSpritesheetRow(base, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.up),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private static async loadHighlandBullSheet(src: string): Promise<AnimalTextureSet | null> {
+    try {
+      const base = await Assets.load<Texture>(src);
+      base.source.scaleMode = 'nearest';
+      return {
+        left: Entity.sliceSpritesheetRow(base, HIGHLAND_BULL_ROW_WALK_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
+        down: Entity.sliceSpritesheetRow(
+          base,
+          HIGHLAND_BULL_ROW_WALK_DOWN,
+          FRAMES_PER_ROW,
+          FRAME_SIZE,
+          BULL_COW_ROW_INSET.down,
+        ),
+        up: Entity.sliceSpritesheetRow(
+          base,
+          HIGHLAND_BULL_ROW_WALK_UP,
+          FRAMES_PER_ROW,
+          FRAME_SIZE,
+          BULL_COW_ROW_INSET.up,
+        ),
+        idleLeft: Entity.sliceSpritesheetRow(base, HIGHLAND_BULL_ROW_IDLE_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
+        idleDown: Entity.sliceSpritesheetRow(base, HIGHLAND_BULL_ROW_IDLE_DOWN, FRAMES_PER_ROW, FRAME_SIZE),
       };
     } catch {
       return null;
