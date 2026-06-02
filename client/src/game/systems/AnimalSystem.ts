@@ -15,6 +15,8 @@ type AnimalHomeAnchors = {
 };
 
 export class AnimalSystem {
+  private static readonly ROOM_4_PENGUIN_COUNT = 8;
+
   private animals: Animal[] = [];
   private animalTextures: AnimalTextureMap | null = null;
 
@@ -31,31 +33,35 @@ export class AnimalSystem {
     const { tileSize, worldCols, worldRows } = dims;
     const homes = this.homeAnchors(roomId, tileSize, worldCols, worldRows);
 
-    const bull = new Bull(
-      textures.bull,
-      tileSize,
-      worldCols,
-      worldRows,
-      homes.bull.x,
-      homes.bull.y,
-      this.seedBase(roomId, 'bull'),
-    );
-    bull.view.zIndex = homes.bull.y;
-    actorLayer.addChild(bull.view);
-    this.animals.push(bull);
+    if (roomId !== 4) {
+      const bull = new Bull(
+        textures.bull,
+        tileSize,
+        worldCols,
+        worldRows,
+        homes.bull.x,
+        homes.bull.y,
+        this.seedBase(roomId, 'bull'),
+        roomId,
+      );
+      bull.view.zIndex = homes.bull.y;
+      actorLayer.addChild(bull.view);
+      this.animals.push(bull);
 
-    const cow = new Cow(
-      textures.cow,
-      tileSize,
-      worldCols,
-      worldRows,
-      homes.cow.x,
-      homes.cow.y,
-      this.seedBase(roomId, 'cow'),
-    );
-    cow.view.zIndex = homes.cow.y;
-    actorLayer.addChild(cow.view);
-    this.animals.push(cow);
+      const cow = new Cow(
+        textures.cow,
+        tileSize,
+        worldCols,
+        worldRows,
+        homes.cow.x,
+        homes.cow.y,
+        this.seedBase(roomId, 'cow'),
+        roomId,
+      );
+      cow.view.zIndex = homes.cow.y;
+      actorLayer.addChild(cow.view);
+      this.animals.push(cow);
+    }
 
     for (let i = 0; i < Animal.DEER_COUNT; i++) {
       const home = homes.deer[i];
@@ -68,6 +74,7 @@ export class AnimalSystem {
         home.x,
         home.y,
         this.seedBase(roomId, 'deer', i),
+        roomId,
       );
       deer.view.zIndex = home.y;
       actorLayer.addChild(deer.view);
@@ -75,19 +82,24 @@ export class AnimalSystem {
     }
 
     if (roomId === 4 && textures.penguin) {
-      const penguinHome = this.penguinHome(tileSize, worldCols, worldRows);
-      const penguin = new Penguin(
-        textures.penguin,
-        tileSize,
-        worldCols,
-        worldRows,
-        penguinHome.x,
-        penguinHome.y,
-        this.seedBase(roomId, 'penguin'),
-      );
-      penguin.view.zIndex = penguinHome.y;
-      actorLayer.addChild(penguin.view);
-      this.animals.push(penguin);
+      const penguinHomes = this.penguinHomes(tileSize, worldCols, worldRows, AnimalSystem.ROOM_4_PENGUIN_COUNT);
+      for (let i = 0; i < penguinHomes.length; i++) {
+        const home = penguinHomes[i];
+        if (!home) continue;
+        const penguin = new Penguin(
+          textures.penguin,
+          tileSize,
+          worldCols,
+          worldRows,
+          home.x,
+          home.y,
+          this.seedBase(roomId, 'penguin', i),
+          roomId,
+        );
+        penguin.view.zIndex = home.y;
+        actorLayer.addChild(penguin.view);
+        this.animals.push(penguin);
+      }
     }
 
     actorLayer.sortChildren();
@@ -153,22 +165,28 @@ export class AnimalSystem {
     };
   }
 
-  /** Deterministic spawn anchor for the room 4 penguin. */
-  private penguinHome(tileSize: number, worldCols: number, worldRows: number): { x: number; y: number } {
+  /** Deterministic spawn anchors for room 4 penguins, spread across the world. */
+  private penguinHomes(
+    tileSize: number,
+    worldCols: number,
+    worldRows: number,
+    count: number,
+  ): { x: number; y: number }[] {
     const worldW = worldCols * tileSize;
     const worldH = worldRows * tileSize;
-    const prng = Animal.mulberry32(Animal.fnv1aHash(4, Animal.KIND_SEED_SALT.penguin, 0x686f_6d65));
-    const cx = worldW / 2;
-    const cy = worldH / 2;
-    const radius = Math.min(worldW, worldH) * 0.2;
-    const angle = prng() * Math.PI * 2;
-    return clampWorldTopLeft(
-      cx + Math.cos(angle) * radius,
-      cy + Math.sin(angle) * radius,
-      tileSize,
-      worldCols,
-      worldRows,
-    );
+    const marginX = worldW * 0.1;
+    const marginY = worldH * 0.1;
+    const spanX = worldW - marginX * 2;
+    const spanY = worldH - marginY * 2;
+    const homes: { x: number; y: number }[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const prng = Animal.mulberry32(Animal.fnv1aHash(4, Animal.KIND_SEED_SALT.penguin, i, 0x706f_736e));
+      const raw = { x: marginX + prng() * spanX, y: marginY + prng() * spanY };
+      homes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));
+    }
+
+    return homes;
   }
 
   /** Seed for the per-animal PRNG; stable for the same `(roomId, kind, instance)`. */

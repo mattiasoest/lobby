@@ -60,3 +60,77 @@ export function chatNpcAnchorPx(
     y: Math.min(Math.max(raw.y, min), maxY),
   };
 }
+
+/** Extra padding around the stall so wandering animals do not overlap the merchant sprite. */
+export const MERCHANT_ANIMAL_CLEARANCE_PX = 48;
+
+export type MerchantKeepOutRect = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+/** Axis-aligned keep-out zone for animal paths; `null` when the room has no chat NPC. */
+export function merchantKeepOutRect(
+  roomId: number,
+  tileSize: number,
+  worldCols: number,
+  worldRows: number,
+): MerchantKeepOutRect | null {
+  if (!getRoomChatNpc(roomId)) return null;
+  const anchor = chatNpcAnchorPx(roomId, tileSize, worldCols, worldRows);
+  const pad = MERCHANT_ANIMAL_CLEARANCE_PX;
+  return {
+    left: anchor.x - pad,
+    top: anchor.y - pad,
+    right: anchor.x + Merchant.displayWidth + pad,
+    bottom: anchor.y + Merchant.displayHeight + pad,
+  };
+}
+
+export function pointInMerchantKeepOut(x: number, y: number, rect: MerchantKeepOutRect): boolean {
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+/** Whether an axis-aligned step from `(fromX, fromY)` to `(toX, toY)` enters the keep-out zone. */
+export function axisLegIntersectsMerchantKeepOut(
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+  rect: MerchantKeepOutRect,
+): boolean {
+  if (pointInMerchantKeepOut(toX, toY, rect)) return true;
+  if (Math.abs(fromY - toY) < 1e-3) {
+    const y = fromY;
+    const xMin = Math.min(fromX, toX);
+    const xMax = Math.max(fromX, toX);
+    return y >= rect.top && y <= rect.bottom && xMax >= rect.left && xMin <= rect.right;
+  }
+  if (Math.abs(fromX - toX) < 1e-3) {
+    const x = fromX;
+    const yMin = Math.min(fromY, toY);
+    const yMax = Math.max(fromY, toY);
+    return x >= rect.left && x <= rect.right && yMax >= rect.top && yMin <= rect.bottom;
+  }
+  return false;
+}
+
+/** Push a point to the nearest edge outside the keep-out rect (still inside caller should clamp to world). */
+export function nudgeAwayFromMerchantKeepOut(
+  x: number,
+  y: number,
+  rect: MerchantKeepOutRect,
+): { x: number; y: number } {
+  if (!pointInMerchantKeepOut(x, y, rect)) return { x, y };
+  const distLeft = x - rect.left;
+  const distRight = rect.right - x;
+  const distTop = y - rect.top;
+  const distBottom = rect.bottom - y;
+  const min = Math.min(distLeft, distRight, distTop, distBottom);
+  if (min === distLeft) return { x: rect.left - 1, y };
+  if (min === distRight) return { x: rect.right + 1, y };
+  if (min === distTop) return { x, y: rect.top - 1 };
+  return { x, y: rect.bottom + 1 };
+}

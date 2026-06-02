@@ -13,8 +13,9 @@ export class Deer extends Animal {
     homeX: number,
     homeY: number,
     seedBase: number,
+    roomId: number,
   ) {
-    super(textures, tileSize, worldCols, worldRows, homeX, homeY, seedBase, ANIMAL_SPRITE_SIZE_PX);
+    super(textures, tileSize, worldCols, worldRows, homeX, homeY, seedBase, ANIMAL_SPRITE_SIZE_PX, roomId);
   }
 
   protected override get idleFps(): number | null {

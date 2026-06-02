@@ -1,4 +1,10 @@
 import { Assets, type Texture } from 'pixi.js';
+import {
+  axisLegIntersectsMerchantKeepOut,
+  merchantKeepOutRect,
+  nudgeAwayFromMerchantKeepOut,
+  type MerchantKeepOutRect,
+} from '../../config/chatNpc.ts';
 import { clampWorldTopLeft } from '../../core/worldMath.ts';
 import { Entity } from '../Entity.ts';
 
@@ -42,7 +48,7 @@ const PENGUIN_ROW_RIGHT = 1;
 const PENGUIN_ROW_UP = 2;
 /** Trim bleed from adjacent rows (sprites sit low/high within 16px cells). */
 const PENGUIN_ROW_INSET = {
-  down: { left: 2 },
+  down: { left: 3 },
   right: { top: 1 },
   up: { top: 1, left: 1 },
 } as const;
@@ -61,6 +67,7 @@ const PAUSE_MIN_MS = 1500;
 const PAUSE_MAX_MS = 4200;
 const WANDER_RADIUS_PX = 192;
 const TOUR_LEG_COUNT = 120;
+const WANDER_TARGET_MAX_ATTEMPTS = 5;
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -103,17 +110,27 @@ export abstract class Animal extends Entity {
     homeY: number,
     seedBase: number,
     spriteFrameSizePx: number,
+    roomId: number,
   ) {
     const { pad, innerSize } = Entity.layoutForTileSize(tileSize);
     super(tileSize, textures.down[0], innerSize / 2 - pad, innerSize / 2 - pad);
     this.applySpriteDisplaySize(spriteFrameSizePx);
     this.textures = textures;
-    this.x = homeX;
-    this.y = homeY;
+    const safeHome = Animal.resolveHomeAwayFromMerchant(homeX, homeY, roomId, tileSize, worldCols, worldRows);
+    this.x = safeHome.x;
+    this.y = safeHome.y;
 
     this.view.position.set(this.x, this.y);
 
-    const { legs, cycleMs } = Animal.buildTour(seedBase, tileSize, worldCols, worldRows, homeX, homeY);
+    const { legs, cycleMs } = Animal.buildTour(
+      seedBase,
+      roomId,
+      tileSize,
+      worldCols,
+      worldRows,
+      safeHome.x,
+      safeHome.y,
+    );
     this.legs = legs;
     this.cycleMs = cycleMs;
 
@@ -310,8 +327,95 @@ export abstract class Animal extends Entity {
     }
   }
 
+  private static resolveHomeAwayFromMerchant(
+    homeX: number,
+    homeY: number,
+    roomId: number,
+    tileSize: number,
+    worldCols: number,
+    worldRows: number,
+  ): { x: number; y: number } {
+    const keepOut = merchantKeepOutRect(roomId, tileSize, worldCols, worldRows);
+    if (!keepOut) {
+      return clampWorldTopLeft(homeX, homeY, tileSize, worldCols, worldRows);
+    }
+    const nudged = nudgeAwayFromMerchantKeepOut(homeX, homeY, keepOut);
+    return clampWorldTopLeft(nudged.x, nudged.y, tileSize, worldCols, worldRows);
+  }
+
+  private static isWanderLegAllowed(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    keepOut: MerchantKeepOutRect | null,
+  ): boolean {
+    if (!keepOut) return true;
+    return !axisLegIntersectsMerchantKeepOut(fromX, fromY, toX, toY, keepOut);
+  }
+
+  private static wanderTargetAt(
+    cx: number,
+    cy: number,
+    homeX: number,
+    homeY: number,
+    horizontal: boolean,
+    axisOffset: number,
+    tileSize: number,
+    worldCols: number,
+    worldRows: number,
+  ): { x: number; y: number } {
+    const homeAxis = horizontal ? homeX : homeY;
+    const newAxisPos = homeAxis + axisOffset;
+    const rawX = horizontal ? newAxisPos : cx;
+    const rawY = horizontal ? cy : newAxisPos;
+    return clampWorldTopLeft(rawX, rawY, tileSize, worldCols, worldRows);
+  }
+
+  private static pickWanderTarget(
+    prng: () => number,
+    cx: number,
+    cy: number,
+    homeX: number,
+    homeY: number,
+    tileSize: number,
+    worldCols: number,
+    worldRows: number,
+    keepOut: MerchantKeepOutRect | null,
+  ): { x: number; y: number } | null {
+    let lastHorizontal = prng() < 0.5;
+    let lastOffset = (prng() * 2 - 1) * WANDER_RADIUS_PX;
+
+    const tryTarget = (horizontal: boolean, axisOffset: number): { x: number; y: number } | null => {
+      const target = Animal.wanderTargetAt(
+        cx,
+        cy,
+        homeX,
+        homeY,
+        horizontal,
+        axisOffset,
+        tileSize,
+        worldCols,
+        worldRows,
+      );
+      return Animal.isWanderLegAllowed(cx, cy, target.x, target.y, keepOut) ? target : null;
+    };
+
+    for (let attempt = 0; attempt < WANDER_TARGET_MAX_ATTEMPTS; attempt++) {
+      if (attempt > 0) {
+        lastHorizontal = prng() < 0.5;
+        lastOffset = (prng() * 2 - 1) * WANDER_RADIUS_PX;
+      }
+      const target = tryTarget(lastHorizontal, lastOffset);
+      if (target) return target;
+    }
+
+    return tryTarget(lastHorizontal, -lastOffset);
+  }
+
   private static buildTour(
     seedBase: number,
+    roomId: number,
     tileSize: number,
     worldCols: number,
     worldRows: number,
@@ -319,12 +423,14 @@ export abstract class Animal extends Entity {
     homeY: number,
   ): { legs: AnimalLeg[]; cycleMs: number } {
     const prng = Animal.mulberry32(seedBase);
+    const keepOut = merchantKeepOutRect(roomId, tileSize, worldCols, worldRows);
     const legs: AnimalLeg[] = [];
     let cx = homeX;
     let cy = homeY;
     let cumMs = 0;
 
     const pushLeg = (toX: number, toY: number, pauseMs: number): void => {
+      if (!Animal.isWanderLegAllowed(cx, cy, toX, toY, keepOut)) return;
       cumMs += pauseMs;
       const startMs = cumMs;
       const dx = toX - cx;
@@ -345,20 +451,17 @@ export abstract class Animal extends Entity {
 
     for (let i = 0; i < TOUR_LEG_COUNT; i++) {
       const pauseMs = PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
-      const horizontal = prng() < 0.5;
-      const homeAxis = horizontal ? homeX : homeY;
-      const newAxisPos = homeAxis + (prng() * 2 - 1) * WANDER_RADIUS_PX;
-      const rawX = horizontal ? newAxisPos : cx;
-      const rawY = horizontal ? cy : newAxisPos;
-      const clamped = clampWorldTopLeft(rawX, rawY, tileSize, worldCols, worldRows);
-      pushLeg(clamped.x, clamped.y, pauseMs);
+      const target = Animal.pickWanderTarget(prng, cx, cy, homeX, homeY, tileSize, worldCols, worldRows, keepOut);
+      if (target) pushLeg(target.x, target.y, pauseMs);
     }
 
     if (Math.abs(cx - homeX) > 1e-3) {
-      pushLeg(homeX, cy, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
+      const returnX = keepOut ? nudgeAwayFromMerchantKeepOut(homeX, cy, keepOut).x : homeX;
+      pushLeg(returnX, cy, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
     }
     if (Math.abs(cy - homeY) > 1e-3) {
-      pushLeg(cx, homeY, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
+      const returnY = keepOut ? nudgeAwayFromMerchantKeepOut(cx, homeY, keepOut).y : homeY;
+      pushLeg(cx, returnY, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
     }
 
     cumMs += PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
