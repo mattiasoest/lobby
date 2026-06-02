@@ -8,7 +8,7 @@ import {
 import { clampWorldTopLeft } from '../../core/worldMath.ts';
 import { Entity } from '../Entity.ts';
 
-export type AnimalKind = 'bull' | 'cow' | 'deer' | 'penguin';
+export type AnimalKind = 'bull' | 'cow' | 'deer' | 'penguin' | 'slime';
 export type AnimalDirection = 'left' | 'right' | 'down' | 'up';
 
 export type AnimalTextureSet = {
@@ -25,6 +25,7 @@ export type AnimalTextureMap = {
   cow: AnimalTextureSet;
   deer: AnimalTextureSet;
   penguin: AnimalTextureSet | null;
+  slime: AnimalTextureSet | null;
 };
 
 type AnimalLeg = {
@@ -85,6 +86,7 @@ export abstract class Animal extends Entity {
     cow: 0x636f_7700,
     deer: 0x6465_6572,
     penguin: 0x7065_6e67,
+    slime: 0x736c_696d,
   };
 
   abstract readonly kind: AnimalKind;
@@ -98,8 +100,8 @@ export abstract class Animal extends Entity {
   private x: number;
   private y: number;
   private direction: AnimalDirection = 'down';
-  private frameIndex = 0;
-  private isMoving = false;
+  protected frameIndex = 0;
+  protected isMoving = false;
 
   protected constructor(
     textures: AnimalTextureSet,
@@ -143,15 +145,17 @@ export abstract class Animal extends Entity {
     cowSrc: string,
     deerSrc: { idle: string; walk: string },
     penguinSrc: string,
+    slimeSrc: { idle: string; walk: string },
   ): Promise<AnimalTextureMap | null> {
-    const [bull, cow, deer, penguin] = await Promise.all([
+    const [bull, cow, deer, penguin, slime] = await Promise.all([
       Animal.loadOneSheet(bullSrc, BULL_COW_ROW_INSET),
       Animal.loadOneSheet(cowSrc, BULL_COW_ROW_INSET),
       Animal.loadDeerSheet(deerSrc.idle, deerSrc.walk),
       Animal.loadPenguinSheet(penguinSrc),
+      Animal.loadSlimeSheet(slimeSrc.idle, slimeSrc.walk),
     ]);
     if (!bull || !cow || !deer) return null;
-    return { bull, cow, deer, penguin };
+    return { bull, cow, deer, penguin, slime };
   }
 
   static fnv1aHash(...values: number[]): number {
@@ -194,6 +198,15 @@ export abstract class Animal extends Entity {
     return false;
   }
 
+  protected shouldUseIdleTextures(): boolean {
+    return !this.isMoving && this.useIdleTextures;
+  }
+
+  protected computeWalkFrameIndex(roomNowMs: number, moving: boolean): number {
+    if (!moving) return 0;
+    return Math.floor((roomNowMs / 1000) * this.walkFps);
+  }
+
   update(roomNowMs: number): void {
     const phaseMs = roomNowMs % this.cycleMs;
     const legs = this.legs;
@@ -214,21 +227,19 @@ export abstract class Animal extends Entity {
       this.y = leg.fromY + (leg.toY - leg.fromY) * t;
       this.direction = leg.direction;
       this.isMoving = true;
-      this.frameIndex = Math.floor((roomNowMs / 1000) * this.walkFps);
     } else if (phaseMs < leg.startMs) {
       this.x = leg.fromX;
       this.y = leg.fromY;
       this.direction = leg.direction;
       this.isMoving = false;
-      this.frameIndex = 0;
     } else {
       this.x = leg.toX;
       this.y = leg.toY;
       this.direction = leg.direction;
       this.isMoving = false;
-      this.frameIndex = 0;
     }
 
+    this.frameIndex = this.computeWalkFrameIndex(roomNowMs, this.isMoving);
     this.view.position.set(this.x, this.y);
     this.applyFrame(roomNowMs);
   }
@@ -239,7 +250,7 @@ export abstract class Animal extends Entity {
 
   protected applyFrame(roomNowMs: number): void {
     const tex = this.textures;
-    const useIdle = !this.isMoving && this.useIdleTextures;
+    const useIdle = this.shouldUseIdleTextures();
 
     let frames: Texture[];
     let flipX = false;
@@ -303,6 +314,24 @@ export abstract class Animal extends Entity {
         left: Entity.sliceSpritesheetRow(base, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.left),
         down: Entity.sliceSpritesheetRow(base, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.down),
         up: Entity.sliceSpritesheetRow(base, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.up),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private static async loadSlimeSheet(idleSrc: string, walkSrc: string): Promise<AnimalTextureSet | null> {
+    try {
+      const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
+      idleBase.source.scaleMode = 'nearest';
+      walkBase.source.scaleMode = 'nearest';
+      return {
+        left: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
+        down: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE),
+        up: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE),
+        idleLeft: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
+        idleDown: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE),
+        idleUp: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE),
       };
     } catch {
       return null;

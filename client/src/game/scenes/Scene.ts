@@ -45,6 +45,7 @@ export class Scene {
       cow: string;
       deer: { idle: string; walk: string };
       penguin: string;
+      slime: { idle: string; walk: string };
     },
     merchantTextureSrc: string,
   ): Promise<RoomAssets> {
@@ -57,7 +58,13 @@ export class Scene {
           return [avatarId, textures] as const;
         }),
       ),
-      Animal.loadTextures(animalTextureSrc.bull, animalTextureSrc.cow, animalTextureSrc.deer, animalTextureSrc.penguin),
+      Animal.loadTextures(
+        animalTextureSrc.bull,
+        animalTextureSrc.cow,
+        animalTextureSrc.deer,
+        animalTextureSrc.penguin,
+        animalTextureSrc.slime,
+      ),
       Merchant.loadIdleFrames(merchantTextureSrc),
     ]);
 

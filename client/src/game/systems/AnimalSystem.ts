@@ -5,6 +5,7 @@ import { Bull } from '../entities/npcs/Bull.ts';
 import { Cow } from '../entities/npcs/Cow.ts';
 import { Deer } from '../entities/npcs/Deer.ts';
 import { Penguin } from '../entities/npcs/Penguin.ts';
+import { Slime } from '../entities/npcs/Slime.ts';
 import type { MinimapAnimal } from '../views/Minimap.ts';
 import type { GameDimensions } from '../types.ts';
 
@@ -15,6 +16,7 @@ type AnimalHomeAnchors = {
 };
 
 export class AnimalSystem {
+  private static readonly ROOM_2_SLIME_COUNT = 10;
   private static readonly ROOM_4_PENGUIN_COUNT = 8;
 
   private animals: Animal[] = [];
@@ -33,7 +35,7 @@ export class AnimalSystem {
     const { tileSize, worldCols, worldRows } = dims;
     const homes = this.homeAnchors(roomId, tileSize, worldCols, worldRows);
 
-    if (roomId !== 4) {
+    if (roomId !== 2 && roomId !== 4) {
       const bull = new Bull(
         textures.bull,
         tileSize,
@@ -79,6 +81,27 @@ export class AnimalSystem {
       deer.view.zIndex = home.y;
       actorLayer.addChild(deer.view);
       this.animals.push(deer);
+    }
+
+    if (roomId === 2 && textures.slime) {
+      const slimeHomes = this.slimeHomes(tileSize, worldCols, worldRows, AnimalSystem.ROOM_2_SLIME_COUNT);
+      for (let i = 0; i < slimeHomes.length; i++) {
+        const home = slimeHomes[i];
+        if (!home) continue;
+        const slime = new Slime(
+          textures.slime,
+          tileSize,
+          worldCols,
+          worldRows,
+          home.x,
+          home.y,
+          this.seedBase(roomId, 'slime', i),
+          roomId,
+        );
+        slime.view.zIndex = home.y;
+        actorLayer.addChild(slime.view);
+        this.animals.push(slime);
+      }
     }
 
     if (roomId === 4 && textures.penguin) {
@@ -163,6 +186,30 @@ export class AnimalSystem {
       cow: clampWorldTopLeft(cowRaw.x, cowRaw.y, tileSize, worldCols, worldRows),
       deer: deerHomes,
     };
+  }
+
+  /** Deterministic spawn anchors for room 2 slimes, spread across the world. */
+  private slimeHomes(
+    tileSize: number,
+    worldCols: number,
+    worldRows: number,
+    count: number,
+  ): { x: number; y: number }[] {
+    const worldW = worldCols * tileSize;
+    const worldH = worldRows * tileSize;
+    const marginX = worldW * 0.1;
+    const marginY = worldH * 0.1;
+    const spanX = worldW - marginX * 2;
+    const spanY = worldH - marginY * 2;
+    const homes: { x: number; y: number }[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const prng = Animal.mulberry32(Animal.fnv1aHash(2, Animal.KIND_SEED_SALT.slime, i, 0x736c_696d));
+      const raw = { x: marginX + prng() * spanX, y: marginY + prng() * spanY };
+      homes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));
+    }
+
+    return homes;
   }
 
   /** Deterministic spawn anchors for room 4 penguins, spread across the world. */
