@@ -4,6 +4,7 @@ import { Animal, type AnimalKind, type AnimalTextureMap } from '../entities/npcs
 import { Bull } from '../entities/npcs/Bull.ts';
 import { Cow } from '../entities/npcs/Cow.ts';
 import { Deer } from '../entities/npcs/Deer.ts';
+import { Penguin } from '../entities/npcs/Penguin.ts';
 import type { MinimapAnimal } from '../views/Minimap.ts';
 import type { GameDimensions } from '../types.ts';
 
@@ -73,6 +74,22 @@ export class AnimalSystem {
       this.animals.push(deer);
     }
 
+    if (roomId === 4 && textures.penguin) {
+      const penguinHome = this.penguinHome(tileSize, worldCols, worldRows);
+      const penguin = new Penguin(
+        textures.penguin,
+        tileSize,
+        worldCols,
+        worldRows,
+        penguinHome.x,
+        penguinHome.y,
+        this.seedBase(roomId, 'penguin'),
+      );
+      penguin.view.zIndex = penguinHome.y;
+      actorLayer.addChild(penguin.view);
+      this.animals.push(penguin);
+    }
+
     actorLayer.sortChildren();
   }
 
@@ -134,6 +151,24 @@ export class AnimalSystem {
       cow: clampWorldTopLeft(cowRaw.x, cowRaw.y, tileSize, worldCols, worldRows),
       deer: deerHomes,
     };
+  }
+
+  /** Deterministic spawn anchor for the room 4 penguin. */
+  private penguinHome(tileSize: number, worldCols: number, worldRows: number): { x: number; y: number } {
+    const worldW = worldCols * tileSize;
+    const worldH = worldRows * tileSize;
+    const prng = Animal.mulberry32(Animal.fnv1aHash(4, Animal.KIND_SEED_SALT.penguin, 0x686f_6d65));
+    const cx = worldW / 2;
+    const cy = worldH / 2;
+    const radius = Math.min(worldW, worldH) * 0.2;
+    const angle = prng() * Math.PI * 2;
+    return clampWorldTopLeft(
+      cx + Math.cos(angle) * radius,
+      cy + Math.sin(angle) * radius,
+      tileSize,
+      worldCols,
+      worldRows,
+    );
   }
 
   /** Seed for the per-animal PRNG; stable for the same `(roomId, kind, instance)`. */

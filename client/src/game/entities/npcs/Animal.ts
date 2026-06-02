@@ -2,7 +2,7 @@ import { Assets, type Texture } from 'pixi.js';
 import { clampWorldTopLeft } from '../../core/worldMath.ts';
 import { Entity } from '../Entity.ts';
 
-export type AnimalKind = 'bull' | 'cow' | 'deer';
+export type AnimalKind = 'bull' | 'cow' | 'deer' | 'penguin';
 export type AnimalDirection = 'left' | 'right' | 'down' | 'up';
 
 export type AnimalTextureSet = {
@@ -14,7 +14,12 @@ export type AnimalTextureSet = {
   idleUp?: Texture[];
 };
 
-export type AnimalTextureMap = Record<AnimalKind, AnimalTextureSet>;
+export type AnimalTextureMap = {
+  bull: AnimalTextureSet;
+  cow: AnimalTextureSet;
+  deer: AnimalTextureSet;
+  penguin: AnimalTextureSet | null;
+};
 
 type AnimalLeg = {
   startMs: number;
@@ -27,13 +32,31 @@ type AnimalLeg = {
 };
 
 const FRAME_SIZE = 32;
+/** Native spritesheet frame size; rendered 1:1 in world px (not upscaled to tile size). */
+export const ANIMAL_SPRITE_SIZE_PX = FRAME_SIZE;
+export const PENGUIN_SPRITE_SIZE_PX = 16;
+const PENGUIN_FRAME_SIZE = PENGUIN_SPRITE_SIZE_PX;
 const FRAMES_PER_ROW = 4;
+const PENGUIN_ROW_DOWN = 0;
+const PENGUIN_ROW_RIGHT = 1;
+const PENGUIN_ROW_UP = 2;
+/** Trim bleed from adjacent rows (sprites sit low/high within 16px cells). */
+const PENGUIN_ROW_INSET = {
+  down: { left: 2 },
+  right: { top: 1 },
+  up: { top: 1, left: 1 },
+} as const;
 const DEER_IDLE_FRAMES_PER_ROW = 2;
 const WALK_FPS = 6;
 const MOVE_PX_PER_SEC = 26;
 const SHEET_ROW_LEFT = 0;
 const SHEET_ROW_DOWN = 1;
 const SHEET_ROW_UP = 2;
+/** Bull/cow down/up rows sit high in their cells; trim bleed from the row above. */
+const BULL_COW_ROW_INSET = {
+  down: { top: 1 },
+  up: { top: 1 },
+} as const;
 const PAUSE_MIN_MS = 1500;
 const PAUSE_MAX_MS = 4200;
 const WANDER_RADIUS_PX = 192;
@@ -54,6 +77,7 @@ export abstract class Animal extends Entity {
     bull: 0x6b75_6c00,
     cow: 0x636f_7700,
     deer: 0x6465_6572,
+    penguin: 0x7065_6e67,
   };
 
   abstract readonly kind: AnimalKind;
@@ -78,9 +102,11 @@ export abstract class Animal extends Entity {
     homeX: number,
     homeY: number,
     seedBase: number,
+    spriteFrameSizePx: number,
   ) {
     const { pad, innerSize } = Entity.layoutForTileSize(tileSize);
     super(tileSize, textures.down[0], innerSize / 2 - pad, innerSize / 2 - pad);
+    this.applySpriteDisplaySize(spriteFrameSizePx);
     this.textures = textures;
     this.x = homeX;
     this.y = homeY;
@@ -94,19 +120,21 @@ export abstract class Animal extends Entity {
     this.applyFrame(Date.now());
   }
 
-  /** Load bull, cow, and deer spritesheets in parallel. Returns `null` if any fails. */
+  /** Load bull, cow, deer, and penguin spritesheets in parallel. Returns `null` if core sheets fail. */
   static async loadTextures(
     bullSrc: string,
     cowSrc: string,
     deerSrc: { idle: string; walk: string },
+    penguinSrc: string,
   ): Promise<AnimalTextureMap | null> {
-    const [bull, cow, deer] = await Promise.all([
-      Animal.loadOneSheet(bullSrc),
-      Animal.loadOneSheet(cowSrc),
+    const [bull, cow, deer, penguin] = await Promise.all([
+      Animal.loadOneSheet(bullSrc, BULL_COW_ROW_INSET),
+      Animal.loadOneSheet(cowSrc, BULL_COW_ROW_INSET),
       Animal.loadDeerSheet(deerSrc.idle, deerSrc.walk),
+      Animal.loadPenguinSheet(penguinSrc),
     ]);
     if (!bull || !cow || !deer) return null;
-    return { bull, cow, deer };
+    return { bull, cow, deer, penguin };
   }
 
   static fnv1aHash(...values: number[]): number {
@@ -141,6 +169,11 @@ export abstract class Animal extends Entity {
   }
 
   protected get useIdleTextures(): boolean {
+    return false;
+  }
+
+  /** Horizontal sprites face left by default; flip when moving right. Override when the sheet faces right. */
+  protected get horizontalProfileFacesRight(): boolean {
     return false;
   }
 
@@ -193,13 +226,15 @@ export abstract class Animal extends Entity {
 
     let frames: Texture[];
     let flipX = false;
+    const profileFacesRight = this.horizontalProfileFacesRight;
     switch (this.direction) {
       case 'right':
         frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
-        flipX = true;
+        flipX = !profileFacesRight;
         break;
       case 'left':
         frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
+        flipX = profileFacesRight;
         break;
       case 'up':
         frames = useIdle && tex.idleUp ? tex.idleUp : tex.up;
@@ -216,14 +251,41 @@ export abstract class Animal extends Entity {
     this.setSpriteFlipX(flipX);
   }
 
-  private static async loadOneSheet(src: string): Promise<AnimalTextureSet | null> {
+  private static async loadPenguinSheet(src: string): Promise<AnimalTextureSet | null> {
     try {
       const base = await Assets.load<Texture>(src);
       base.source.scaleMode = 'nearest';
       return {
-        left: Entity.sliceSpritesheetRow(base, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
-        down: Entity.sliceSpritesheetRow(base, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE),
-        up: Entity.sliceSpritesheetRow(base, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE),
+        down: Entity.sliceSpritesheetRow(base, PENGUIN_ROW_DOWN, FRAMES_PER_ROW, PENGUIN_FRAME_SIZE),
+        left: Entity.sliceSpritesheetRow(
+          base,
+          PENGUIN_ROW_RIGHT,
+          FRAMES_PER_ROW,
+          PENGUIN_FRAME_SIZE,
+          PENGUIN_ROW_INSET.right,
+        ),
+        up: Entity.sliceSpritesheetRow(base, PENGUIN_ROW_UP, FRAMES_PER_ROW, PENGUIN_FRAME_SIZE, PENGUIN_ROW_INSET.up),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private static async loadOneSheet(
+    src: string,
+    rowInset?: {
+      left?: { top?: number; right?: number; bottom?: number; left?: number };
+      down?: { top?: number; right?: number; bottom?: number; left?: number };
+      up?: { top?: number; right?: number; bottom?: number; left?: number };
+    },
+  ): Promise<AnimalTextureSet | null> {
+    try {
+      const base = await Assets.load<Texture>(src);
+      base.source.scaleMode = 'nearest';
+      return {
+        left: Entity.sliceSpritesheetRow(base, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.left),
+        down: Entity.sliceSpritesheetRow(base, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.down),
+        up: Entity.sliceSpritesheetRow(base, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.up),
       };
     } catch {
       return null;

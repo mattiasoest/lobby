@@ -1,4 +1,4 @@
-import { Animal, type AnimalTextureSet } from './Animal.ts';
+import { Animal, ANIMAL_SPRITE_SIZE_PX, type AnimalTextureSet } from './Animal.ts';
 
 const DEER_IDLE_FPS = 3;
 
@@ -14,7 +14,7 @@ export class Deer extends Animal {
     homeY: number,
     seedBase: number,
   ) {
-    super(textures, tileSize, worldCols, worldRows, homeX, homeY, seedBase);
+    super(textures, tileSize, worldCols, worldRows, homeX, homeY, seedBase, ANIMAL_SPRITE_SIZE_PX);
   }
 
   protected override get idleFps(): number | null {

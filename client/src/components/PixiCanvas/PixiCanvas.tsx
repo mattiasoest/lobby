@@ -6,6 +6,7 @@ import bullSpriteSrc from '@/assets/entities/bull/bull.png';
 import cowSpriteSrc from '@/assets/entities/cow/cow.png';
 import deerIdleSpriteSrc from '@/assets/entities/deer/deer_idle.png';
 import deerWalkSpriteSrc from '@/assets/entities/deer/deer_walk.png';
+import penguinSpriteSrc from '@/assets/entities/penguin/penguin.png';
 import merchantSpriteSrc from '@/assets/entities/merchant/merchant.png';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Game } from '../../game/Game.ts';
@@ -156,6 +157,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
         bull: bullSpriteSrc,
         cow: cowSpriteSrc,
         deer: { idle: deerIdleSpriteSrc, walk: deerWalkSpriteSrc },
+        penguin: penguinSpriteSrc,
       },
       merchantTextureSrc: merchantSpriteSrc,
       onBootstrapComplete: () => {

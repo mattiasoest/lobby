@@ -42,17 +42,35 @@ export abstract class Entity {
     return Math.ceil(tileSize * Entity.TILE_PAD_RATIO);
   }
 
-  static sliceSpritesheetRow(base: Texture, row: number, frameCount: number, frameSize: number): Texture[] {
+  static sliceSpritesheetRow(
+    base: Texture,
+    row: number,
+    frameCount: number,
+    frameSize: number,
+    inset?: { top?: number; right?: number; bottom?: number; left?: number },
+  ): Texture[] {
+    const top = inset?.top ?? 0;
+    const right = inset?.right ?? 0;
+    const bottom = inset?.bottom ?? 0;
+    const left = inset?.left ?? 0;
+    const frameW = frameSize - left - right;
+    const frameH = frameSize - top - bottom;
+    const rowY = row * frameSize + top;
     const frames: Texture[] = [];
     for (let frameIdx = 0; frameIdx < frameCount; frameIdx++) {
       frames.push(
         new Texture({
           source: base.source,
-          frame: new Rectangle(frameIdx * frameSize, row * frameSize, frameSize, frameSize),
+          frame: new Rectangle(frameIdx * frameSize + left, rowY, frameW, frameH),
         }),
       );
     }
     return frames;
+  }
+
+  protected applySpriteDisplaySize(sizePx: number): void {
+    this.sprite.width = sizePx;
+    this.sprite.height = sizePx;
   }
 
   protected setSpriteTexture(texture: Texture): void {

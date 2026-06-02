@@ -1,4 +1,4 @@
-import { Animal, type AnimalTextureSet } from './Animal.ts';
+import { Animal, ANIMAL_SPRITE_SIZE_PX, type AnimalTextureSet } from './Animal.ts';
 
 export class Cow extends Animal {
   readonly kind = 'cow' as const;
@@ -12,6 +12,6 @@ export class Cow extends Animal {
     homeY: number,
     seedBase: number,
   ) {
-    super(textures, tileSize, worldCols, worldRows, homeX, homeY, seedBase);
+    super(textures, tileSize, worldCols, worldRows, homeX, homeY, seedBase, ANIMAL_SPRITE_SIZE_PX);
   }
 }

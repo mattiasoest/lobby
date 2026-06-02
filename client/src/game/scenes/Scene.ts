@@ -40,7 +40,12 @@ export class Scene {
   static async loadAssets(
     backgroundTextureSrc: string,
     characterTextureSrcByAvatarId: Record<string, { idle: string; walk: string }>,
-    animalTextureSrc: { bull: string; cow: string; deer: { idle: string; walk: string } },
+    animalTextureSrc: {
+      bull: string;
+      cow: string;
+      deer: { idle: string; walk: string };
+      penguin: string;
+    },
     merchantTextureSrc: string,
   ): Promise<RoomAssets> {
     const characterLoadEntries = Object.entries(characterTextureSrcByAvatarId);
@@ -52,7 +57,7 @@ export class Scene {
           return [avatarId, textures] as const;
         }),
       ),
-      Animal.loadTextures(animalTextureSrc.bull, animalTextureSrc.cow, animalTextureSrc.deer),
+      Animal.loadTextures(animalTextureSrc.bull, animalTextureSrc.cow, animalTextureSrc.deer, animalTextureSrc.penguin),
       Merchant.loadIdleFrames(merchantTextureSrc),
     ]);
 
