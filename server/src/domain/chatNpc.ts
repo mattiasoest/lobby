@@ -1,5 +1,5 @@
-import { CHAT_NPC_USER_IDS } from '../../../shared/chatNpcIds.js';
-import { usernameForMentionMatch } from '../../../shared/mention.js';
+import { CHAT_NPC_USER_IDS } from '../shared/chatNpcIds.js';
+import { usernameForMentionMatch } from '../shared/mention.js';
 import type { RoomId } from './rooms.js';
 import { ROOM_IDS } from './rooms.js';
 
