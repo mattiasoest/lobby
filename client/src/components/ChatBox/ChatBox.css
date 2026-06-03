@@ -19,7 +19,8 @@
   width: min(330px, calc(100% - 8px));
   max-width: calc(100% - 8px);
   min-height: 0;
-  max-height: min(calc(280px * 1.05), calc(100% - 14px));
+  /* Cap to 40% of the Pixi mount host (canvas) height — short viewports stay playable. */
+  max-height: 40%;
   box-sizing: border-box;
   padding: 6px 8px;
   gap: 4px;

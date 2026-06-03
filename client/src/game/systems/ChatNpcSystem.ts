@@ -190,8 +190,7 @@ export class ChatNpcSystem {
     const bandAboveStall =
       NAME_LABEL_GAP_ABOVE_STALL_PX +
       SpeechBubble.PLAYER_NAME_LABEL_TEXT_HEIGHT_PX +
-      SpeechBubble.PLAYER_NAME_LABEL_BOTTOM_GAP_PX +
-      SpeechBubble.SPEECH_CLEAR_BELOW_BUBBLE_PX;
+      SpeechBubble.PLAYER_NAME_LABEL_BOTTOM_GAP_PX;
 
     if (bubble.group.parent !== root.parent) {
       root.parent.addChild(bubble.group);

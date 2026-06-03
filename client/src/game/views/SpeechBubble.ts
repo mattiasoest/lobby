@@ -13,18 +13,14 @@ export class SpeechBubble {
   static readonly PLAYER_NAME_LABEL_BOTTOM_GAP_PX = 3;
   /** Nominal single-line height for pixel-font player names. */
   static readonly PLAYER_NAME_LABEL_TEXT_HEIGHT_PX = 14;
-  /** Tail-to-name: vertical gap between bubble bottom and top of name glyphs. */
-  static readonly SPEECH_CLEAR_BELOW_BUBBLE_PX = 4;
-  /** World-space distance from avatar top upward through the name band + clearance. */
+
   static readonly SPEECH_BAND_ABOVE_AVATAR_PX =
-    SpeechBubble.PLAYER_NAME_LABEL_BOTTOM_GAP_PX +
-    SpeechBubble.PLAYER_NAME_LABEL_TEXT_HEIGHT_PX +
-    SpeechBubble.SPEECH_CLEAR_BELOW_BUBBLE_PX;
+    SpeechBubble.PLAYER_NAME_LABEL_BOTTOM_GAP_PX + SpeechBubble.PLAYER_NAME_LABEL_TEXT_HEIGHT_PX;
 
   /** Total bubble width including shadow (px). */
   private static readonly SPEECH_MAX_WIDTH = 190;
   private static readonly SPEECH_TAIL_H = 9;
-  private static readonly SPEECH_PAD = 7;
+  private static readonly SPEECH_PAD = 3;
   private static readonly SPEECH_SHADOW = 2;
   private static readonly TAIL_BODY_OVERLAP_PX = 1;
   private static readonly SPEECH_WRAP =
