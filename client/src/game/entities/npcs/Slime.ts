@@ -1,10 +1,10 @@
-import { Animal, ANIMAL_SPRITE_SIZE_PX, type AnimalTextureSet } from './Animal.ts';
+import { WalkEntity, WALK_ENTITY_SPRITE_SIZE_PX, type WalkTextureSet } from './WalkEntity.ts';
 
 const SLIME_IDLE_FPS = 5;
 const SLIME_WALK_FPS = 7;
 const SLIME_WALK_FRAME_COUNT = 4;
 
-export class Slime extends Animal {
+export class Slime extends WalkEntity {
   readonly kind = 'slime' as const;
 
   private finishingWalk = false;
@@ -13,7 +13,7 @@ export class Slime extends Animal {
   private wasMoving = false;
 
   constructor(
-    textures: AnimalTextureSet,
+    textures: WalkTextureSet,
     tileSize: number,
     worldCols: number,
     worldRows: number,
@@ -22,7 +22,7 @@ export class Slime extends Animal {
     seedBase: number,
     roomId: number,
   ) {
-    super(textures, tileSize, worldCols, worldRows, homeX, homeY, seedBase, ANIMAL_SPRITE_SIZE_PX, roomId);
+    super(textures, tileSize, worldCols, worldRows, homeX, homeY, seedBase, WALK_ENTITY_SPRITE_SIZE_PX, roomId);
   }
 
   protected override get walkFps(): number {

@@ -7,11 +7,13 @@ import {
 } from '../../config/chatNpc.ts';
 import { clampWorldTopLeft } from '../../core/worldMath.ts';
 import { Entity } from '../Entity.ts';
+import { FrogBlue } from './FrogBlue.ts';
+import type { HopTextureSet } from './HopEntity.ts';
 
-export type AnimalKind = 'bull' | 'cow' | 'deer' | 'highlandBull' | 'penguin' | 'slime';
-export type AnimalDirection = 'left' | 'right' | 'down' | 'up';
+export type NpcKind = 'bull' | 'cow' | 'deer' | 'frogBlue' | 'highlandBull' | 'penguin' | 'slime';
+export type WalkDirection = 'left' | 'right' | 'down' | 'up';
 
-export type AnimalTextureSet = {
+export type WalkTextureSet = {
   left: Texture[];
   down: Texture[];
   up: Texture[];
@@ -20,28 +22,29 @@ export type AnimalTextureSet = {
   idleUp?: Texture[];
 };
 
-export type AnimalTextureMap = {
-  bull: AnimalTextureSet;
-  cow: AnimalTextureSet;
-  deer: AnimalTextureSet;
-  highlandBull: AnimalTextureSet | null;
-  penguin: AnimalTextureSet | null;
-  slime: AnimalTextureSet | null;
+export type WalkTextureMap = {
+  bull: WalkTextureSet;
+  cow: WalkTextureSet;
+  deer: WalkTextureSet;
+  frogBlue: HopTextureSet | null;
+  highlandBull: WalkTextureSet | null;
+  penguin: WalkTextureSet | null;
+  slime: WalkTextureSet | null;
 };
 
-type AnimalLeg = {
+type WalkLeg = {
   startMs: number;
   arriveMs: number;
   fromX: number;
   fromY: number;
   toX: number;
   toY: number;
-  direction: AnimalDirection;
+  direction: WalkDirection;
 };
 
 const FRAME_SIZE = 32;
 /** Native spritesheet frame size; rendered 1:1 in world px (not upscaled to tile size). */
-export const ANIMAL_SPRITE_SIZE_PX = FRAME_SIZE;
+export const WALK_ENTITY_SPRITE_SIZE_PX = FRAME_SIZE;
 export const PENGUIN_SPRITE_SIZE_PX = 16;
 const PENGUIN_FRAME_SIZE = PENGUIN_SPRITE_SIZE_PX;
 const FRAMES_PER_ROW = 4;
@@ -81,37 +84,38 @@ function clamp01(value: number): number {
 }
 
 /**
- * Decorative wandering animal. Position, direction, and walk frame are pure functions of
- * synchronized server time and a per-animal seed.
+ * Decorative wandering NPC with walk-based movement. Position, direction, and walk frame are pure functions of
+ * synchronized server time and a per-entity seed.
  */
-export abstract class Animal extends Entity {
+export abstract class WalkEntity extends Entity {
   static readonly DEER_COUNT = 3;
 
-  static readonly KIND_SEED_SALT: Record<AnimalKind, number> = {
+  static readonly KIND_SEED_SALT: Record<NpcKind, number> = {
     bull: 0x6b75_6c00,
     cow: 0x636f_7700,
     deer: 0x6465_6572,
+    frogBlue: 0x6672_6f67,
     highlandBull: 0x6869_6768,
     penguin: 0x7065_6e67,
     slime: 0x736c_696d,
   };
 
-  abstract readonly kind: AnimalKind;
+  abstract readonly kind: NpcKind;
 
-  protected readonly textures: AnimalTextureSet;
+  protected readonly textures: WalkTextureSet;
 
-  private readonly legs: AnimalLeg[];
+  private readonly legs: WalkLeg[];
   private readonly cycleMs: number;
   private cachedLegIdx = 0;
 
   private x: number;
   private y: number;
-  private direction: AnimalDirection = 'down';
+  private direction: WalkDirection = 'down';
   protected frameIndex = 0;
   protected isMoving = false;
 
   protected constructor(
-    textures: AnimalTextureSet,
+    textures: WalkTextureSet,
     tileSize: number,
     worldCols: number,
     worldRows: number,
@@ -125,13 +129,13 @@ export abstract class Animal extends Entity {
     super(tileSize, textures.down[0], innerSize / 2 - pad, innerSize / 2 - pad);
     this.applySpriteDisplaySize(spriteFrameSizePx);
     this.textures = textures;
-    const safeHome = Animal.resolveHomeAwayFromMerchant(homeX, homeY, roomId, tileSize, worldCols, worldRows);
+    const safeHome = WalkEntity.resolveHomeAwayFromMerchant(homeX, homeY, roomId, tileSize, worldCols, worldRows);
     this.x = safeHome.x;
     this.y = safeHome.y;
 
     this.view.position.set(this.x, this.y);
 
-    const { legs, cycleMs } = Animal.buildTour(
+    const { legs, cycleMs } = WalkEntity.buildTour(
       seedBase,
       roomId,
       tileSize,
@@ -152,19 +156,21 @@ export abstract class Animal extends Entity {
     cowSrc: string,
     deerSrc: { idle: string; walk: string },
     highlandBullSrc: string,
+    frogBlueSrc: string,
     penguinSrc: string,
     slimeSrc: { idle: string; walk: string },
-  ): Promise<AnimalTextureMap | null> {
-    const [bull, cow, deer, highlandBull, penguin, slime] = await Promise.all([
-      Animal.loadOneSheet(bullSrc, BULL_COW_ROW_INSET),
-      Animal.loadOneSheet(cowSrc, BULL_COW_ROW_INSET),
-      Animal.loadDeerSheet(deerSrc.idle, deerSrc.walk),
-      Animal.loadHighlandBullSheet(highlandBullSrc),
-      Animal.loadPenguinSheet(penguinSrc),
-      Animal.loadSlimeSheet(slimeSrc.idle, slimeSrc.walk),
+  ): Promise<WalkTextureMap | null> {
+    const [bull, cow, deer, highlandBull, frogBlue, penguin, slime] = await Promise.all([
+      WalkEntity.loadOneSheet(bullSrc, BULL_COW_ROW_INSET),
+      WalkEntity.loadOneSheet(cowSrc, BULL_COW_ROW_INSET),
+      WalkEntity.loadDeerSheet(deerSrc.idle, deerSrc.walk),
+      WalkEntity.loadHighlandBullSheet(highlandBullSrc),
+      FrogBlue.loadTextures(frogBlueSrc),
+      WalkEntity.loadPenguinSheet(penguinSrc),
+      WalkEntity.loadSlimeSheet(slimeSrc.idle, slimeSrc.walk),
     ]);
     if (!bull || !cow || !deer) return null;
-    return { bull, cow, deer, highlandBull, penguin, slime };
+    return { bull, cow, deer, frogBlue, highlandBull, penguin, slime };
   }
 
   static fnv1aHash(...values: number[]): number {
@@ -288,7 +294,7 @@ export abstract class Animal extends Entity {
     this.setSpriteFlipX(flipX);
   }
 
-  private static async loadPenguinSheet(src: string): Promise<AnimalTextureSet | null> {
+  private static async loadPenguinSheet(src: string): Promise<WalkTextureSet | null> {
     try {
       const base = await Assets.load<Texture>(src);
       base.source.scaleMode = 'nearest';
@@ -315,7 +321,7 @@ export abstract class Animal extends Entity {
       down?: { top?: number; right?: number; bottom?: number; left?: number };
       up?: { top?: number; right?: number; bottom?: number; left?: number };
     },
-  ): Promise<AnimalTextureSet | null> {
+  ): Promise<WalkTextureSet | null> {
     try {
       const base = await Assets.load<Texture>(src);
       base.source.scaleMode = 'nearest';
@@ -329,7 +335,7 @@ export abstract class Animal extends Entity {
     }
   }
 
-  private static async loadHighlandBullSheet(src: string): Promise<AnimalTextureSet | null> {
+  private static async loadHighlandBullSheet(src: string): Promise<WalkTextureSet | null> {
     try {
       const base = await Assets.load<Texture>(src);
       base.source.scaleMode = 'nearest';
@@ -357,7 +363,7 @@ export abstract class Animal extends Entity {
     }
   }
 
-  private static async loadSlimeSheet(idleSrc: string, walkSrc: string): Promise<AnimalTextureSet | null> {
+  private static async loadSlimeSheet(idleSrc: string, walkSrc: string): Promise<WalkTextureSet | null> {
     try {
       const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
       idleBase.source.scaleMode = 'nearest';
@@ -375,7 +381,7 @@ export abstract class Animal extends Entity {
     }
   }
 
-  private static async loadDeerSheet(idleSrc: string, walkSrc: string): Promise<AnimalTextureSet | null> {
+  private static async loadDeerSheet(idleSrc: string, walkSrc: string): Promise<WalkTextureSet | null> {
     try {
       const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
       idleBase.source.scaleMode = 'nearest';
@@ -453,7 +459,7 @@ export abstract class Animal extends Entity {
     let lastOffset = (prng() * 2 - 1) * WANDER_RADIUS_PX;
 
     const tryTarget = (horizontal: boolean, axisOffset: number): { x: number; y: number } | null => {
-      const target = Animal.wanderTargetAt(
+      const target = WalkEntity.wanderTargetAt(
         cx,
         cy,
         homeX,
@@ -464,7 +470,7 @@ export abstract class Animal extends Entity {
         worldCols,
         worldRows,
       );
-      return Animal.isWanderLegAllowed(cx, cy, target.x, target.y, keepOut) ? target : null;
+      return WalkEntity.isWanderLegAllowed(cx, cy, target.x, target.y, keepOut) ? target : null;
     };
 
     for (let attempt = 0; attempt < WANDER_TARGET_MAX_ATTEMPTS; attempt++) {
@@ -487,16 +493,16 @@ export abstract class Animal extends Entity {
     worldRows: number,
     homeX: number,
     homeY: number,
-  ): { legs: AnimalLeg[]; cycleMs: number } {
-    const prng = Animal.mulberry32(seedBase);
+  ): { legs: WalkLeg[]; cycleMs: number } {
+    const prng = WalkEntity.mulberry32(seedBase);
     const keepOut = merchantKeepOutRect(roomId, tileSize, worldCols, worldRows);
-    const legs: AnimalLeg[] = [];
+    const legs: WalkLeg[] = [];
     let cx = homeX;
     let cy = homeY;
     let cumMs = 0;
 
     const pushLeg = (toX: number, toY: number, pauseMs: number): void => {
-      if (!Animal.isWanderLegAllowed(cx, cy, toX, toY, keepOut)) return;
+      if (!WalkEntity.isWanderLegAllowed(cx, cy, toX, toY, keepOut)) return;
       cumMs += pauseMs;
       const startMs = cumMs;
       const dx = toX - cx;
@@ -507,7 +513,7 @@ export abstract class Animal extends Entity {
 
       const ax = Math.abs(dx);
       const ay = Math.abs(dy);
-      const direction: AnimalDirection = ax >= ay ? (dx >= 0 ? 'right' : 'left') : dy >= 0 ? 'down' : 'up';
+      const direction: WalkDirection = ax >= ay ? (dx >= 0 ? 'right' : 'left') : dy >= 0 ? 'down' : 'up';
 
       legs.push({ startMs, arriveMs, fromX: cx, fromY: cy, toX, toY, direction });
       cumMs = arriveMs;
@@ -517,7 +523,7 @@ export abstract class Animal extends Entity {
 
     for (let i = 0; i < TOUR_LEG_COUNT; i++) {
       const pauseMs = PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
-      const target = Animal.pickWanderTarget(prng, cx, cy, homeX, homeY, tileSize, worldCols, worldRows, keepOut);
+      const target = WalkEntity.pickWanderTarget(prng, cx, cy, homeX, homeY, tileSize, worldCols, worldRows, keepOut);
       if (target) pushLeg(target.x, target.y, pauseMs);
     }
 

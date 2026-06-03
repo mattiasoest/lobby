@@ -23,6 +23,7 @@ export type GameOptions = {
     bull: string;
     cow: string;
     deer: { idle: string; walk: string };
+    frogBlue: string;
     highlandBull: string;
     penguin: string;
     slime: { idle: string; walk: string };

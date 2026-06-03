@@ -1,6 +1,6 @@
 import { Assets, Container, TilingSprite, type Texture } from 'pixi.js';
 import { ROOM_CAMERA_ZOOM } from '../core/constants.ts';
-import { Animal, type AnimalTextureMap } from '../entities/npcs/Animal.ts';
+import { WalkEntity, type WalkTextureMap } from '../entities/npcs/WalkEntity.ts';
 import { Merchant, type MerchantIdleFrames } from '../entities/Merchant.ts';
 import { Player, type CharacterTextureSet } from '../entities/Player.ts';
 import { ROOM_PIXEL_FACE_SPECS } from '../core/pixelTypography.ts';
@@ -8,7 +8,7 @@ import { ROOM_PIXEL_FACE_SPECS } from '../core/pixelTypography.ts';
 export type RoomAssets = {
   backgroundTexture: Texture | null;
   characterTexturesByAvatarId: Map<string, CharacterTextureSet>;
-  animalTextures: AnimalTextureMap | null;
+  walkTextures: WalkTextureMap | null;
   merchantIdleFrames: MerchantIdleFrames | null;
 };
 
@@ -44,6 +44,7 @@ export class Scene {
       bull: string;
       cow: string;
       deer: { idle: string; walk: string };
+      frogBlue: string;
       highlandBull: string;
       penguin: string;
       slime: { idle: string; walk: string };
@@ -59,11 +60,12 @@ export class Scene {
           return [avatarId, textures] as const;
         }),
       ),
-      Animal.loadTextures(
+      WalkEntity.loadTextures(
         animalTextureSrc.bull,
         animalTextureSrc.cow,
         animalTextureSrc.deer,
         animalTextureSrc.highlandBull,
+        animalTextureSrc.frogBlue,
         animalTextureSrc.penguin,
         animalTextureSrc.slime,
       ),
@@ -77,7 +79,7 @@ export class Scene {
     return {
       backgroundTexture: (backgroundResult as Texture | null) ?? null,
       characterTexturesByAvatarId,
-      animalTextures: animalResult,
+      walkTextures: animalResult,
       merchantIdleFrames,
     };
   }

@@ -1,6 +1,6 @@
-import { Animal, PENGUIN_SPRITE_SIZE_PX, type AnimalTextureSet } from './Animal.ts';
+import { WalkEntity, PENGUIN_SPRITE_SIZE_PX, type WalkTextureSet } from './WalkEntity.ts';
 
-export class Penguin extends Animal {
+export class Penguin extends WalkEntity {
   readonly kind = 'penguin' as const;
 
   protected override get horizontalProfileFacesRight(): boolean {
@@ -8,7 +8,7 @@ export class Penguin extends Animal {
   }
 
   constructor(
-    textures: AnimalTextureSet,
+    textures: WalkTextureSet,
     tileSize: number,
     worldCols: number,
     worldRows: number,

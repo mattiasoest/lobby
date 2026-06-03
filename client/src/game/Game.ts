@@ -99,7 +99,7 @@ export class Game {
     this.scene = scene;
     app.stage.addChild(scene.viewRoot);
 
-    this.animalSystem.setTextures(assets.animalTextures);
+    this.animalSystem.setTextures(assets.walkTextures);
     this.playerRenderSystem.setLayers(scene.actorLayer, scene.playerNameLayer);
     this.playerRenderSystem.setCharacterTextures(assets.characterTexturesByAvatarId);
     this.merchantIdleFrames = assets.merchantIdleFrames;
