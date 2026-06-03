@@ -1,7 +1,8 @@
 import type { Container } from 'pixi.js';
 import { Graphics } from 'pixi.js';
 import { ROOM_CAMERA_ZOOM } from '../core/constants.ts';
-import type { WorldViewport } from './Snow.ts';
+import { clearParticleGraphics, seedParticleCount, updateFallingParticles } from './particleFall.ts';
+import type { WorldViewport } from './worldViewport.ts';
 
 type Drop = {
   x: number;
@@ -17,10 +18,6 @@ type Drop = {
  * staying fixed to the screen.
  */
 export class Rain {
-  static enabledForRoomId(roomId: number): boolean {
-    return (roomId | 0) === 2;
-  }
-
   private static readonly MIN_DROPS = 95;
   private static readonly MAX_DROPS = 340;
   private static readonly AREA_PER_DROP = 4800 / (ROOM_CAMERA_ZOOM * ROOM_CAMERA_ZOOM);
@@ -43,44 +40,24 @@ export class Rain {
       return;
     }
 
-    const dt = deltaMS / 1000;
-    const wind = Rain.WIND_PX_PER_SEC * dt;
-    const margin = 24;
-    const bottom = viewport.top + viewport.h;
-    const right = viewport.left + viewport.w;
-
-    for (const drop of this.drops) {
-      drop.y += drop.vy * dt;
-      drop.x += wind;
-      if (drop.y > bottom + margin) {
-        this.resetDrop(drop, viewport, true);
-        continue;
-      }
-      if (drop.x > right + margin) {
-        drop.x = viewport.left - margin;
-      } else if (drop.x < viewport.left - margin) {
-        drop.x = right + margin;
-      }
-      Rain.syncDropGraphic(drop);
-    }
+    updateFallingParticles(
+      this.drops,
+      deltaMS,
+      viewport,
+      Rain.WIND_PX_PER_SEC,
+      24,
+      (drop) => this.resetDrop(drop, viewport, true),
+      (drop) => Rain.syncDropGraphic(drop),
+    );
   }
 
   destroy(): void {
-    for (const drop of this.drops) {
-      this.parent.removeChild(drop.graphic);
-      drop.graphic.destroy();
-    }
-    this.drops.length = 0;
+    clearParticleGraphics(this.parent, this.drops);
   }
 
   private seed(view: WorldViewport): void {
-    let count = Math.round((view.w * view.h) / Rain.AREA_PER_DROP);
-    count = Math.max(Rain.MIN_DROPS, Math.min(Rain.MAX_DROPS, count));
-    for (const drop of this.drops) {
-      this.parent.removeChild(drop.graphic);
-      drop.graphic.destroy();
-    }
-    this.drops.length = 0;
+    const count = seedParticleCount(view, Rain.AREA_PER_DROP, Rain.MIN_DROPS, Rain.MAX_DROPS);
+    clearParticleGraphics(this.parent, this.drops);
     for (let i = 0; i < count; i++) {
       const state = Rain.newDrop(view, false);
       const graphic = Rain.createDropGraphic(state.length);

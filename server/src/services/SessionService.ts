@@ -10,6 +10,8 @@ import {
   refreshTtlMs,
 } from '../auth/tokens.js';
 
+type RefreshRow = { id: string; userId: string };
+
 export class SessionService {
   private readonly jwtSecret: string;
 
@@ -50,17 +52,7 @@ export class SessionService {
         .limit(1);
       const row = sel[0];
       if (!row || row.userId !== sub) return null;
-      await tx
-        .update(refreshTokens)
-        .set({ revokedAt: sql`NOW()` })
-        .where(eq(refreshTokens.id, row.id));
-      const newRaw = generateRefreshSecret();
-      const expiresAt = new Date(Date.now() + ttlMs);
-      await tx.insert(refreshTokens).values({
-        userId: row.userId,
-        tokenHash: hashRefreshToken(newRaw),
-        expiresAt,
-      });
+      const newRaw = await SessionService.revokeAndReissueRefresh(tx, row, ttlMs);
       return { newRaw };
     });
   }
@@ -88,17 +80,7 @@ export class SessionService {
         .limit(1);
       const row = sel[0];
       if (!row) return null;
-      await tx
-        .update(refreshTokens)
-        .set({ revokedAt: sql`NOW()` })
-        .where(eq(refreshTokens.id, row.id));
-      const newRaw = generateRefreshSecret();
-      const expiresAt = new Date(Date.now() + ttlMs);
-      await tx.insert(refreshTokens).values({
-        userId: row.userId,
-        tokenHash: hashRefreshToken(newRaw),
-        expiresAt,
-      });
+      const newRaw = await SessionService.revokeAndReissueRefresh(tx, row, ttlMs);
       return { userId: row.userId, username: row.username, newRaw };
     });
 
@@ -118,5 +100,24 @@ export class SessionService {
       .where(
         and(eq(refreshTokens.tokenHash, hashRefreshToken(presentedRaw)), isNull(refreshTokens.revokedAt)),
       );
+  }
+
+  private static async revokeAndReissueRefresh(
+    tx: Parameters<Parameters<AppDatabase['transaction']>[0]>[0],
+    row: RefreshRow,
+    ttlMs: number,
+  ): Promise<string> {
+    await tx
+      .update(refreshTokens)
+      .set({ revokedAt: sql`NOW()` })
+      .where(eq(refreshTokens.id, row.id));
+    const newRaw = generateRefreshSecret();
+    const expiresAt = new Date(Date.now() + ttlMs);
+    await tx.insert(refreshTokens).values({
+      userId: row.userId,
+      tokenHash: hashRefreshToken(newRaw),
+      expiresAt,
+    });
+    return newRaw;
   }
 }

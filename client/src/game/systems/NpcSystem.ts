@@ -1,7 +1,8 @@
 import type { Container } from 'pixi.js';
 import { getRoomConfig } from '../config/roomConfig.ts';
 import { clampWorldTopLeft } from '../core/worldMath.ts';
-import { WalkEntity, type LoadedNpcTextures, type NpcType } from '../entities/npcs/WalkEntity.ts';
+import { scatterNpcHomesInWorld } from '../core/npc/npcWander.ts';
+import { WalkEntity, type LoadedNpcTextures, type NpcType, type WalkTextureSet } from '../entities/npcs/WalkEntity.ts';
 import { Bull } from '../entities/npcs/Bull.ts';
 import { Cow } from '../entities/npcs/Cow.ts';
 import { Deer } from '../entities/npcs/Deer.ts';
@@ -97,115 +98,81 @@ export class NpcSystem {
       case 'deer': {
         const walkTextures = textures.deer;
         if (!walkTextures) return;
-        for (let i = 0; i < count; i++) {
-          const home = homes.deer[i];
-          if (!home) continue;
-          const deer = new Deer(
-            walkTextures,
-            tileSize,
-            worldCols,
-            worldRows,
-            home.x,
-            home.y,
-            this.seedBase(roomId, 'deer', i),
-            roomId,
-          );
-          deer.view.zIndex = home.y;
-          actorLayer.addChild(deer.view);
-          this.walkEntities.push(deer);
-        }
+        this.spawnWalkNpcInstances(
+          Deer,
+          walkTextures,
+          homes.deer.slice(0, count),
+          roomId,
+          'deer',
+          tileSize,
+          worldCols,
+          worldRows,
+          actorLayer,
+        );
         return;
       }
       case 'frogBlue': {
         const hopTextures = textures.frogBlue as HopTextureSet | undefined;
         if (!hopTextures) return;
-        const frogHomes = this.frogBlueHomes(tileSize, worldCols, worldRows, count);
-        for (let i = 0; i < frogHomes.length; i++) {
-          const home = frogHomes[i];
-          if (!home) continue;
-          const frog = new FrogBlue(
-            hopTextures,
-            tileSize,
-            worldCols,
-            worldRows,
-            home.x,
-            home.y,
-            this.seedBase(roomId, 'frogBlue', i),
-            roomId,
-          );
-          frog.view.zIndex = home.y;
-          actorLayer.addChild(frog.view);
-          this.hopEntities.push(frog);
-        }
+        this.spawnHopNpcInstances(
+          FrogBlue,
+          hopTextures,
+          this.scatteredHomes(tileSize, worldCols, worldRows, count, 1, 'frogBlue', 0x6672_6f67),
+          roomId,
+          'frogBlue',
+          tileSize,
+          worldCols,
+          worldRows,
+          actorLayer,
+        );
         return;
       }
       case 'highlandBull': {
         const walkTextures = textures.highlandBull;
         if (!walkTextures) return;
-        const highlandBullHomes = this.highlandBullHomes(tileSize, worldCols, worldRows, count);
-        for (let i = 0; i < highlandBullHomes.length; i++) {
-          const home = highlandBullHomes[i];
-          if (!home) continue;
-          const highlandBull = new HighlandBull(
-            walkTextures,
-            tileSize,
-            worldCols,
-            worldRows,
-            home.x,
-            home.y,
-            this.seedBase(roomId, 'highlandBull', i),
-            roomId,
-          );
-          highlandBull.view.zIndex = home.y;
-          actorLayer.addChild(highlandBull.view);
-          this.walkEntities.push(highlandBull);
-        }
+        this.spawnWalkNpcInstances(
+          HighlandBull,
+          walkTextures,
+          this.scatteredHomes(tileSize, worldCols, worldRows, count, 3, 'highlandBull', 0x6869_6768),
+          roomId,
+          'highlandBull',
+          tileSize,
+          worldCols,
+          worldRows,
+          actorLayer,
+        );
         return;
       }
       case 'slime': {
         const walkTextures = textures.slime;
         if (!walkTextures) return;
-        const slimeHomes = this.slimeHomes(tileSize, worldCols, worldRows, count);
-        for (let i = 0; i < slimeHomes.length; i++) {
-          const home = slimeHomes[i];
-          if (!home) continue;
-          const slime = new Slime(
-            walkTextures,
-            tileSize,
-            worldCols,
-            worldRows,
-            home.x,
-            home.y,
-            this.seedBase(roomId, 'slime', i),
-            roomId,
-          );
-          slime.view.zIndex = home.y;
-          actorLayer.addChild(slime.view);
-          this.walkEntities.push(slime);
-        }
+        this.spawnWalkNpcInstances(
+          Slime,
+          walkTextures,
+          this.scatteredHomes(tileSize, worldCols, worldRows, count, 2, 'slime', 0x736c_696d),
+          roomId,
+          'slime',
+          tileSize,
+          worldCols,
+          worldRows,
+          actorLayer,
+        );
         return;
       }
       case 'penguin': {
         const walkTextures = textures.penguin;
         if (!walkTextures) return;
-        const penguinHomes = this.penguinHomes(tileSize, worldCols, worldRows, count);
-        for (let i = 0; i < penguinHomes.length; i++) {
-          const home = penguinHomes[i];
-          if (!home) continue;
-          const penguin = new Penguin(
-            walkTextures,
-            tileSize,
-            worldCols,
-            worldRows,
-            home.x,
-            home.y,
-            this.seedBase(roomId, 'penguin', i),
-            roomId,
-          );
-          penguin.view.zIndex = home.y;
-          actorLayer.addChild(penguin.view);
-          this.walkEntities.push(penguin);
-        }
+        this.spawnWalkNpcInstances(
+          Penguin,
+          walkTextures,
+          this.scatteredHomes(tileSize, worldCols, worldRows, count, 4, 'penguin', 0x706f_736e),
+          roomId,
+          'penguin',
+          tileSize,
+          worldCols,
+          worldRows,
+          actorLayer,
+        );
       }
     }
   }
@@ -286,98 +253,100 @@ export class NpcSystem {
     };
   }
 
-  private frogBlueHomes(
+  private scatteredHomes(
     tileSize: number,
     worldCols: number,
     worldRows: number,
     count: number,
+    layoutSalt: number,
+    npcType: NpcType,
+    typeSalt: number,
   ): { x: number; y: number }[] {
-    const worldW = worldCols * tileSize;
-    const worldH = worldRows * tileSize;
-    const marginX = worldW * 0.1;
-    const marginY = worldH * 0.1;
-    const spanX = worldW - marginX * 2;
-    const spanY = worldH - marginY * 2;
-    const homes: { x: number; y: number }[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const prng = WalkEntity.mulberry32(WalkEntity.fnv1aHash(1, WalkEntity.TYPE_SEED_SALT.frogBlue, i, 0x6672_6f67));
-      const raw = { x: marginX + prng() * spanX, y: marginY + prng() * spanY };
-      homes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));
-    }
-
-    return homes;
+    return scatterNpcHomesInWorld(
+      tileSize,
+      worldCols,
+      worldRows,
+      count,
+      WalkEntity.fnv1aHash(layoutSalt, WalkEntity.TYPE_SEED_SALT[npcType], typeSalt),
+    );
   }
 
-  private highlandBullHomes(
+  private spawnWalkNpcInstances<T extends WalkEntity>(
+    Ctor: new (
+      textures: WalkTextureSet,
+      tileSize: number,
+      worldCols: number,
+      worldRows: number,
+      homeX: number,
+      homeY: number,
+      seedBase: number,
+      roomId: number,
+    ) => T,
+    walkTextures: WalkTextureSet,
+    npcHomes: { x: number; y: number }[],
+    roomId: number,
+    npcType: NpcType,
     tileSize: number,
     worldCols: number,
     worldRows: number,
-    count: number,
-  ): { x: number; y: number }[] {
-    const worldW = worldCols * tileSize;
-    const worldH = worldRows * tileSize;
-    const marginX = worldW * 0.1;
-    const marginY = worldH * 0.1;
-    const spanX = worldW - marginX * 2;
-    const spanY = worldH - marginY * 2;
-    const homes: { x: number; y: number }[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const prng = WalkEntity.mulberry32(
-        WalkEntity.fnv1aHash(3, WalkEntity.TYPE_SEED_SALT.highlandBull, i, 0x6869_6768),
+    actorLayer: Container,
+  ): void {
+    for (let i = 0; i < npcHomes.length; i++) {
+      const home = npcHomes[i];
+      if (!home) continue;
+      const entity = new Ctor(
+        walkTextures,
+        tileSize,
+        worldCols,
+        worldRows,
+        home.x,
+        home.y,
+        this.seedBase(roomId, npcType, i),
+        roomId,
       );
-      const raw = { x: marginX + prng() * spanX, y: marginY + prng() * spanY };
-      homes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));
+      entity.view.zIndex = home.y;
+      actorLayer.addChild(entity.view);
+      this.walkEntities.push(entity);
     }
-
-    return homes;
   }
 
-  private slimeHomes(
+  private spawnHopNpcInstances<T extends HopEntity>(
+    Ctor: new (
+      textures: HopTextureSet,
+      tileSize: number,
+      worldCols: number,
+      worldRows: number,
+      homeX: number,
+      homeY: number,
+      seedBase: number,
+      roomId: number,
+    ) => T,
+    hopTextures: HopTextureSet,
+    npcHomes: { x: number; y: number }[],
+    roomId: number,
+    npcType: NpcType,
     tileSize: number,
     worldCols: number,
     worldRows: number,
-    count: number,
-  ): { x: number; y: number }[] {
-    const worldW = worldCols * tileSize;
-    const worldH = worldRows * tileSize;
-    const marginX = worldW * 0.1;
-    const marginY = worldH * 0.1;
-    const spanX = worldW - marginX * 2;
-    const spanY = worldH - marginY * 2;
-    const homes: { x: number; y: number }[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const prng = WalkEntity.mulberry32(WalkEntity.fnv1aHash(2, WalkEntity.TYPE_SEED_SALT.slime, i, 0x736c_696d));
-      const raw = { x: marginX + prng() * spanX, y: marginY + prng() * spanY };
-      homes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));
+    actorLayer: Container,
+  ): void {
+    for (let i = 0; i < npcHomes.length; i++) {
+      const home = npcHomes[i];
+      if (!home) continue;
+      const hopper = new Ctor(
+        hopTextures,
+        tileSize,
+        worldCols,
+        worldRows,
+        home.x,
+        home.y,
+        this.seedBase(roomId, npcType, i),
+        roomId,
+      );
+      hopper.view.zIndex = home.y;
+      actorLayer.addChild(hopper.view);
+      this.hopEntities.push(hopper);
     }
-
-    return homes;
-  }
-
-  private penguinHomes(
-    tileSize: number,
-    worldCols: number,
-    worldRows: number,
-    count: number,
-  ): { x: number; y: number }[] {
-    const worldW = worldCols * tileSize;
-    const worldH = worldRows * tileSize;
-    const marginX = worldW * 0.1;
-    const marginY = worldH * 0.1;
-    const spanX = worldW - marginX * 2;
-    const spanY = worldH - marginY * 2;
-    const homes: { x: number; y: number }[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const prng = WalkEntity.mulberry32(WalkEntity.fnv1aHash(4, WalkEntity.TYPE_SEED_SALT.penguin, i, 0x706f_736e));
-      const raw = { x: marginX + prng() * spanX, y: marginY + prng() * spanY };
-      homes.push(clampWorldTopLeft(raw.x, raw.y, tileSize, worldCols, worldRows));
-    }
-
-    return homes;
   }
 
   private seedBase(roomId: number, npcType: NpcType, instance = 0): number {

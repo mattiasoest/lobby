@@ -11,7 +11,7 @@ import {
 import { resolveFrontendReturnUrl, parseAllowedOrigins, primaryFrontendUrl } from '../../config/cors.js';
 import { readCookie } from '../../infrastructure/http/cookieHeader.js';
 import { collapseUsernameWhitespace } from '../../domain/username.js';
-import type { AuthService } from '../../services/AuthService.js';
+import type { AuthLoginResult, AuthService } from '../../services/AuthService.js';
 
 export type OAuthUser = { id: string; username: string };
 
@@ -48,8 +48,7 @@ export class AuthController {
     }
     try {
       const result = await this.authService.guestLogin();
-      res.cookie(REFRESH_COOKIE_NAME, result.refreshRaw, refreshCookieOptions(this.config));
-      res.json({ accessToken: result.accessToken });
+      this.completePasswordlessLogin(res, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'failed';
       res.status(500).json({ error: message });
@@ -68,8 +67,7 @@ export class AuthController {
         res.status(400).json({ error: 'username required' });
         return;
       }
-      res.cookie(REFRESH_COOKIE_NAME, result.refreshRaw, refreshCookieOptions(this.config));
-      res.json({ accessToken: result.accessToken });
+      this.completePasswordlessLogin(res, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'failed';
       res.status(500).json({ error: message });
@@ -129,6 +127,11 @@ export class AuthController {
 
   private clearOAuthReturnCookie(res: Response): void {
     res.clearCookie(OAUTH_RETURN_COOKIE, clearOauthStateCookieOptions(this.config));
+  }
+
+  private completePasswordlessLogin(res: Response, result: AuthLoginResult): void {
+    res.cookie(REFRESH_COOKIE_NAME, result.refreshRaw, refreshCookieOptions(this.config));
+    res.json({ accessToken: result.accessToken });
   }
 
   private async completeOAuth(user: OAuthUser, res: Response, returnBase: string): Promise<void> {

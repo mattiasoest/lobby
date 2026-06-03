@@ -50,25 +50,25 @@ export function useUpdateAvatarMutation(token: string | null) {
   });
 }
 
-export function useDevLoginMutation(opts: { setToken: (token: string) => void }) {
+function usePasswordlessLoginOnSuccess(opts: { setToken: (token: string) => void }) {
   const navigate = useNavigate();
+  return (accessToken: string) => {
+    opts.setToken(accessToken);
+    navigate('/lobby', { replace: true });
+  };
+}
+
+export function useDevLoginMutation(opts: { setToken: (token: string) => void }) {
   return useMutation({
     mutationFn: (username: string) => devLogin(username),
-    onSuccess: (accessToken) => {
-      opts.setToken(accessToken);
-      navigate('/lobby', { replace: true });
-    },
+    onSuccess: usePasswordlessLoginOnSuccess(opts),
   });
 }
 
 export function useGuestLoginMutation(opts: { setToken: (token: string) => void }) {
-  const navigate = useNavigate();
   return useMutation({
     mutationFn: () => guestLogin(),
-    onSuccess: (accessToken) => {
-      opts.setToken(accessToken);
-      navigate('/lobby', { replace: true });
-    },
+    onSuccess: usePasswordlessLoginOnSuccess(opts),
   });
 }
 

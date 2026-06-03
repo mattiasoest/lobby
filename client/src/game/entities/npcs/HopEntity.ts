@@ -1,15 +1,25 @@
 import type { Texture } from 'pixi.js';
-import {
-  axisLegIntersectsMerchantKeepOut,
-  merchantKeepOutRect,
-  nudgeAwayFromMerchantKeepOut,
-  type MerchantKeepOutRect,
-} from '../../config/chatNpc.ts';
-import { clampWorldTopLeft } from '../../core/worldMath.ts';
+import { merchantKeepOutRect } from '../../config/chatNpc.ts';
 import { Entity } from '../Entity.ts';
+import {
+  hasNpcIdleTextures,
+  selectNpcDirectionFrames,
+  type NpcCardinalDirection,
+} from '../../core/npc/npcDirectionFrames.ts';
 import type { NpcType } from './WalkEntity.ts';
+import {
+  appendNpcReturnHomeLegs,
+  clamp01,
+  isNpcAxisLegAllowed,
+  mulberry32,
+  NPC_WANDER_PAUSE_MAX_MS,
+  NPC_WANDER_PAUSE_MIN_MS,
+  NPC_WANDER_TOUR_LEG_COUNT,
+  pickNpcWanderTarget,
+  resolveNpcHomeAwayFromMerchant,
+} from '../../core/npc/npcWander.ts';
 
-export type HopDirection = 'left' | 'right' | 'down' | 'up';
+export type HopDirection = NpcCardinalDirection;
 
 export type HopTextureSet = {
   left: Texture[];
@@ -40,16 +50,6 @@ type HopLeg = {
   toY: number;
   direction: HopDirection;
 };
-
-const PAUSE_MIN_MS = 1500;
-const PAUSE_MAX_MS = 4200;
-const WANDER_RADIUS_PX = 192;
-const TOUR_LEG_COUNT = 120;
-const WANDER_TARGET_MAX_ATTEMPTS = 5;
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
 
 /**
  * Decorative hopper driven by synchronized server time and a per-entity seed.
@@ -86,7 +86,7 @@ export abstract class HopEntity extends Entity {
     this.config = config;
     this.applySpriteDisplaySize(config.spriteFrameSizePx);
     this.textures = textures;
-    const safeHome = HopEntity.resolveHomeAwayFromMerchant(homeX, homeY, roomId, tileSize, worldCols, worldRows);
+    const safeHome = resolveNpcHomeAwayFromMerchant(homeX, homeY, roomId, tileSize, worldCols, worldRows);
     this.x = safeHome.x;
     this.y = safeHome.y;
     this.view.position.set(this.x, this.y);
@@ -110,8 +110,7 @@ export abstract class HopEntity extends Entity {
   }
 
   protected get useIdleTextures(): boolean {
-    const tex = this.textures;
-    return !!(tex.idleLeft ?? tex.idleDown ?? tex.idleUp);
+    return hasNpcIdleTextures(this.textures);
   }
 
   update(roomNowMs: number): void {
@@ -177,29 +176,13 @@ export abstract class HopEntity extends Entity {
   }
 
   private applyFrame(roomNowMs: number): void {
-    const tex = this.textures;
     const useIdle = !this.inHopAnim && this.useIdleTextures;
-
-    let frames: Texture[];
-    let flipX = false;
-    const profileFacesRight = this.config.horizontalProfileFacesRight;
-    switch (this.direction) {
-      case 'right':
-        frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
-        flipX = !profileFacesRight;
-        break;
-      case 'left':
-        frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
-        flipX = profileFacesRight;
-        break;
-      case 'up':
-        frames = useIdle && tex.idleUp ? tex.idleUp : tex.up;
-        break;
-      case 'down':
-      default:
-        frames = useIdle && tex.idleDown ? tex.idleDown : tex.down;
-        break;
-    }
+    const { frames, flipX } = selectNpcDirectionFrames(
+      this.direction,
+      this.textures,
+      useIdle,
+      this.config.horizontalProfileFacesRight,
+    );
 
     const idleRate = this.config.idleFps;
     const rawIdx = useIdle && idleRate !== null ? Math.floor((roomNowMs / 1000) * idleRate) : this.frameIndex;
@@ -219,7 +202,7 @@ export abstract class HopEntity extends Entity {
     jumpFrameCount: number,
     hopFps: number,
   ): { hops: HopLeg[]; cycleMs: number } {
-    const prng = HopEntity.mulberry32(seedBase);
+    const prng = mulberry32(seedBase);
     const keepOut = merchantKeepOutRect(roomId, tileSize, worldCols, worldRows);
     const hops: HopLeg[] = [];
     let cx = homeX;
@@ -228,7 +211,7 @@ export abstract class HopEntity extends Entity {
     const hopDurationMs = (jumpFrameCount / hopFps) * 1000;
 
     const pushHopChain = (toX: number, toY: number, pauseMs: number): void => {
-      if (!HopEntity.isHopAllowed(cx, cy, toX, toY, keepOut)) return;
+      if (!isNpcAxisLegAllowed(cx, cy, toX, toY, keepOut)) return;
       cumMs += pauseMs;
 
       const targetX = toX;
@@ -254,7 +237,7 @@ export abstract class HopEntity extends Entity {
           direction = dy >= 0 ? 'down' : 'up';
         }
 
-        if (!HopEntity.isHopAllowed(cx, cy, hopToX, hopToY, keepOut)) break;
+        if (!isNpcAxisLegAllowed(cx, cy, hopToX, hopToY, keepOut)) break;
 
         const startMs = cumMs;
         const arriveMs = startMs + hopDurationMs;
@@ -265,120 +248,15 @@ export abstract class HopEntity extends Entity {
       }
     };
 
-    for (let i = 0; i < TOUR_LEG_COUNT; i++) {
-      const pauseMs = PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
-      const target = HopEntity.pickWanderTarget(prng, cx, cy, homeX, homeY, tileSize, worldCols, worldRows, keepOut);
+    for (let i = 0; i < NPC_WANDER_TOUR_LEG_COUNT; i++) {
+      const pauseMs = NPC_WANDER_PAUSE_MIN_MS + prng() * (NPC_WANDER_PAUSE_MAX_MS - NPC_WANDER_PAUSE_MIN_MS);
+      const target = pickNpcWanderTarget(prng, cx, cy, homeX, homeY, tileSize, worldCols, worldRows, keepOut);
       if (target) pushHopChain(target.x, target.y, pauseMs);
     }
 
-    if (Math.abs(cx - homeX) > 1e-3) {
-      const returnX = keepOut ? nudgeAwayFromMerchantKeepOut(homeX, cy, keepOut).x : homeX;
-      pushHopChain(returnX, cy, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
-    }
-    if (Math.abs(cy - homeY) > 1e-3) {
-      const returnY = keepOut ? nudgeAwayFromMerchantKeepOut(cx, homeY, keepOut).y : homeY;
-      pushHopChain(cx, returnY, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
-    }
-
-    cumMs += PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
+    appendNpcReturnHomeLegs(prng, keepOut, homeX, homeY, cx, cy, pushHopChain);
+    cumMs += NPC_WANDER_PAUSE_MIN_MS + prng() * (NPC_WANDER_PAUSE_MAX_MS - NPC_WANDER_PAUSE_MIN_MS);
 
     return { hops, cycleMs: cumMs };
-  }
-
-  private static resolveHomeAwayFromMerchant(
-    homeX: number,
-    homeY: number,
-    roomId: number,
-    tileSize: number,
-    worldCols: number,
-    worldRows: number,
-  ): { x: number; y: number } {
-    const keepOut = merchantKeepOutRect(roomId, tileSize, worldCols, worldRows);
-    if (!keepOut) {
-      return clampWorldTopLeft(homeX, homeY, tileSize, worldCols, worldRows);
-    }
-    const nudged = nudgeAwayFromMerchantKeepOut(homeX, homeY, keepOut);
-    return clampWorldTopLeft(nudged.x, nudged.y, tileSize, worldCols, worldRows);
-  }
-
-  private static isHopAllowed(
-    fromX: number,
-    fromY: number,
-    toX: number,
-    toY: number,
-    keepOut: MerchantKeepOutRect | null,
-  ): boolean {
-    if (!keepOut) return true;
-    return !axisLegIntersectsMerchantKeepOut(fromX, fromY, toX, toY, keepOut);
-  }
-
-  private static wanderTargetAt(
-    cx: number,
-    cy: number,
-    homeX: number,
-    homeY: number,
-    horizontal: boolean,
-    axisOffset: number,
-    tileSize: number,
-    worldCols: number,
-    worldRows: number,
-  ): { x: number; y: number } {
-    const homeAxis = horizontal ? homeX : homeY;
-    const newAxisPos = homeAxis + axisOffset;
-    const rawX = horizontal ? newAxisPos : cx;
-    const rawY = horizontal ? cy : newAxisPos;
-    return clampWorldTopLeft(rawX, rawY, tileSize, worldCols, worldRows);
-  }
-
-  private static pickWanderTarget(
-    prng: () => number,
-    cx: number,
-    cy: number,
-    homeX: number,
-    homeY: number,
-    tileSize: number,
-    worldCols: number,
-    worldRows: number,
-    keepOut: MerchantKeepOutRect | null,
-  ): { x: number; y: number } | null {
-    let lastHorizontal = prng() < 0.5;
-    let lastOffset = (prng() * 2 - 1) * WANDER_RADIUS_PX;
-
-    const tryTarget = (horizontal: boolean, axisOffset: number): { x: number; y: number } | null => {
-      const target = HopEntity.wanderTargetAt(
-        cx,
-        cy,
-        homeX,
-        homeY,
-        horizontal,
-        axisOffset,
-        tileSize,
-        worldCols,
-        worldRows,
-      );
-      return HopEntity.isHopAllowed(cx, cy, target.x, target.y, keepOut) ? target : null;
-    };
-
-    for (let attempt = 0; attempt < WANDER_TARGET_MAX_ATTEMPTS; attempt++) {
-      if (attempt > 0) {
-        lastHorizontal = prng() < 0.5;
-        lastOffset = (prng() * 2 - 1) * WANDER_RADIUS_PX;
-      }
-      const target = tryTarget(lastHorizontal, lastOffset);
-      if (target) return target;
-    }
-
-    return tryTarget(lastHorizontal, -lastOffset);
-  }
-
-  static mulberry32(seed: number): () => number {
-    let s = seed >>> 0;
-    return () => {
-      s = (s + 0x6d2b79f5) >>> 0;
-      let t = s;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
   }
 }

@@ -1,12 +1,7 @@
+import { CHAT_NPC_USER_IDS } from '@shared/chatNpcIds';
 import { Merchant } from '../entities/Merchant.ts';
 
-/** Fixed UUIDs shared with the server (`server/src/sockets/chatNpcConfig.ts`). */
-export const CHAT_NPC_USER_IDS = {
-  1: '00000000-0000-4000-8000-000000000001',
-  2: '00000000-0000-4000-8000-000000000002',
-  3: '00000000-0000-4000-8000-000000000003',
-  4: '00000000-0000-4000-8000-000000000004',
-} as const;
+export { CHAT_NPC_USER_IDS };
 
 /** Minimap dot + interact marker green (tailwind green-500). */
 export const CHAT_NPC_MARKER_COLOR = 0x22c55e;

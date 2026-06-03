@@ -47,11 +47,7 @@ export class AuthService {
     const user = insertResult[0];
     if (!user) throw new Error('Failed to create guest user');
 
-    const raw = generateRefreshSecret();
-    const ttl = refreshTtlMs(this.config);
-    await this.persistRefreshToken(user.id, raw, new Date(Date.now() + ttl));
-    const accessToken = issueAccessToken({ id: user.id, username: user.username }, this.jwtSecret, this.config);
-    return { accessToken, refreshRaw: raw, user };
+    return this.issueLoginForUser(user);
   }
 
   async devLogin(usernameRaw: string): Promise<AuthLoginResult | null> {
@@ -74,11 +70,7 @@ export class AuthService {
     const user = insertResult[0];
     if (!user) throw new Error('Failed to upsert dev user');
 
-    const raw = generateRefreshSecret();
-    const ttl = refreshTtlMs(this.config);
-    await this.persistRefreshToken(user.id, raw, new Date(Date.now() + ttl));
-    const accessToken = issueAccessToken({ id: user.id, username: user.username }, this.jwtSecret, this.config);
-    return { accessToken, refreshRaw: raw, user };
+    return this.issueLoginForUser(user);
   }
 
   async upsertOAuthUser(

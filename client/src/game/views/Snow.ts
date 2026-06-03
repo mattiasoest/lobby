@@ -1,8 +1,9 @@
 import type { Container } from 'pixi.js';
 import { Graphics } from 'pixi.js';
+import { clearParticleGraphics, seedParticleCount, updateFallingParticles } from './particleFall.ts';
+import type { WorldViewport } from './worldViewport.ts';
 
-/** Camera-visible rectangle in world coordinates. */
-export type WorldViewport = { left: number; top: number; w: number; h: number };
+export type { WorldViewport };
 
 type Flake = {
   x: number;
@@ -22,10 +23,6 @@ type Flake = {
  * snow following the player.
  */
 export class Snow {
-  static enabledForRoomId(roomId: number): boolean {
-    return (roomId | 0) === 4;
-  }
-
   private static readonly MIN_FLAKES = 80;
   private static readonly MAX_FLAKES = 320;
   private static readonly AREA_PER_FLAKE = 900;
@@ -49,41 +46,24 @@ export class Snow {
 
     const dt = deltaMS / 1000;
     this.elapsedSec += dt;
-    const wind = Snow.WIND_PX_PER_SEC * dt;
-    const margin = 24;
-    const bottom = viewport.top + viewport.h;
-    const right = viewport.left + viewport.w;
-
-    for (const flake of this.flakes) {
-      flake.y += flake.vy * dt;
-      flake.x += wind;
-      if (flake.y > bottom + margin) {
-        Object.assign(flake, Snow.newFlake(viewport, true));
-      } else if (flake.x > right + margin) {
-        flake.x = viewport.left - margin;
-      } else if (flake.x < viewport.left - margin) {
-        flake.x = right + margin;
-      }
-      Snow.syncFlakeGraphic(flake, this.elapsedSec);
-    }
+    updateFallingParticles(
+      this.flakes,
+      deltaMS,
+      viewport,
+      Snow.WIND_PX_PER_SEC,
+      24,
+      (flake) => Object.assign(flake, Snow.newFlake(viewport, true)),
+      (flake) => Snow.syncFlakeGraphic(flake, this.elapsedSec),
+    );
   }
 
   destroy(): void {
-    for (const flake of this.flakes) {
-      this.parent.removeChild(flake.graphic);
-      flake.graphic.destroy();
-    }
-    this.flakes.length = 0;
+    clearParticleGraphics(this.parent, this.flakes);
   }
 
   private seed(view: WorldViewport): void {
-    let count = Math.round((view.w * view.h) / Snow.AREA_PER_FLAKE);
-    count = Math.max(Snow.MIN_FLAKES, Math.min(Snow.MAX_FLAKES, count));
-    for (const flake of this.flakes) {
-      this.parent.removeChild(flake.graphic);
-      flake.graphic.destroy();
-    }
-    this.flakes.length = 0;
+    const count = seedParticleCount(view, Snow.AREA_PER_FLAKE, Snow.MIN_FLAKES, Snow.MAX_FLAKES);
+    clearParticleGraphics(this.parent, this.flakes);
     for (let i = 0; i < count; i++) {
       const state = Snow.newFlake(view, false);
       const graphic = Snow.createFlakeGraphic();

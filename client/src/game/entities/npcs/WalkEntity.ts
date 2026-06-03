@@ -1,16 +1,27 @@
 import type { Texture } from 'pixi.js';
-import {
-  axisLegIntersectsMerchantKeepOut,
-  merchantKeepOutRect,
-  nudgeAwayFromMerchantKeepOut,
-  type MerchantKeepOutRect,
-} from '../../config/chatNpc.ts';
-import { clampWorldTopLeft } from '../../core/worldMath.ts';
+import { merchantKeepOutRect } from '../../config/chatNpc.ts';
 import { Entity } from '../Entity.ts';
+import {
+  hasNpcIdleTextures,
+  selectNpcDirectionFrames,
+  type NpcCardinalDirection,
+} from '../../core/npc/npcDirectionFrames.ts';
 import type { HopTextureSet } from './HopEntity.ts';
+import {
+  appendNpcReturnHomeLegs,
+  clamp01,
+  fnv1aHash,
+  isNpcAxisLegAllowed,
+  mulberry32,
+  NPC_WANDER_PAUSE_MAX_MS,
+  NPC_WANDER_PAUSE_MIN_MS,
+  NPC_WANDER_TOUR_LEG_COUNT,
+  pickNpcWanderTarget,
+  resolveNpcHomeAwayFromMerchant,
+} from '../../core/npc/npcWander.ts';
 
 export type NpcType = 'bull' | 'cow' | 'deer' | 'frogBlue' | 'highlandBull' | 'penguin' | 'slime';
-export type WalkDirection = 'left' | 'right' | 'down' | 'up';
+export type WalkDirection = NpcCardinalDirection;
 
 export type WalkTextureSet = {
   left: Texture[];
@@ -38,15 +49,6 @@ type WalkLeg = {
 export const WALK_ENTITY_SPRITE_SIZE_PX = 32;
 const WALK_FPS = 6;
 const MOVE_PX_PER_SEC = 26;
-const PAUSE_MIN_MS = 1500;
-const PAUSE_MAX_MS = 4200;
-const WANDER_RADIUS_PX = 192;
-const TOUR_LEG_COUNT = 120;
-const WANDER_TARGET_MAX_ATTEMPTS = 5;
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
 
 /**
  * Decorative wandering NPC with walk-based movement. Position, direction, and walk frame are pure functions of
@@ -64,6 +66,9 @@ export abstract class WalkEntity extends Entity {
     penguin: 0x7065_6e67,
     slime: 0x736c_696d,
   };
+
+  static fnv1aHash = fnv1aHash;
+  static mulberry32 = mulberry32;
 
   abstract readonly type: NpcType;
 
@@ -94,7 +99,7 @@ export abstract class WalkEntity extends Entity {
     super(tileSize, textures.down[0], innerSize / 2 - pad, innerSize / 2 - pad);
     this.applySpriteDisplaySize(spriteFrameSizePx);
     this.textures = textures;
-    const safeHome = WalkEntity.resolveHomeAwayFromMerchant(homeX, homeY, roomId, tileSize, worldCols, worldRows);
+    const safeHome = resolveNpcHomeAwayFromMerchant(homeX, homeY, roomId, tileSize, worldCols, worldRows);
     this.x = safeHome.x;
     this.y = safeHome.y;
 
@@ -115,29 +120,6 @@ export abstract class WalkEntity extends Entity {
     this.applyFrame(Date.now());
   }
 
-  static fnv1aHash(...values: number[]): number {
-    let h = 0x811c9dc5;
-    for (const v of values) {
-      const x = v | 0;
-      h = Math.imul(h ^ (x & 0xff), 0x01000193);
-      h = Math.imul(h ^ ((x >>> 8) & 0xff), 0x01000193);
-      h = Math.imul(h ^ ((x >>> 16) & 0xff), 0x01000193);
-      h = Math.imul(h ^ ((x >>> 24) & 0xff), 0x01000193);
-    }
-    return h >>> 0;
-  }
-
-  static mulberry32(seed: number): () => number {
-    let s = seed >>> 0;
-    return () => {
-      s = (s + 0x6d2b79f5) >>> 0;
-      let t = s;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
   protected get walkFps(): number {
     return WALK_FPS;
   }
@@ -147,7 +129,7 @@ export abstract class WalkEntity extends Entity {
   }
 
   protected get useIdleTextures(): boolean {
-    return false;
+    return hasNpcIdleTextures(this.textures);
   }
 
   /** Horizontal sprites face left by default; flip when moving right. Override when the sheet faces right. */
@@ -206,120 +188,18 @@ export abstract class WalkEntity extends Entity {
   }
 
   protected applyFrame(roomNowMs: number): void {
-    const tex = this.textures;
     const useIdle = this.shouldUseIdleTextures();
-
-    let frames: Texture[];
-    let flipX = false;
-    const profileFacesRight = this.horizontalProfileFacesRight;
-    switch (this.direction) {
-      case 'right':
-        frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
-        flipX = !profileFacesRight;
-        break;
-      case 'left':
-        frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
-        flipX = profileFacesRight;
-        break;
-      case 'up':
-        frames = useIdle && tex.idleUp ? tex.idleUp : tex.up;
-        break;
-      case 'down':
-      default:
-        frames = useIdle && tex.idleDown ? tex.idleDown : tex.down;
-        break;
-    }
+    const { frames, flipX } = selectNpcDirectionFrames(
+      this.direction,
+      this.textures,
+      useIdle,
+      this.horizontalProfileFacesRight,
+    );
 
     const idleRate = this.idleFps;
     const rawIdx = useIdle && idleRate !== null ? Math.floor((roomNowMs / 1000) * idleRate) : this.frameIndex;
     this.setSpriteTexture(frames[this.wrapFrameIndex(rawIdx, frames.length)]);
     this.setSpriteFlipX(flipX);
-  }
-
-  private static resolveHomeAwayFromMerchant(
-    homeX: number,
-    homeY: number,
-    roomId: number,
-    tileSize: number,
-    worldCols: number,
-    worldRows: number,
-  ): { x: number; y: number } {
-    const keepOut = merchantKeepOutRect(roomId, tileSize, worldCols, worldRows);
-    if (!keepOut) {
-      return clampWorldTopLeft(homeX, homeY, tileSize, worldCols, worldRows);
-    }
-    const nudged = nudgeAwayFromMerchantKeepOut(homeX, homeY, keepOut);
-    return clampWorldTopLeft(nudged.x, nudged.y, tileSize, worldCols, worldRows);
-  }
-
-  private static isWanderLegAllowed(
-    fromX: number,
-    fromY: number,
-    toX: number,
-    toY: number,
-    keepOut: MerchantKeepOutRect | null,
-  ): boolean {
-    if (!keepOut) return true;
-    return !axisLegIntersectsMerchantKeepOut(fromX, fromY, toX, toY, keepOut);
-  }
-
-  private static wanderTargetAt(
-    cx: number,
-    cy: number,
-    homeX: number,
-    homeY: number,
-    horizontal: boolean,
-    axisOffset: number,
-    tileSize: number,
-    worldCols: number,
-    worldRows: number,
-  ): { x: number; y: number } {
-    const homeAxis = horizontal ? homeX : homeY;
-    const newAxisPos = homeAxis + axisOffset;
-    const rawX = horizontal ? newAxisPos : cx;
-    const rawY = horizontal ? cy : newAxisPos;
-    return clampWorldTopLeft(rawX, rawY, tileSize, worldCols, worldRows);
-  }
-
-  private static pickWanderTarget(
-    prng: () => number,
-    cx: number,
-    cy: number,
-    homeX: number,
-    homeY: number,
-    tileSize: number,
-    worldCols: number,
-    worldRows: number,
-    keepOut: MerchantKeepOutRect | null,
-  ): { x: number; y: number } | null {
-    let lastHorizontal = prng() < 0.5;
-    let lastOffset = (prng() * 2 - 1) * WANDER_RADIUS_PX;
-
-    const tryTarget = (horizontal: boolean, axisOffset: number): { x: number; y: number } | null => {
-      const target = WalkEntity.wanderTargetAt(
-        cx,
-        cy,
-        homeX,
-        homeY,
-        horizontal,
-        axisOffset,
-        tileSize,
-        worldCols,
-        worldRows,
-      );
-      return WalkEntity.isWanderLegAllowed(cx, cy, target.x, target.y, keepOut) ? target : null;
-    };
-
-    for (let attempt = 0; attempt < WANDER_TARGET_MAX_ATTEMPTS; attempt++) {
-      if (attempt > 0) {
-        lastHorizontal = prng() < 0.5;
-        lastOffset = (prng() * 2 - 1) * WANDER_RADIUS_PX;
-      }
-      const target = tryTarget(lastHorizontal, lastOffset);
-      if (target) return target;
-    }
-
-    return tryTarget(lastHorizontal, -lastOffset);
   }
 
   private static buildTour(
@@ -331,7 +211,7 @@ export abstract class WalkEntity extends Entity {
     homeX: number,
     homeY: number,
   ): { legs: WalkLeg[]; cycleMs: number } {
-    const prng = WalkEntity.mulberry32(seedBase);
+    const prng = mulberry32(seedBase);
     const keepOut = merchantKeepOutRect(roomId, tileSize, worldCols, worldRows);
     const legs: WalkLeg[] = [];
     let cx = homeX;
@@ -339,7 +219,7 @@ export abstract class WalkEntity extends Entity {
     let cumMs = 0;
 
     const pushLeg = (toX: number, toY: number, pauseMs: number): void => {
-      if (!WalkEntity.isWanderLegAllowed(cx, cy, toX, toY, keepOut)) return;
+      if (!isNpcAxisLegAllowed(cx, cy, toX, toY, keepOut)) return;
       cumMs += pauseMs;
       const startMs = cumMs;
       const dx = toX - cx;
@@ -358,22 +238,14 @@ export abstract class WalkEntity extends Entity {
       cy = toY;
     };
 
-    for (let i = 0; i < TOUR_LEG_COUNT; i++) {
-      const pauseMs = PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
-      const target = WalkEntity.pickWanderTarget(prng, cx, cy, homeX, homeY, tileSize, worldCols, worldRows, keepOut);
+    for (let i = 0; i < NPC_WANDER_TOUR_LEG_COUNT; i++) {
+      const pauseMs = NPC_WANDER_PAUSE_MIN_MS + prng() * (NPC_WANDER_PAUSE_MAX_MS - NPC_WANDER_PAUSE_MIN_MS);
+      const target = pickNpcWanderTarget(prng, cx, cy, homeX, homeY, tileSize, worldCols, worldRows, keepOut);
       if (target) pushLeg(target.x, target.y, pauseMs);
     }
 
-    if (Math.abs(cx - homeX) > 1e-3) {
-      const returnX = keepOut ? nudgeAwayFromMerchantKeepOut(homeX, cy, keepOut).x : homeX;
-      pushLeg(returnX, cy, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
-    }
-    if (Math.abs(cy - homeY) > 1e-3) {
-      const returnY = keepOut ? nudgeAwayFromMerchantKeepOut(cx, homeY, keepOut).y : homeY;
-      pushLeg(cx, returnY, PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS));
-    }
-
-    cumMs += PAUSE_MIN_MS + prng() * (PAUSE_MAX_MS - PAUSE_MIN_MS);
+    appendNpcReturnHomeLegs(prng, keepOut, homeX, homeY, cx, cy, pushLeg);
+    cumMs += NPC_WANDER_PAUSE_MIN_MS + prng() * (NPC_WANDER_PAUSE_MAX_MS - NPC_WANDER_PAUSE_MIN_MS);
 
     return { legs, cycleMs: cumMs };
   }

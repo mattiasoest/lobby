@@ -46,20 +46,7 @@ export class MessageService {
   ): Promise<ChatMessagePayload | null> {
     const trimmed = raw.trim().slice(0, 2000);
     if (!trimmed) return null;
-    const content = maskProfanity(trimmed);
-    const ins = await this.db
-      .insert(messages)
-      .values({ roomId, userId, content, contentRaw: trimmed })
-      .returning({
-        id: messages.id,
-        roomId: messages.roomId,
-        userId: messages.userId,
-        content: messages.content,
-        createdAt: messages.createdAt,
-      });
-    const row = ins[0];
-    if (!row) return null;
-    return toPayload(row, username);
+    return this.insertMessage(roomId, userId, username, maskProfanity(trimmed), trimmed);
   }
 
   async getRoomHistory(roomId: number): Promise<ChatMessagePayload[] | null> {
@@ -90,10 +77,19 @@ export class MessageService {
     username: string,
     raw: string,
   ): Promise<ChatMessagePayload | null> {
-    const content = maskProfanity(raw);
+    return this.insertMessage(roomId, userId, username, maskProfanity(raw), raw);
+  }
+
+  private async insertMessage(
+    roomId: number,
+    userId: string,
+    username: string,
+    content: string,
+    contentRaw: string,
+  ): Promise<ChatMessagePayload | null> {
     const ins = await this.db
       .insert(messages)
-      .values({ roomId, userId, content, contentRaw: raw })
+      .values({ roomId, userId, content, contentRaw })
       .returning({
         id: messages.id,
         roomId: messages.roomId,

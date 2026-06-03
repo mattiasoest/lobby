@@ -1,16 +1,10 @@
+import { CHAT_NPC_USER_IDS } from '../../../shared/chatNpcIds.js';
+import { usernameForMentionMatch } from '../../../shared/mention.js';
 import type { RoomId } from './rooms.js';
 import { ROOM_IDS } from './rooms.js';
 
-export { ROOM_IDS };
+export { CHAT_NPC_USER_IDS, ROOM_IDS, usernameForMentionMatch };
 export type { RoomId };
-
-/** Fixed UUIDs shared with the client (`client/src/game/config/chatNpc.ts`). */
-export const CHAT_NPC_USER_IDS = {
-  1: '00000000-0000-4000-8000-000000000001',
-  2: '00000000-0000-4000-8000-000000000002',
-  3: '00000000-0000-4000-8000-000000000003',
-  4: '00000000-0000-4000-8000-000000000004',
-} as const satisfies Record<RoomId, string>;
 
 export const GROQ_MODEL_70B = 'llama-3.3-70b-versatile';
 export const GROQ_MODEL_SCOUT = 'meta-llama/llama-4-scout-17b-16e-instruct';
@@ -86,11 +80,6 @@ export function getRoomChatNpcConfig(roomId: number): RoomChatNpcConfig | null {
   const key = roomId as RoomId;
   if (!(key in ROOM_CHAT_NPC_CONFIGS)) return null;
   return { roomId, ...ROOM_CHAT_NPC_CONFIGS[key] };
-}
-
-/** Lowercase, whitespace-free key for @mention matching (mirrors client). */
-export function usernameForMentionMatch(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, '');
 }
 
 const MENTION_RE = /@([A-Za-z0-9_.-]{1,64})/g;
