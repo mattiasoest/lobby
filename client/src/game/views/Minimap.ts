@@ -10,7 +10,7 @@ export type MinimapPlayer = {
   isLocal: boolean;
 };
 
-export type MinimapAnimal = {
+export type MinimapNpc = {
   type: NpcType;
   x: number;
   y: number;
@@ -26,7 +26,7 @@ export type MinimapSnapshot = {
   worldH: number;
   viewport: { x: number; y: number; w: number; h: number };
   players: MinimapPlayer[];
-  animals: MinimapAnimal[];
+  npcs: MinimapNpc[];
   chatNpc: MinimapChatNpc | null;
 };
 
@@ -66,9 +66,9 @@ export class Minimap {
     ctx.lineWidth = 1.25;
     ctx.strokeRect(vx + 0.5, vy + 0.5, vw - 1, vh - 1);
 
-    for (const animal of snap.animals) {
-      const px = animal.x * scaleX;
-      const py = animal.y * scaleY;
+    for (const npc of snap.npcs) {
+      const px = npc.x * scaleX;
+      const py = npc.y * scaleY;
       ctx.fillStyle = '#94a3b8';
       ctx.beginPath();
       ctx.arc(px, py, 3, 0, Math.PI * 2);

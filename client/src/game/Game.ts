@@ -10,7 +10,7 @@ import { entityInnerQuad, scrollWorldPx, clampWorldTopLeft } from './core/worldM
 import { loadRoomAssets, Scene, type NpcTextureCache } from './scenes/Scene.ts';
 import type { MerchantIdleFrames } from './entities/Merchant.ts';
 import type { NpcType, NpcTextureSet } from './entities/npcs/WalkEntity.ts';
-import { AnimalSystem } from './systems/AnimalSystem.ts';
+import { NpcSystem } from './systems/NpcSystem.ts';
 import { ChatNpcSystem } from './systems/ChatNpcSystem.ts';
 import { CameraSystem } from './systems/CameraSystem.ts';
 import { InputSystem } from './systems/InputSystem.ts';
@@ -38,7 +38,7 @@ export class Game {
   private readonly movementSystem = new MovementSystem();
   private readonly remoteSystem = new RemoteInterpolationSystem();
   private readonly cameraSystem = new CameraSystem();
-  private readonly animalSystem = new AnimalSystem();
+  private readonly npcSystem = new NpcSystem();
   private readonly chatNpcSystem = new ChatNpcSystem();
   private readonly playerRenderSystem = new PlayerRenderSystem();
   private readonly speechBubbleSystem = new SpeechBubbleSystem();
@@ -100,10 +100,10 @@ export class Game {
     this.scene = scene;
     app.stage.addChild(scene.viewRoot);
 
-    this.animalSystem.setTextures(assets.npcTextures);
+    this.npcSystem.setTextures(assets.npcTextures);
     this.playerRenderSystem.setLayers(scene.actorLayer, scene.playerNameLayer);
     this.playerRenderSystem.setCharacterTextures(assets.characterTexturesByAvatarId);
-    this.animalSystem.spawn(this.opts.roomId, this.opts.dimensions, scene.actorLayer);
+    this.npcSystem.spawn(this.opts.roomId, this.opts.dimensions, scene.actorLayer);
     this.spawnRoomChatNpc(scene, assets.merchantIdleFrames);
     this.weatherSystem.init(this.opts.roomId, scene.weatherWorld);
 
@@ -116,7 +116,7 @@ export class Game {
       tileSize,
       worldCols,
       worldRows,
-      this.animalSystem,
+      this.npcSystem,
       this.chatNpcSystem,
       this.remoteSystem,
     );
@@ -176,11 +176,11 @@ export class Game {
   private update(fc: FrameContext): void {
     const { now, dt, roomNowMs, syncState, tileSize, worldCols, worldRows, localId } = fc;
 
-    this.animalSystem.update(roomNowMs);
+    this.npcSystem.update(roomNowMs);
     this.chatNpcSystem.update(fc.dtMs);
 
     const remotePlayerObstacles = this.remoteSystem.getObstacles(localId, syncState);
-    const animalObstacles = this.animalSystem.getObstacles();
+    const npcObstacles = this.npcSystem.getObstacles();
     const staticObstacles = this.chatNpcSystem.getObstacles();
 
     const move = this.inputSystem.getMoveVector();
@@ -188,7 +188,7 @@ export class Game {
       dt,
       move,
       remotePlayerObstacles,
-      animalObstacles,
+      npcObstacles,
       staticObstacles,
       tileSize,
       worldCols,
@@ -232,7 +232,7 @@ export class Game {
       fc.worldW,
       fc.worldH,
       fc.size,
-      this.animalSystem,
+      this.npcSystem,
       this.chatNpcSystem,
     );
 
@@ -297,7 +297,7 @@ export class Game {
       this.opts.syncRef.current,
       worldSpawnX,
       worldSpawnY,
-      this.animalSystem,
+      this.npcSystem,
       this.chatNpcSystem,
       this.remoteSystem,
     );
@@ -365,9 +365,9 @@ export class Game {
       this.scene.setBackgroundTexture(roomAssets.backgroundTexture, worldPixelW, worldPixelH);
     }
 
-    this.animalSystem.setTextures(roomAssets.npcTextures);
+    this.npcSystem.setTextures(roomAssets.npcTextures);
     this.weatherSystem.switchRoom(roomId);
-    this.animalSystem.spawn(roomId, this.opts.dimensions, this.scene.actorLayer);
+    this.npcSystem.spawn(roomId, this.opts.dimensions, this.scene.actorLayer);
     this.spawnRoomChatNpc(this.scene, roomAssets.merchantIdleFrames);
     this.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
     this.playerRenderSystem.resetLocalFacing(this.movementSystem.getLocalPx());
@@ -409,7 +409,7 @@ export class Game {
 
     this.playerRenderSystem.clear();
     this.remoteSystem.reset();
-    this.animalSystem.destroy();
+    this.npcSystem.destroy();
     this.chatNpcSystem.destroy();
     this.opts.syncRef.current.minimapSnapshot = null;
     this.scene?.destroy();

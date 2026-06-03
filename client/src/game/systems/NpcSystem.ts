@@ -11,16 +11,16 @@ import { FrogBlue } from '../entities/npcs/FrogBlue.ts';
 import { HopEntity } from '../entities/npcs/HopEntity.ts';
 import { HighlandBull } from '../entities/npcs/HighlandBull.ts';
 import type { HopTextureSet } from '../entities/npcs/HopEntity.ts';
-import type { MinimapAnimal } from '../views/Minimap.ts';
+import type { MinimapNpc } from '../views/Minimap.ts';
 import type { GameDimensions } from '../types.ts';
 
-type AnimalHomeAnchors = {
+type NpcHomeAnchors = {
   bull: { x: number; y: number };
   cow: { x: number; y: number };
   deer: { x: number; y: number }[];
 };
 
-export class AnimalSystem {
+export class NpcSystem {
   private walkEntities: WalkEntity[] = [];
   private hopEntities: HopEntity[] = [];
   private npcTextures: LoadedNpcTextures | null = null;
@@ -51,7 +51,7 @@ export class AnimalSystem {
     npcType: NpcType,
     count: number,
     textures: LoadedNpcTextures,
-    homes: AnimalHomeAnchors,
+    homes: NpcHomeAnchors,
     tileSize: number,
     worldCols: number,
     worldRows: number,
@@ -230,7 +230,7 @@ export class AnimalSystem {
     ];
   }
 
-  getMinimapAnimals(size: number): MinimapAnimal[] {
+  getMinimapNpcs(size: number): MinimapNpc[] {
     const avatarCenter = (topLeftX: number, topLeftY: number) => ({
       x: topLeftX + size / 2,
       y: topLeftY + size / 2,
@@ -250,9 +250,9 @@ export class AnimalSystem {
 
   /**
    * Deterministic per-room placement for the bull, cow, and deer herd. Same `roomId` always yields
-   * the same spawn anchors so a player revisiting a room sees the animals in familiar positions.
+   * the same spawn anchors so a player revisiting a room sees NPCs in familiar positions.
    */
-  private homeAnchors(roomId: number, tileSize: number, worldCols: number, worldRows: number): AnimalHomeAnchors {
+  private homeAnchors(roomId: number, tileSize: number, worldCols: number, worldRows: number): NpcHomeAnchors {
     const worldW = worldCols * tileSize;
     const worldH = worldRows * tileSize;
     const cx = worldW / 2;

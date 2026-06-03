@@ -55,4 +55,15 @@ export default defineConfig({
     // Bind to 0.0.0.0 so other devices on the LAN (e.g. a phone) can load the dev server.
     host: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Pixi v8 must stay in one chunk — Rolldown's default split creates a circular
+        // index ↔ BitmapFont dependency ("Class extends value undefined" in production).
+        advancedChunks: {
+          groups: [{ name: 'pixi', test: /node_modules[\\/]pixi\.js/ }],
+        },
+      },
+    },
+  },
 });

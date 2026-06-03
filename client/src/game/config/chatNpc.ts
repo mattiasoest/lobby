@@ -61,8 +61,8 @@ export function chatNpcAnchorPx(
   };
 }
 
-/** Extra padding around the stall so wandering animals do not overlap the merchant sprite. */
-export const MERCHANT_ANIMAL_CLEARANCE_PX = 48;
+/** Extra padding around the stall so wandering NPCs do not overlap the merchant sprite. */
+export const MERCHANT_NPC_CLEARANCE_PX = 48;
 
 export type MerchantKeepOutRect = {
   left: number;
@@ -71,7 +71,7 @@ export type MerchantKeepOutRect = {
   bottom: number;
 };
 
-/** Axis-aligned keep-out zone for animal paths; `null` when the room has no chat NPC. */
+/** Axis-aligned keep-out zone for NPC paths; `null` when the room has no chat NPC. */
 export function merchantKeepOutRect(
   roomId: number,
   tileSize: number,
@@ -80,7 +80,7 @@ export function merchantKeepOutRect(
 ): MerchantKeepOutRect | null {
   if (!getRoomChatNpc(roomId)) return null;
   const anchor = chatNpcAnchorPx(roomId, tileSize, worldCols, worldRows);
-  const pad = MERCHANT_ANIMAL_CLEARANCE_PX;
+  const pad = MERCHANT_NPC_CLEARANCE_PX;
   return {
     left: anchor.x - pad,
     top: anchor.y - pad,

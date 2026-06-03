@@ -2,7 +2,7 @@ import { avatarMinimapColor } from '../config/avatars.ts';
 import type { RoomCanvasSyncState } from '../core/syncState.ts';
 import type { MinimapSnapshot } from '../views/Minimap.ts';
 import type { Viewport } from '../types.ts';
-import type { AnimalSystem } from './AnimalSystem.ts';
+import type { NpcSystem } from './NpcSystem.ts';
 import type { ChatNpcSystem } from './ChatNpcSystem.ts';
 
 export class MinimapSystem {
@@ -14,7 +14,7 @@ export class MinimapSystem {
     worldW: number,
     worldH: number,
     size: number,
-    animalSystem: AnimalSystem,
+    npcSystem: NpcSystem,
     chatNpcSystem: ChatNpcSystem,
   ): void {
     const { players, localId } = syncState;
@@ -43,7 +43,7 @@ export class MinimapSystem {
       worldH,
       viewport: { x: viewport.left, y: viewport.top, w: viewport.w, h: viewport.h },
       players: minimapPlayers,
-      animals: animalSystem.getMinimapAnimals(size),
+      npcs: npcSystem.getMinimapNpcs(size),
       chatNpc: chatNpcSystem.getMinimapChatNpc(),
     } satisfies MinimapSnapshot;
     syncState.localPx = { x: localPx.x, y: localPx.y };

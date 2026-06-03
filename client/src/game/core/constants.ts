@@ -8,7 +8,7 @@ export const SYNC_MS = 1000 / POSITION_SYNC_HZ;
 /** Local movement speed (px/s) */
 export const MOVE_PX_PER_SEC = 110;
 
-/** AABB side length for player/animal entity–entity collision (world px). */
+/** AABB side length for player/npc entity–entity collision (world px). */
 export const ENTITY_COLLISION_SIZE_PX = 11;
 
 /**
