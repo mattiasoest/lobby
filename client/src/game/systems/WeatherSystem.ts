@@ -1,4 +1,5 @@
 import type { Container } from 'pixi.js';
+import { getRoomConfig } from '../config/roomConfig.ts';
 import { Rain } from '../views/Rain.ts';
 import { Snow } from '../views/Snow.ts';
 import type { Viewport } from '../types.ts';
@@ -24,10 +25,12 @@ export class WeatherSystem {
   private setupForRoom(roomId: number): void {
     const weatherWorld = this.weatherWorld;
     if (!weatherWorld) return;
-    if (Snow.enabledForRoomId(roomId)) {
+
+    const weather = getRoomConfig(roomId)?.weather ?? null;
+    if (weather === 'snow') {
       this.worldSnow = new Snow(weatherWorld);
     }
-    if (Rain.enabledForRoomId(roomId)) {
+    if (weather === 'rain') {
       this.worldRain = new Rain(weatherWorld);
     }
   }

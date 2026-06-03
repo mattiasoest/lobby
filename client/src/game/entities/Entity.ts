@@ -48,6 +48,7 @@ export abstract class Entity {
     frameCount: number,
     frameSize: number,
     inset?: { top?: number; right?: number; bottom?: number; left?: number },
+    columnOffsetPx = 0,
   ): Texture[] {
     const top = inset?.top ?? 0;
     const right = inset?.right ?? 0;
@@ -61,7 +62,7 @@ export abstract class Entity {
       frames.push(
         new Texture({
           source: base.source,
-          frame: new Rectangle(frameIdx * frameSize + left, rowY, frameW, frameH),
+          frame: new Rectangle(columnOffsetPx + frameIdx * frameSize + left, rowY, frameW, frameH),
         }),
       );
     }

@@ -1,4 +1,4 @@
-import type { NpcKind } from '../entities/npcs/WalkEntity.ts';
+import type { NpcType } from '../entities/npcs/WalkEntity.ts';
 import { CHAT_NPC_MARKER_COLOR_CSS } from '../config/chatNpc.ts';
 import { rgbIntToCssHex } from '../config/playerColor.ts';
 
@@ -11,7 +11,7 @@ export type MinimapPlayer = {
 };
 
 export type MinimapAnimal = {
-  kind: NpcKind;
+  type: NpcType;
   x: number;
   y: number;
 };

@@ -14,22 +14,6 @@ export type GameOptions = {
   dimensions: GameDimensions;
   worldSpawnPx: { x: number; y: number };
   roomId: number;
-  /** Resolved room background asset URL (e.g. Vite import). */
-  backgroundTextureSrc: string;
-  /** Character spritesheet URLs keyed by avatar id (Vite imports). */
-  characterTextureSrcByAvatarId: Record<string, { idle: string; walk: string }>;
-  /** Animal spritesheet URLs (Vite imports). */
-  animalTextureSrc: {
-    bull: string;
-    cow: string;
-    deer: { idle: string; walk: string };
-    frogBlue: string;
-    highlandBull: string;
-    penguin: string;
-    slime: { idle: string; walk: string };
-  };
-  /** Merchant stall spritesheet URL for room ChatNpc (Vite import). */
-  merchantTextureSrc: string;
   onBootstrapComplete?: () => void;
 };
 

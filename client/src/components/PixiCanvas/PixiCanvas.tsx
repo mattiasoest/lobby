@@ -1,22 +1,6 @@
-import desertBg from '@/assets/bg/desert.jpg';
-import grassBg from '@/assets/bg/grass.jpg';
-import spaceBg from '@/assets/bg/space.jpg';
-import snowBg from '@/assets/bg/snow.jpg';
-import bullSpriteSrc from '@/assets/entities/bull/bull.png';
-import cowSpriteSrc from '@/assets/entities/cow/cow.png';
-import deerIdleSpriteSrc from '@/assets/entities/deer/deer_idle.png';
-import deerWalkSpriteSrc from '@/assets/entities/deer/deer_walk.png';
-import penguinSpriteSrc from '@/assets/entities/penguin/penguin.png';
-import slimeIdleSpriteSrc from '@/assets/entities/slimeBlue/idle.png';
-import slimeWalkSpriteSrc from '@/assets/entities/slimeBlue/walk.png';
-import frogBlueSpriteSrc from '@/assets/entities/frogBlue/frogBlue.png';
-import highlandBullSpriteSrc from '@/assets/entities/highlandBull/highlandBull.png';
-import merchantSpriteSrc from '@/assets/entities/merchant/merchant.png';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { Game } from '../../game/Game.ts';
 import type { RoomCanvasSyncState } from '../../game/core/syncState.ts';
-import { AVATAR_CHARACTER_TEXTURES } from '../../game/config/avatars.ts';
-import { backgroundTextureSrcForRoomId } from '../../game/config/roomBackground.ts';
 import { TouchControls } from '@/components/TouchControls/TouchControls.tsx';
 import { useIsTouchDevice } from '@/utils/useIsTouchDevice.ts';
 import { clampGameViewWidthPx } from '@/utils/gameFrameLayout.ts';
@@ -155,18 +139,6 @@ const PixiCanvasInner = memo(function PixiCanvas({
       dimensions: { tileSize, viewPixelW: layoutViewWidthPx, viewPixelH: viewHeightPx, worldCols, worldRows },
       worldSpawnPx,
       roomId,
-      backgroundTextureSrc: backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, desertBg, snowBg),
-      characterTextureSrcByAvatarId: AVATAR_CHARACTER_TEXTURES,
-      animalTextureSrc: {
-        bull: bullSpriteSrc,
-        cow: cowSpriteSrc,
-        deer: { idle: deerIdleSpriteSrc, walk: deerWalkSpriteSrc },
-        frogBlue: frogBlueSpriteSrc,
-        highlandBull: highlandBullSpriteSrc,
-        penguin: penguinSpriteSrc,
-        slime: { idle: slimeIdleSpriteSrc, walk: slimeWalkSpriteSrc },
-      },
-      merchantTextureSrc: merchantSpriteSrc,
       onBootstrapComplete: () => {
         if (!cancelled) setCanvasReady(true);
       },
@@ -196,11 +168,7 @@ const PixiCanvasInner = memo(function PixiCanvas({
     if (!game || !canvasReady) return;
     if (prevRoomIdRef.current === roomId) return;
     prevRoomIdRef.current = roomId;
-    void game.switchRoom(
-      roomId,
-      worldSpawnPx,
-      backgroundTextureSrcForRoomId(roomId, grassBg, spaceBg, desertBg, snowBg),
-    );
+    void game.switchRoom(roomId, worldSpawnPx);
   }, [canvasReady, roomId, worldSpawnPx]);
 
   useLayoutEffect(() => {

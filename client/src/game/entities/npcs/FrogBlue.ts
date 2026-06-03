@@ -23,7 +23,7 @@ const FROG_BLUE_CONFIG: HopEntityConfig = {
 };
 
 export class FrogBlue extends HopEntity {
-  readonly kind = 'frogBlue' as const;
+  readonly type = 'frogBlue' as const;
 
   constructor(
     textures: HopTextureSet,

@@ -1,4 +1,4 @@
-import { Assets, type Texture } from 'pixi.js';
+import type { Texture } from 'pixi.js';
 import {
   axisLegIntersectsMerchantKeepOut,
   merchantKeepOutRect,
@@ -7,10 +7,9 @@ import {
 } from '../../config/chatNpc.ts';
 import { clampWorldTopLeft } from '../../core/worldMath.ts';
 import { Entity } from '../Entity.ts';
-import { FrogBlue } from './FrogBlue.ts';
 import type { HopTextureSet } from './HopEntity.ts';
 
-export type NpcKind = 'bull' | 'cow' | 'deer' | 'frogBlue' | 'highlandBull' | 'penguin' | 'slime';
+export type NpcType = 'bull' | 'cow' | 'deer' | 'frogBlue' | 'highlandBull' | 'penguin' | 'slime';
 export type WalkDirection = 'left' | 'right' | 'down' | 'up';
 
 export type WalkTextureSet = {
@@ -22,15 +21,8 @@ export type WalkTextureSet = {
   idleUp?: Texture[];
 };
 
-export type WalkTextureMap = {
-  bull: WalkTextureSet;
-  cow: WalkTextureSet;
-  deer: WalkTextureSet;
-  frogBlue: HopTextureSet | null;
-  highlandBull: WalkTextureSet | null;
-  penguin: WalkTextureSet | null;
-  slime: WalkTextureSet | null;
-};
+export type NpcTextureSet = WalkTextureSet | HopTextureSet;
+export type LoadedNpcTextures = Partial<Record<NpcType, NpcTextureSet>>;
 
 type WalkLeg = {
   startMs: number;
@@ -42,37 +34,10 @@ type WalkLeg = {
   direction: WalkDirection;
 };
 
-const FRAME_SIZE = 32;
 /** Native spritesheet frame size; rendered 1:1 in world px (not upscaled to tile size). */
-export const WALK_ENTITY_SPRITE_SIZE_PX = FRAME_SIZE;
-export const PENGUIN_SPRITE_SIZE_PX = 16;
-const PENGUIN_FRAME_SIZE = PENGUIN_SPRITE_SIZE_PX;
-const FRAMES_PER_ROW = 4;
-const PENGUIN_ROW_DOWN = 0;
-const PENGUIN_ROW_RIGHT = 1;
-const PENGUIN_ROW_UP = 2;
-/** Trim bleed from adjacent rows (sprites sit low/high within 16px cells). */
-const PENGUIN_ROW_INSET = {
-  down: { left: 3 },
-  right: { top: 1 },
-  up: { top: 1, left: 1 },
-} as const;
-const DEER_IDLE_FRAMES_PER_ROW = 2;
+export const WALK_ENTITY_SPRITE_SIZE_PX = 32;
 const WALK_FPS = 6;
 const MOVE_PX_PER_SEC = 26;
-const SHEET_ROW_LEFT = 0;
-const SHEET_ROW_DOWN = 1;
-const SHEET_ROW_UP = 2;
-const HIGHLAND_BULL_ROW_WALK_LEFT = 0;
-const HIGHLAND_BULL_ROW_WALK_DOWN = 1;
-const HIGHLAND_BULL_ROW_WALK_UP = 2;
-const HIGHLAND_BULL_ROW_IDLE_LEFT = 3;
-const HIGHLAND_BULL_ROW_IDLE_DOWN = 4;
-/** Bull/cow down/up rows sit high in their cells; trim bleed from the row above. */
-const BULL_COW_ROW_INSET = {
-  down: { top: 1 },
-  up: { top: 1 },
-} as const;
 const PAUSE_MIN_MS = 1500;
 const PAUSE_MAX_MS = 4200;
 const WANDER_RADIUS_PX = 192;
@@ -90,7 +55,7 @@ function clamp01(value: number): number {
 export abstract class WalkEntity extends Entity {
   static readonly DEER_COUNT = 3;
 
-  static readonly KIND_SEED_SALT: Record<NpcKind, number> = {
+  static readonly TYPE_SEED_SALT: Record<NpcType, number> = {
     bull: 0x6b75_6c00,
     cow: 0x636f_7700,
     deer: 0x6465_6572,
@@ -100,7 +65,7 @@ export abstract class WalkEntity extends Entity {
     slime: 0x736c_696d,
   };
 
-  abstract readonly kind: NpcKind;
+  abstract readonly type: NpcType;
 
   protected readonly textures: WalkTextureSet;
 
@@ -148,29 +113,6 @@ export abstract class WalkEntity extends Entity {
     this.cycleMs = cycleMs;
 
     this.applyFrame(Date.now());
-  }
-
-  /** Load bull, cow, deer, and penguin spritesheets in parallel. Returns `null` if core sheets fail. */
-  static async loadTextures(
-    bullSrc: string,
-    cowSrc: string,
-    deerSrc: { idle: string; walk: string },
-    highlandBullSrc: string,
-    frogBlueSrc: string,
-    penguinSrc: string,
-    slimeSrc: { idle: string; walk: string },
-  ): Promise<WalkTextureMap | null> {
-    const [bull, cow, deer, highlandBull, frogBlue, penguin, slime] = await Promise.all([
-      WalkEntity.loadOneSheet(bullSrc, BULL_COW_ROW_INSET),
-      WalkEntity.loadOneSheet(cowSrc, BULL_COW_ROW_INSET),
-      WalkEntity.loadDeerSheet(deerSrc.idle, deerSrc.walk),
-      WalkEntity.loadHighlandBullSheet(highlandBullSrc),
-      FrogBlue.loadTextures(frogBlueSrc),
-      WalkEntity.loadPenguinSheet(penguinSrc),
-      WalkEntity.loadSlimeSheet(slimeSrc.idle, slimeSrc.walk),
-    ]);
-    if (!bull || !cow || !deer) return null;
-    return { bull, cow, deer, frogBlue, highlandBull, penguin, slime };
   }
 
   static fnv1aHash(...values: number[]): number {
@@ -292,111 +234,6 @@ export abstract class WalkEntity extends Entity {
     const rawIdx = useIdle && idleRate !== null ? Math.floor((roomNowMs / 1000) * idleRate) : this.frameIndex;
     this.setSpriteTexture(frames[this.wrapFrameIndex(rawIdx, frames.length)]);
     this.setSpriteFlipX(flipX);
-  }
-
-  private static async loadPenguinSheet(src: string): Promise<WalkTextureSet | null> {
-    try {
-      const base = await Assets.load<Texture>(src);
-      base.source.scaleMode = 'nearest';
-      return {
-        down: Entity.sliceSpritesheetRow(base, PENGUIN_ROW_DOWN, FRAMES_PER_ROW, PENGUIN_FRAME_SIZE),
-        left: Entity.sliceSpritesheetRow(
-          base,
-          PENGUIN_ROW_RIGHT,
-          FRAMES_PER_ROW,
-          PENGUIN_FRAME_SIZE,
-          PENGUIN_ROW_INSET.right,
-        ),
-        up: Entity.sliceSpritesheetRow(base, PENGUIN_ROW_UP, FRAMES_PER_ROW, PENGUIN_FRAME_SIZE, PENGUIN_ROW_INSET.up),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private static async loadOneSheet(
-    src: string,
-    rowInset?: {
-      left?: { top?: number; right?: number; bottom?: number; left?: number };
-      down?: { top?: number; right?: number; bottom?: number; left?: number };
-      up?: { top?: number; right?: number; bottom?: number; left?: number };
-    },
-  ): Promise<WalkTextureSet | null> {
-    try {
-      const base = await Assets.load<Texture>(src);
-      base.source.scaleMode = 'nearest';
-      return {
-        left: Entity.sliceSpritesheetRow(base, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.left),
-        down: Entity.sliceSpritesheetRow(base, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.down),
-        up: Entity.sliceSpritesheetRow(base, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE, rowInset?.up),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private static async loadHighlandBullSheet(src: string): Promise<WalkTextureSet | null> {
-    try {
-      const base = await Assets.load<Texture>(src);
-      base.source.scaleMode = 'nearest';
-      return {
-        left: Entity.sliceSpritesheetRow(base, HIGHLAND_BULL_ROW_WALK_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
-        down: Entity.sliceSpritesheetRow(
-          base,
-          HIGHLAND_BULL_ROW_WALK_DOWN,
-          FRAMES_PER_ROW,
-          FRAME_SIZE,
-          BULL_COW_ROW_INSET.down,
-        ),
-        up: Entity.sliceSpritesheetRow(
-          base,
-          HIGHLAND_BULL_ROW_WALK_UP,
-          FRAMES_PER_ROW,
-          FRAME_SIZE,
-          BULL_COW_ROW_INSET.up,
-        ),
-        idleLeft: Entity.sliceSpritesheetRow(base, HIGHLAND_BULL_ROW_IDLE_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
-        idleDown: Entity.sliceSpritesheetRow(base, HIGHLAND_BULL_ROW_IDLE_DOWN, FRAMES_PER_ROW, FRAME_SIZE),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private static async loadSlimeSheet(idleSrc: string, walkSrc: string): Promise<WalkTextureSet | null> {
-    try {
-      const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
-      idleBase.source.scaleMode = 'nearest';
-      walkBase.source.scaleMode = 'nearest';
-      return {
-        left: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
-        down: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE),
-        up: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE),
-        idleLeft: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
-        idleDown: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE),
-        idleUp: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private static async loadDeerSheet(idleSrc: string, walkSrc: string): Promise<WalkTextureSet | null> {
-    try {
-      const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
-      idleBase.source.scaleMode = 'nearest';
-      walkBase.source.scaleMode = 'nearest';
-      return {
-        left: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_LEFT, FRAMES_PER_ROW, FRAME_SIZE),
-        down: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_DOWN, FRAMES_PER_ROW, FRAME_SIZE),
-        up: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_UP, FRAMES_PER_ROW, FRAME_SIZE),
-        idleLeft: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_LEFT, DEER_IDLE_FRAMES_PER_ROW, FRAME_SIZE),
-        idleDown: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_DOWN, DEER_IDLE_FRAMES_PER_ROW, FRAME_SIZE),
-        idleUp: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_UP, DEER_IDLE_FRAMES_PER_ROW, FRAME_SIZE),
-      };
-    } catch {
-      return null;
-    }
   }
 
   private static resolveHomeAwayFromMerchant(

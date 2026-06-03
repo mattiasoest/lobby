@@ -1,4 +1,11 @@
 import { Assets, Texture } from 'pixi.js';
+import {
+  avatarSheetBlockIndex,
+  PLAYER_IDLE_BLOCK_WIDTH,
+  PLAYER_IDLE_SHEET_SRC,
+  PLAYER_WALK_BLOCK_WIDTH,
+  PLAYER_WALK_SHEET_SRC,
+} from '../config/avatars.ts';
 import { Entity } from './Entity.ts';
 
 export type CharacterDirection = 'front' | 'back' | 'left' | 'right';
@@ -44,50 +51,102 @@ export class Player extends Entity {
     this.applyFrame();
   }
 
-  /** Load both spritesheets; returns `null` if either asset fails. */
-  static async loadTextures(idleSrc: string, walkSrc: string): Promise<CharacterTextureSet | null> {
+  /** Load packed idle + walk sheets once, then slice textures for each avatar block. */
+  static async loadAllCharacterTextures(
+    avatarIds: readonly string[],
+    idleSrc: string = PLAYER_IDLE_SHEET_SRC,
+    walkSrc: string = PLAYER_WALK_SHEET_SRC,
+  ): Promise<Map<string, CharacterTextureSet>> {
     try {
       const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
       idleBase.source.scaleMode = 'nearest';
       walkBase.source.scaleMode = 'nearest';
 
-      return {
-        idle: {
-          front: Entity.sliceSpritesheetRow(
-            idleBase,
-            SHEET_ROW_BY_DIR.front,
-            IDLE_FRAMES_PER_ROW,
-            CHARACTER_FRAME_SIZE,
-          ),
-          back: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_BY_DIR.back, IDLE_FRAMES_PER_ROW, CHARACTER_FRAME_SIZE),
-          right: Entity.sliceSpritesheetRow(
-            idleBase,
-            SHEET_ROW_BY_DIR.right,
-            IDLE_FRAMES_PER_ROW,
-            CHARACTER_FRAME_SIZE,
-          ),
-          left: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_BY_DIR.left, IDLE_FRAMES_PER_ROW, CHARACTER_FRAME_SIZE),
-        },
-        walk: {
-          front: Entity.sliceSpritesheetRow(
-            walkBase,
-            SHEET_ROW_BY_DIR.front,
-            WALK_FRAMES_PER_ROW,
-            CHARACTER_FRAME_SIZE,
-          ),
-          back: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_BY_DIR.back, WALK_FRAMES_PER_ROW, CHARACTER_FRAME_SIZE),
-          right: Entity.sliceSpritesheetRow(
-            walkBase,
-            SHEET_ROW_BY_DIR.right,
-            WALK_FRAMES_PER_ROW,
-            CHARACTER_FRAME_SIZE,
-          ),
-          left: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_BY_DIR.left, WALK_FRAMES_PER_ROW, CHARACTER_FRAME_SIZE),
-        },
-      };
+      const texturesByAvatarId = new Map<string, CharacterTextureSet>();
+      for (const avatarId of avatarIds) {
+        texturesByAvatarId.set(avatarId, Player.sliceCharacterTextures(idleBase, walkBase, avatarId));
+      }
+      return texturesByAvatarId;
     } catch {
-      return null;
+      return new Map();
     }
+  }
+
+  private static sliceCharacterTextures(idleBase: Texture, walkBase: Texture, avatarId: string): CharacterTextureSet {
+    const blockIndex = avatarSheetBlockIndex(avatarId);
+    const idleOffset = blockIndex * PLAYER_IDLE_BLOCK_WIDTH;
+    const walkOffset = blockIndex * PLAYER_WALK_BLOCK_WIDTH;
+
+    return {
+      idle: {
+        front: Entity.sliceSpritesheetRow(
+          idleBase,
+          SHEET_ROW_BY_DIR.front,
+          IDLE_FRAMES_PER_ROW,
+          CHARACTER_FRAME_SIZE,
+          undefined,
+          idleOffset,
+        ),
+        back: Entity.sliceSpritesheetRow(
+          idleBase,
+          SHEET_ROW_BY_DIR.back,
+          IDLE_FRAMES_PER_ROW,
+          CHARACTER_FRAME_SIZE,
+          undefined,
+          idleOffset,
+        ),
+        right: Entity.sliceSpritesheetRow(
+          idleBase,
+          SHEET_ROW_BY_DIR.right,
+          IDLE_FRAMES_PER_ROW,
+          CHARACTER_FRAME_SIZE,
+          undefined,
+          idleOffset,
+        ),
+        left: Entity.sliceSpritesheetRow(
+          idleBase,
+          SHEET_ROW_BY_DIR.left,
+          IDLE_FRAMES_PER_ROW,
+          CHARACTER_FRAME_SIZE,
+          undefined,
+          idleOffset,
+        ),
+      },
+      walk: {
+        front: Entity.sliceSpritesheetRow(
+          walkBase,
+          SHEET_ROW_BY_DIR.front,
+          WALK_FRAMES_PER_ROW,
+          CHARACTER_FRAME_SIZE,
+          undefined,
+          walkOffset,
+        ),
+        back: Entity.sliceSpritesheetRow(
+          walkBase,
+          SHEET_ROW_BY_DIR.back,
+          WALK_FRAMES_PER_ROW,
+          CHARACTER_FRAME_SIZE,
+          undefined,
+          walkOffset,
+        ),
+        right: Entity.sliceSpritesheetRow(
+          walkBase,
+          SHEET_ROW_BY_DIR.right,
+          WALK_FRAMES_PER_ROW,
+          CHARACTER_FRAME_SIZE,
+          undefined,
+          walkOffset,
+        ),
+        left: Entity.sliceSpritesheetRow(
+          walkBase,
+          SHEET_ROW_BY_DIR.left,
+          WALK_FRAMES_PER_ROW,
+          CHARACTER_FRAME_SIZE,
+          undefined,
+          walkOffset,
+        ),
+      },
+    };
   }
 
   /** Snap to idle facing (default: toward camera). Used on room enter/switch. */

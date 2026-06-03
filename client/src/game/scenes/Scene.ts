@@ -1,15 +1,29 @@
 import { Assets, Container, TilingSprite, type Texture } from 'pixi.js';
 import { ROOM_CAMERA_ZOOM } from '../core/constants.ts';
-import { WalkEntity, type WalkTextureMap } from '../entities/npcs/WalkEntity.ts';
+import { backgroundSrcForKey, merchantAssetSrc, npcAssetSrcForType } from '../config/npcAssets.ts';
+import { getRoomConfig, npcTypesForRoom } from '../config/roomConfig.ts';
+import { Bull } from '../entities/npcs/Bull.ts';
+import { Cow } from '../entities/npcs/Cow.ts';
+import { Deer } from '../entities/npcs/Deer.ts';
+import { FrogBlue } from '../entities/npcs/FrogBlue.ts';
+import { HighlandBull } from '../entities/npcs/HighlandBull.ts';
+import { Penguin } from '../entities/npcs/Penguin.ts';
+import { Slime } from '../entities/npcs/Slime.ts';
+import { type LoadedNpcTextures, type NpcType, type NpcTextureSet } from '../entities/npcs/WalkEntity.ts';
 import { Merchant, type MerchantIdleFrames } from '../entities/Merchant.ts';
 import { Player, type CharacterTextureSet } from '../entities/Player.ts';
 import { ROOM_PIXEL_FACE_SPECS } from '../core/pixelTypography.ts';
 
-export type RoomAssets = {
+export type NpcTextureCache = Map<NpcType, NpcTextureSet>;
+
+export type RoomLoadedAssets = {
   backgroundTexture: Texture | null;
-  characterTexturesByAvatarId: Map<string, CharacterTextureSet>;
-  walkTextures: WalkTextureMap | null;
+  npcTextures: LoadedNpcTextures;
   merchantIdleFrames: MerchantIdleFrames | null;
+};
+
+export type BootstrapAssets = RoomLoadedAssets & {
+  characterTexturesByAvatarId: Map<string, CharacterTextureSet>;
 };
 
 export type SceneOptions = {
@@ -37,51 +51,18 @@ export class Scene {
     });
   }
 
-  static async loadAssets(
-    backgroundTextureSrc: string,
-    characterTextureSrcByAvatarId: Record<string, { idle: string; walk: string }>,
-    animalTextureSrc: {
-      bull: string;
-      cow: string;
-      deer: { idle: string; walk: string };
-      frogBlue: string;
-      highlandBull: string;
-      penguin: string;
-      slime: { idle: string; walk: string };
-    },
-    merchantTextureSrc: string,
-  ): Promise<RoomAssets> {
-    const characterLoadEntries = Object.entries(characterTextureSrcByAvatarId);
-    const [backgroundResult, characterResults, animalResult, merchantIdleFrames] = await Promise.all([
-      Assets.load(backgroundTextureSrc).catch(() => null),
-      Promise.all(
-        characterLoadEntries.map(async ([avatarId, src]) => {
-          const textures = await Player.loadTextures(src.idle, src.walk);
-          return [avatarId, textures] as const;
-        }),
-      ),
-      WalkEntity.loadTextures(
-        animalTextureSrc.bull,
-        animalTextureSrc.cow,
-        animalTextureSrc.deer,
-        animalTextureSrc.highlandBull,
-        animalTextureSrc.frogBlue,
-        animalTextureSrc.penguin,
-        animalTextureSrc.slime,
-      ),
-      Merchant.loadIdleFrames(merchantTextureSrc),
+  static async loadBootstrapAssets(
+    roomId: number,
+    npcTextureCache: NpcTextureCache,
+    merchantFramesCache: { current: MerchantIdleFrames | null },
+    avatarIds: readonly string[],
+  ): Promise<BootstrapAssets> {
+    const [roomAssets, characterTexturesByAvatarId] = await Promise.all([
+      loadRoomAssets(roomId, npcTextureCache, merchantFramesCache),
+      Player.loadAllCharacterTextures(avatarIds),
     ]);
 
-    const characterTexturesByAvatarId = new Map(
-      characterResults.flatMap(([avatarId, textures]) => (textures ? [[avatarId, textures]] : [])),
-    );
-
-    return {
-      backgroundTexture: (backgroundResult as Texture | null) ?? null,
-      characterTexturesByAvatarId,
-      walkTextures: animalResult,
-      merchantIdleFrames,
-    };
+    return { ...roomAssets, characterTexturesByAvatarId };
   }
 
   constructor(opts: SceneOptions) {
@@ -135,5 +116,70 @@ export class Scene {
 
   destroy(): void {
     this.background = null;
+  }
+}
+
+export async function loadRoomAssets(
+  roomId: number,
+  npcTextureCache: NpcTextureCache,
+  merchantFramesCache: { current: MerchantIdleFrames | null },
+): Promise<RoomLoadedAssets> {
+  const config = getRoomConfig(roomId);
+  if (!config) {
+    return { backgroundTexture: null, npcTextures: {}, merchantIdleFrames: null };
+  }
+
+  const backgroundSrc = backgroundSrcForKey(config.backgroundKey);
+  const npcTypes = npcTypesForRoom(roomId);
+
+  const loadTypes = npcTypes.map(async (npcType) => {
+    if (npcTextureCache.has(npcType)) return;
+    const textures = await loadNpcTexturesForType(npcType);
+    if (textures) npcTextureCache.set(npcType, textures);
+  });
+
+  const merchantLoad =
+    config.merchant && !merchantFramesCache.current
+      ? Merchant.loadIdleFrames(merchantAssetSrc()).then((frames) => {
+          if (frames) merchantFramesCache.current = frames;
+        })
+      : Promise.resolve();
+
+  const [backgroundTexture] = await Promise.all([
+    Assets.load(backgroundSrc).catch(() => null) as Promise<Texture | null>,
+    ...loadTypes,
+    merchantLoad,
+  ]);
+
+  const npcTextures: LoadedNpcTextures = {};
+  for (const npcType of npcTypes) {
+    const textures = npcTextureCache.get(npcType);
+    if (textures) npcTextures[npcType] = textures;
+  }
+
+  return {
+    backgroundTexture,
+    npcTextures,
+    merchantIdleFrames: config.merchant ? merchantFramesCache.current : null,
+  };
+}
+
+async function loadNpcTexturesForType(npcType: NpcType): Promise<NpcTextureSet | null> {
+  const asset = npcAssetSrcForType(npcType);
+  switch (asset.type) {
+    case 'bull':
+      return Bull.loadTextures(asset.src);
+    case 'cow':
+      return Cow.loadTextures(asset.src);
+    case 'deer':
+      return Deer.loadTextures(asset.idle, asset.walk);
+    case 'frogBlue':
+      return FrogBlue.loadTextures(asset.src);
+    case 'highlandBull':
+      return HighlandBull.loadTextures(asset.src);
+    case 'penguin':
+      return Penguin.loadTextures(asset.src);
+    case 'slime':
+      return Slime.loadTextures(asset.idle, asset.walk);
   }
 }

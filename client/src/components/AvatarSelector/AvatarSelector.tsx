@@ -40,7 +40,7 @@ function AvatarSpritePreview({
 }) {
   const option = getAvatarOption(optionId);
   if (!option?.preview) return null;
-  const style = avatarPreviewStyle(option.preview, sizePx);
+  const style = avatarPreviewStyle(optionId, option.preview, sizePx);
   return (
     <span
       className={className}

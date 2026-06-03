@@ -1,11 +1,15 @@
 import type { Ticker } from 'pixi.js';
-import { Application, Assets } from 'pixi.js';
+import { Application } from 'pixi.js';
 import type { PlayerDTO } from '../types.ts';
+import { getRoomChatNpc } from './config/chatNpc.ts';
+import { getRoomConfig } from './config/roomConfig.ts';
+import { UNLOCKED_AVATAR_IDS } from './config/avatars.ts';
 import { ROOM_CAMERA_ZOOM } from './core/constants.ts';
 import { roomServerTimeMs } from './core/syncState.ts';
 import { entityInnerQuad, scrollWorldPx, clampWorldTopLeft } from './core/worldMath.ts';
-import { Scene } from './scenes/Scene.ts';
+import { loadRoomAssets, Scene, type NpcTextureCache } from './scenes/Scene.ts';
 import type { MerchantIdleFrames } from './entities/Merchant.ts';
+import type { NpcType, NpcTextureSet } from './entities/npcs/WalkEntity.ts';
 import { AnimalSystem } from './systems/AnimalSystem.ts';
 import { ChatNpcSystem } from './systems/ChatNpcSystem.ts';
 import { CameraSystem } from './systems/CameraSystem.ts';
@@ -40,7 +44,8 @@ export class Game {
   private readonly speechBubbleSystem = new SpeechBubbleSystem();
   private readonly weatherSystem = new WeatherSystem();
   private readonly minimapSystem = new MinimapSystem();
-  private merchantIdleFrames: MerchantIdleFrames | null = null;
+  private readonly npcTextureCache: NpcTextureCache = new Map<NpcType, NpcTextureSet>();
+  private readonly merchantFramesCache: { current: MerchantIdleFrames | null } = { current: null };
 
   constructor(opts: GameOptions) {
     this.opts = opts;
@@ -52,10 +57,6 @@ export class Game {
       mount,
       dimensions: { tileSize, viewPixelW, viewPixelH, worldCols, worldRows },
       worldSpawnPx,
-      backgroundTextureSrc,
-      characterTextureSrcByAvatarId,
-      animalTextureSrc,
-      merchantTextureSrc,
       onBootstrapComplete,
     } = this.opts;
 
@@ -80,11 +81,11 @@ export class Game {
     mount.appendChild(canvas);
     this.app = app;
 
-    const assets = await Scene.loadAssets(
-      backgroundTextureSrc,
-      characterTextureSrcByAvatarId,
-      animalTextureSrc,
-      merchantTextureSrc,
+    const assets = await Scene.loadBootstrapAssets(
+      this.opts.roomId,
+      this.npcTextureCache,
+      this.merchantFramesCache,
+      UNLOCKED_AVATAR_IDS,
     );
     if (this.cancelBootstrap) {
       await app.destroy();
@@ -99,12 +100,11 @@ export class Game {
     this.scene = scene;
     app.stage.addChild(scene.viewRoot);
 
-    this.animalSystem.setTextures(assets.walkTextures);
+    this.animalSystem.setTextures(assets.npcTextures);
     this.playerRenderSystem.setLayers(scene.actorLayer, scene.playerNameLayer);
     this.playerRenderSystem.setCharacterTextures(assets.characterTexturesByAvatarId);
-    this.merchantIdleFrames = assets.merchantIdleFrames;
     this.animalSystem.spawn(this.opts.roomId, this.opts.dimensions, scene.actorLayer);
-    this.spawnRoomChatNpc(scene, this.merchantIdleFrames);
+    this.spawnRoomChatNpc(scene, assets.merchantIdleFrames);
     this.weatherSystem.init(this.opts.roomId, scene.weatherWorld);
 
     this.speechBubbleSystem.setWorldContainer(scene.speechBubbleWorld);
@@ -246,6 +246,12 @@ export class Game {
   }
 
   private spawnRoomChatNpc(scene: Scene, merchantIdleFrames: MerchantIdleFrames | null): void {
+    const config = getRoomConfig(this.opts.roomId);
+    if (!config?.merchant || !getRoomChatNpc(this.opts.roomId)) {
+      this.chatNpcSystem.destroy();
+      return;
+    }
+
     this.chatNpcSystem.spawn(this.opts.roomId, this.opts.dimensions, scene.actorLayer, merchantIdleFrames, () => {
       this.opts.syncRef.current.onChatNpcTap?.();
     });
@@ -338,11 +344,7 @@ export class Game {
     this.inputSystem.clear();
   }
 
-  async switchRoom(
-    roomId: number,
-    worldSpawnPx: { x: number; y: number },
-    backgroundTextureSrc: string,
-  ): Promise<void> {
+  async switchRoom(roomId: number, worldSpawnPx: { x: number; y: number }): Promise<void> {
     if (!this.app || !this.scene) return;
 
     this.clearSpeechBubbles();
@@ -350,22 +352,23 @@ export class Game {
     this.opts.roomId = roomId;
     this.opts.worldSpawnPx = worldSpawnPx;
 
-    // Show the local avatar at the new spawn immediately — do not wait for background load or websocket.
+    // Show the local avatar at the new spawn immediately — do not wait for asset load or websocket.
     this.snapLocalAndCamera(worldSpawnPx);
     this.playerRenderSystem.resetLocalFacing(this.movementSystem.getLocalPx());
     this.syncPlayerLayer();
 
-    const backgroundTexture = await Assets.load(backgroundTextureSrc).catch(() => null);
+    const roomAssets = await loadRoomAssets(roomId, this.npcTextureCache, this.merchantFramesCache);
     const { tileSize, worldCols, worldRows } = this.opts.dimensions;
     const worldPixelW = worldCols * tileSize;
     const worldPixelH = worldRows * tileSize;
-    if (this.scene.background && backgroundTexture) {
-      this.scene.setBackgroundTexture(backgroundTexture, worldPixelW, worldPixelH);
+    if (this.scene.background && roomAssets.backgroundTexture) {
+      this.scene.setBackgroundTexture(roomAssets.backgroundTexture, worldPixelW, worldPixelH);
     }
 
+    this.animalSystem.setTextures(roomAssets.npcTextures);
     this.weatherSystem.switchRoom(roomId);
     this.animalSystem.spawn(roomId, this.opts.dimensions, this.scene.actorLayer);
-    this.spawnRoomChatNpc(this.scene, this.merchantIdleFrames);
+    this.spawnRoomChatNpc(this.scene, roomAssets.merchantIdleFrames);
     this.applyRoomSpawn(worldSpawnPx.x, worldSpawnPx.y);
     this.playerRenderSystem.resetLocalFacing(this.movementSystem.getLocalPx());
   }

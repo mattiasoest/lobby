@@ -7,7 +7,7 @@ import {
 } from '../../config/chatNpc.ts';
 import { clampWorldTopLeft } from '../../core/worldMath.ts';
 import { Entity } from '../Entity.ts';
-import type { NpcKind } from './WalkEntity.ts';
+import type { NpcType } from './WalkEntity.ts';
 
 export type HopDirection = 'left' | 'right' | 'down' | 'up';
 
@@ -56,7 +56,7 @@ function clamp01(value: number): number {
  * Position advances only during configured jump frames; landing frames hold still.
  */
 export abstract class HopEntity extends Entity {
-  abstract readonly kind: NpcKind;
+  abstract readonly type: NpcType;
 
   protected readonly textures: HopTextureSet;
   private readonly config: HopEntityConfig;
