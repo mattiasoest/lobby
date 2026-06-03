@@ -56,11 +56,11 @@ export default defineConfig({
     host: true,
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // Pixi v8 must stay in one chunk — Rolldown's default split creates a circular
         // index ↔ BitmapFont dependency ("Class extends value undefined" in production).
-        advancedChunks: {
+        codeSplitting: {
           groups: [{ name: 'pixi', test: /node_modules[\\/]pixi\.js/ }],
         },
       },
