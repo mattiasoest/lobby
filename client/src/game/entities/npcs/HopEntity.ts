@@ -180,7 +180,7 @@ export abstract class HopEntity extends Entity {
     const { frames, flipX } = selectNpcDirectionFrames(
       this.direction,
       this.textures,
-      useIdle,
+      useIdle ? 'idle' : 'walk',
       this.config.horizontalProfileFacesRight,
     );
 

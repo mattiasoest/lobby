@@ -69,7 +69,7 @@ export class Minimap {
     for (const npc of snap.npcs) {
       const px = npc.x * scaleX;
       const py = npc.y * scaleY;
-      ctx.fillStyle = '#94a3b8';
+      ctx.fillStyle = npc.type === 'bomber' ? CHAT_NPC_MARKER_COLOR_CSS : '#94a3b8';
       ctx.beginPath();
       ctx.arc(px, py, 3, 0, Math.PI * 2);
       ctx.fill();

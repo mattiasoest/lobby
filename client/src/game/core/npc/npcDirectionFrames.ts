@@ -9,35 +9,54 @@ export type NpcDirectionTextureSet = {
   idleLeft?: Texture[];
   idleDown?: Texture[];
   idleUp?: Texture[];
+  runLeft?: Texture[];
+  runDown?: Texture[];
+  runUp?: Texture[];
 };
+
+export type NpcMotionKind = 'idle' | 'walk' | 'run';
 
 export function hasNpcIdleTextures(tex: NpcDirectionTextureSet): boolean {
   return !!(tex.idleLeft ?? tex.idleDown ?? tex.idleUp);
 }
 
+export function hasNpcRunTextures(tex: NpcDirectionTextureSet): boolean {
+  return !!(tex.runLeft ?? tex.runDown ?? tex.runUp);
+}
+
 export function selectNpcDirectionFrames(
   direction: NpcCardinalDirection,
   tex: NpcDirectionTextureSet,
-  useIdle: boolean,
+  motion: NpcMotionKind,
   horizontalProfileFacesRight: boolean,
 ): { frames: Texture[]; flipX: boolean } {
   let frames: Texture[];
   let flipX = false;
   switch (direction) {
-    case 'right':
-      frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
+    case 'right': {
+      if (motion === 'idle' && tex.idleLeft) frames = tex.idleLeft;
+      else if (motion === 'run' && tex.runLeft) frames = tex.runLeft;
+      else frames = tex.left;
       flipX = !horizontalProfileFacesRight;
       break;
-    case 'left':
-      frames = useIdle && tex.idleLeft ? tex.idleLeft : tex.left;
+    }
+    case 'left': {
+      if (motion === 'idle' && tex.idleLeft) frames = tex.idleLeft;
+      else if (motion === 'run' && tex.runLeft) frames = tex.runLeft;
+      else frames = tex.left;
       flipX = horizontalProfileFacesRight;
       break;
+    }
     case 'up':
-      frames = useIdle && tex.idleUp ? tex.idleUp : tex.up;
+      if (motion === 'idle' && tex.idleUp) frames = tex.idleUp;
+      else if (motion === 'run' && tex.runUp) frames = tex.runUp;
+      else frames = tex.up;
       break;
     case 'down':
     default:
-      frames = useIdle && tex.idleDown ? tex.idleDown : tex.down;
+      if (motion === 'idle' && tex.idleDown) frames = tex.idleDown;
+      else if (motion === 'run' && tex.runDown) frames = tex.runDown;
+      else frames = tex.down;
       break;
   }
   return { frames, flipX };

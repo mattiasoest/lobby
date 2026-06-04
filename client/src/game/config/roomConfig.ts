@@ -24,6 +24,7 @@ const ROOM_CONFIGS: Record<RoomId, RoomConfig> = {
     npcs: [
       { type: 'deer', count: 3 },
       { type: 'frogBlue', count: 10 },
+      { type: 'bomber', count: 1 },
     ],
   },
   2: {
@@ -33,6 +34,7 @@ const ROOM_CONFIGS: Record<RoomId, RoomConfig> = {
     npcs: [
       { type: 'deer', count: 3 },
       { type: 'slime', count: 10 },
+      { type: 'bomber', count: 1 },
     ],
   },
   3: {
@@ -44,6 +46,7 @@ const ROOM_CONFIGS: Record<RoomId, RoomConfig> = {
       { type: 'bull', count: 1 },
       { type: 'cow', count: 1 },
       { type: 'highlandBull', count: 5 },
+      { type: 'bomber', count: 1 },
     ],
   },
   4: {
@@ -53,6 +56,7 @@ const ROOM_CONFIGS: Record<RoomId, RoomConfig> = {
     npcs: [
       { type: 'deer', count: 3 },
       { type: 'penguin', count: 8 },
+      { type: 'bomber', count: 1 },
     ],
   },
 };

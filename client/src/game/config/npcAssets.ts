@@ -12,6 +12,9 @@ import merchantSpriteSrc from '@/assets/entities/merchant/merchant.png';
 import penguinSpriteSrc from '@/assets/entities/penguin/penguin.png';
 import slimeIdleSpriteSrc from '@/assets/entities/slimeBlue/idle.png';
 import slimeWalkSpriteSrc from '@/assets/entities/slimeBlue/walk.png';
+import bomberIdleSpriteSrc from '@/assets/entities/bomber/bomberIdle.png';
+import bomberWalkSpriteSrc from '@/assets/entities/bomber/bomberWalk.png';
+import bomberRunSpriteSrc from '@/assets/entities/bomber/bomberRun.png';
 import type { RoomBackgroundKey } from './roomConfig.ts';
 import type { NpcType } from '../entities/npcs/WalkEntity.ts';
 
@@ -24,7 +27,8 @@ const BACKGROUND_SRC_BY_KEY: Record<RoomBackgroundKey, string> = {
 
 export type NpcAssetSrc =
   | { type: 'bull' | 'cow' | 'frogBlue' | 'highlandBull' | 'penguin'; src: string }
-  | { type: 'deer' | 'slime'; idle: string; walk: string };
+  | { type: 'deer' | 'slime'; idle: string; walk: string }
+  | { type: 'bomber'; idle: string; walk: string; run: string };
 
 export function backgroundSrcForKey(key: RoomBackgroundKey): string {
   return BACKGROUND_SRC_BY_KEY[key];
@@ -50,5 +54,12 @@ export function npcAssetSrcForType(npcType: NpcType): NpcAssetSrc {
       return { type: 'penguin', src: penguinSpriteSrc };
     case 'slime':
       return { type: 'slime', idle: slimeIdleSpriteSrc, walk: slimeWalkSpriteSrc };
+    case 'bomber':
+      return {
+        type: 'bomber',
+        idle: bomberIdleSpriteSrc,
+        walk: bomberWalkSpriteSrc,
+        run: bomberRunSpriteSrc,
+      };
   }
 }

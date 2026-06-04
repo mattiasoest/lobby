@@ -1,4 +1,5 @@
 import type { Container } from 'pixi.js';
+import { bomberPatronPoint } from '../core/npc/bomberPatrol.ts';
 import { getRoomConfig } from '../config/roomConfig.ts';
 import { clampWorldTopLeft } from '../core/worldMath.ts';
 import { scatterNpcHomesInWorld } from '../core/npc/npcWander.ts';
@@ -11,6 +12,7 @@ import { Slime } from '../entities/npcs/Slime.ts';
 import { FrogBlue } from '../entities/npcs/FrogBlue.ts';
 import { HopEntity } from '../entities/npcs/HopEntity.ts';
 import { HighlandBull } from '../entities/npcs/HighlandBull.ts';
+import { Bomber } from '../entities/npcs/Bomber.ts';
 import type { HopTextureSet } from '../entities/npcs/HopEntity.ts';
 import type { MinimapNpc } from '../views/Minimap.ts';
 import type { GameDimensions } from '../types.ts';
@@ -23,6 +25,7 @@ type NpcHomeAnchors = {
 
 export class NpcSystem {
   private walkEntities: WalkEntity[] = [];
+  private bomber: Bomber | null = null;
   private hopEntities: HopEntity[] = [];
   private npcTextures: LoadedNpcTextures | null = null;
 
@@ -59,6 +62,16 @@ export class NpcSystem {
     actorLayer: Container,
   ): void {
     switch (npcType) {
+      case 'bomber': {
+        const walkTextures = textures.bomber;
+        if (!walkTextures || count < 1) return;
+        if (!bomberPatronPoint(roomId, tileSize, worldCols, worldRows)) return;
+        const bomber = new Bomber(walkTextures, tileSize, worldCols, worldRows, roomId);
+        bomber.view.zIndex = bomber.getPosition().y;
+        actorLayer.addChild(bomber.view);
+        this.bomber = bomber;
+        return;
+      }
       case 'bull': {
         const walkTextures = textures.bull;
         if (!walkTextures || count < 1) return;
@@ -183,6 +196,11 @@ export class NpcSystem {
       const pos = entity.getPosition();
       entity.view.zIndex = pos.y;
     }
+    if (this.bomber) {
+      this.bomber.update(roomNowMs);
+      const bomberPos = this.bomber.getPosition();
+      this.bomber.view.zIndex = bomberPos.y;
+    }
     for (const hopper of this.hopEntities) {
       hopper.update(roomNowMs);
       const hopperPos = hopper.getPosition();
@@ -191,8 +209,10 @@ export class NpcSystem {
   }
 
   getObstacles(): { x: number; y: number }[] {
+    const bomberObstacle = this.bomber && this.bomber.isOnMinimap() ? [this.bomber.getPosition()] : [];
     return [
       ...this.walkEntities.map((entity) => entity.getPosition()),
+      ...bomberObstacle,
       ...this.hopEntities.map((hopper) => hopper.getPosition()),
     ];
   }
@@ -207,12 +227,20 @@ export class NpcSystem {
       const center = avatarCenter(pos.x, pos.y);
       return { type: entity.type, x: center.x, y: center.y };
     });
+    const bomberMarkers =
+      this.bomber && this.bomber.isOnMinimap()
+        ? (() => {
+            const pos = this.bomber!.getPosition();
+            const center = avatarCenter(pos.x, pos.y);
+            return [{ type: 'bomber' as const, x: center.x, y: center.y }];
+          })()
+        : [];
     const hopperMarkers = this.hopEntities.map((hopper) => {
       const pos = hopper.getPosition();
       const center = avatarCenter(pos.x, pos.y);
       return { type: hopper.type, x: center.x, y: center.y };
     });
-    return [...walkMarkers, ...hopperMarkers];
+    return [...walkMarkers, ...bomberMarkers, ...hopperMarkers];
   }
 
   /**
@@ -355,8 +383,10 @@ export class NpcSystem {
 
   private destroyEntities(): void {
     for (const entity of this.walkEntities) entity.destroy();
+    this.bomber?.destroy();
     for (const hopper of this.hopEntities) hopper.destroy();
     this.walkEntities = [];
+    this.bomber = null;
     this.hopEntities = [];
   }
 

@@ -20,7 +20,7 @@ import {
   resolveNpcHomeAwayFromMerchant,
 } from '../../core/npc/npcWander.ts';
 
-export type NpcType = 'bull' | 'cow' | 'deer' | 'frogBlue' | 'highlandBull' | 'penguin' | 'slime';
+export type NpcType = 'bomber' | 'bull' | 'cow' | 'deer' | 'frogBlue' | 'highlandBull' | 'penguin' | 'slime';
 export type WalkDirection = NpcCardinalDirection;
 
 export type WalkTextureSet = {
@@ -30,6 +30,9 @@ export type WalkTextureSet = {
   idleLeft?: Texture[];
   idleDown?: Texture[];
   idleUp?: Texture[];
+  runLeft?: Texture[];
+  runDown?: Texture[];
+  runUp?: Texture[];
 };
 
 export type NpcTextureSet = WalkTextureSet | HopTextureSet;
@@ -58,6 +61,7 @@ export abstract class WalkEntity extends Entity {
   static readonly DEER_COUNT = 3;
 
   static readonly TYPE_SEED_SALT: Record<NpcType, number> = {
+    bomber: 0x626f_6d62,
     bull: 0x6b75_6c00,
     cow: 0x636f_7700,
     deer: 0x6465_6572,
@@ -66,6 +70,10 @@ export abstract class WalkEntity extends Entity {
     penguin: 0x7065_6e67,
     slime: 0x736c_696d,
   };
+
+  protected static get wanderMovePxPerSec(): number {
+    return MOVE_PX_PER_SEC;
+  }
 
   static fnv1aHash = fnv1aHash;
   static mulberry32 = mulberry32;
@@ -105,6 +113,7 @@ export abstract class WalkEntity extends Entity {
 
     this.view.position.set(this.x, this.y);
 
+    const ctor = new.target as typeof WalkEntity;
     const { legs, cycleMs } = WalkEntity.buildTour(
       seedBase,
       roomId,
@@ -113,6 +122,7 @@ export abstract class WalkEntity extends Entity {
       worldRows,
       safeHome.x,
       safeHome.y,
+      ctor.wanderMovePxPerSec,
     );
     this.legs = legs;
     this.cycleMs = cycleMs;
@@ -192,7 +202,7 @@ export abstract class WalkEntity extends Entity {
     const { frames, flipX } = selectNpcDirectionFrames(
       this.direction,
       this.textures,
-      useIdle,
+      useIdle ? 'idle' : 'walk',
       this.horizontalProfileFacesRight,
     );
 
@@ -210,6 +220,7 @@ export abstract class WalkEntity extends Entity {
     worldRows: number,
     homeX: number,
     homeY: number,
+    movePxPerSec: number,
   ): { legs: WalkLeg[]; cycleMs: number } {
     const prng = mulberry32(seedBase);
     const keepOut = merchantKeepOutRect(roomId, tileSize, worldCols, worldRows);
@@ -225,7 +236,7 @@ export abstract class WalkEntity extends Entity {
       const dx = toX - cx;
       const dy = toY - cy;
       const dist = Math.hypot(dx, dy);
-      const travelMs = (dist / MOVE_PX_PER_SEC) * 1000;
+      const travelMs = (dist / movePxPerSec) * 1000;
       const arriveMs = startMs + Math.max(travelMs, 1);
 
       const ax = Math.abs(dx);

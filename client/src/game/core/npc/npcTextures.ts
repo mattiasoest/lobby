@@ -73,18 +73,56 @@ export async function loadIdleAndWalkSheets(
   idleSrc: string,
   walkSrc: string,
   idleFramesPerRow = WALK_FRAMES_PER_ROW,
+  walkFramesPerRow = WALK_FRAMES_PER_ROW,
 ): Promise<WalkTextureSet | null> {
   try {
     const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
     idleBase.source.scaleMode = 'nearest';
     walkBase.source.scaleMode = 'nearest';
     return {
-      left: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_LEFT, WALK_FRAMES_PER_ROW, WALK_ENTITY_SPRITE_SIZE_PX),
-      down: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_DOWN, WALK_FRAMES_PER_ROW, WALK_ENTITY_SPRITE_SIZE_PX),
-      up: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_UP, WALK_FRAMES_PER_ROW, WALK_ENTITY_SPRITE_SIZE_PX),
+      left: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_LEFT, walkFramesPerRow, WALK_ENTITY_SPRITE_SIZE_PX),
+      down: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_DOWN, walkFramesPerRow, WALK_ENTITY_SPRITE_SIZE_PX),
+      up: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_UP, walkFramesPerRow, WALK_ENTITY_SPRITE_SIZE_PX),
       idleLeft: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_LEFT, idleFramesPerRow, WALK_ENTITY_SPRITE_SIZE_PX),
       idleDown: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_DOWN, idleFramesPerRow, WALK_ENTITY_SPRITE_SIZE_PX),
       idleUp: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_UP, idleFramesPerRow, WALK_ENTITY_SPRITE_SIZE_PX),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type IdleWalkRunFrameCounts = {
+  idle: number;
+  walk: number;
+  run: number;
+};
+
+export async function loadIdleWalkRunSheets(
+  idleSrc: string,
+  walkSrc: string,
+  runSrc: string,
+  frameCounts: IdleWalkRunFrameCounts,
+): Promise<WalkTextureSet | null> {
+  try {
+    const [idleBase, walkBase, runBase] = await Promise.all([
+      Assets.load<Texture>(idleSrc),
+      Assets.load<Texture>(walkSrc),
+      Assets.load<Texture>(runSrc),
+    ]);
+    idleBase.source.scaleMode = 'nearest';
+    walkBase.source.scaleMode = 'nearest';
+    runBase.source.scaleMode = 'nearest';
+    return {
+      left: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_LEFT, frameCounts.walk, WALK_ENTITY_SPRITE_SIZE_PX),
+      down: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_DOWN, frameCounts.walk, WALK_ENTITY_SPRITE_SIZE_PX),
+      up: Entity.sliceSpritesheetRow(walkBase, SHEET_ROW_UP, frameCounts.walk, WALK_ENTITY_SPRITE_SIZE_PX),
+      idleLeft: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_LEFT, frameCounts.idle, WALK_ENTITY_SPRITE_SIZE_PX),
+      idleDown: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_DOWN, frameCounts.idle, WALK_ENTITY_SPRITE_SIZE_PX),
+      idleUp: Entity.sliceSpritesheetRow(idleBase, SHEET_ROW_UP, frameCounts.idle, WALK_ENTITY_SPRITE_SIZE_PX),
+      runLeft: Entity.sliceSpritesheetRow(runBase, SHEET_ROW_LEFT, frameCounts.run, WALK_ENTITY_SPRITE_SIZE_PX),
+      runDown: Entity.sliceSpritesheetRow(runBase, SHEET_ROW_DOWN, frameCounts.run, WALK_ENTITY_SPRITE_SIZE_PX),
+      runUp: Entity.sliceSpritesheetRow(runBase, SHEET_ROW_UP, frameCounts.run, WALK_ENTITY_SPRITE_SIZE_PX),
     };
   } catch {
     return null;
