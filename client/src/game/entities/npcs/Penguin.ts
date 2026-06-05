@@ -10,7 +10,6 @@ const ROW_RIGHT = 1;
 const ROW_UP = 2;
 /** Trim bleed from adjacent rows (sprites sit low/high within 16px cells). */
 const ROW_INSET = {
-  down: { left: 3 },
   right: { top: 1 },
   up: { top: 1, left: 1 },
 } as const;
@@ -40,7 +39,7 @@ export class Penguin extends WalkEntity {
       const base = await Assets.load<Texture>(src);
       base.source.scaleMode = 'nearest';
       return {
-        down: Entity.sliceSpritesheetRow(base, ROW_DOWN, FRAMES_PER_ROW, PENGUIN_SPRITE_SIZE_PX, ROW_INSET.down),
+        down: Entity.sliceSpritesheetRow(base, ROW_DOWN, FRAMES_PER_ROW, PENGUIN_SPRITE_SIZE_PX),
         left: Entity.sliceSpritesheetRow(base, ROW_RIGHT, FRAMES_PER_ROW, PENGUIN_SPRITE_SIZE_PX, ROW_INSET.right),
         up: Entity.sliceSpritesheetRow(base, ROW_UP, FRAMES_PER_ROW, PENGUIN_SPRITE_SIZE_PX, ROW_INSET.up),
       };
