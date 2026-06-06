@@ -2,7 +2,7 @@
 
 Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **PostgreSQL**, and **Socket.IO** for presence/chat-style features. Auth uses a **short-lived access JWT in memory** (React state). A **rotating refresh token** lives in an **httpOnly cookie** on `/auth`; the app calls **`POST /auth/refresh`** on startup to restore access in new tabs. Optional **Google/GitHub OAuth**, a one-click **guest login**, and a **dev login** shortcut round out the sign-in options.
 
-**Live app:** https://lobby-rho.vercel.app/
+**Live app:** https://pixelport.app/
 
 ## Prerequisites
 
@@ -42,22 +42,22 @@ cd ..
 
 Create `server/.env` (see values below). The server **exits on startup** if `JWT_SECRET` or `DATABASE_URL` is missing.
 
-| Variable                                    | Required    | Description                                                                                                                   |
-| ------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                                      | optional    | API port (default `3001`)                                                                                                     |
-| `DATABASE_URL`                              | **yes**     | Postgres connection string, e.g. `postgresql://lobby:lobby@localhost:5432/lobby`                                              |
-| `JWT_SECRET`                                | **yes**     | Secret for signing JWTs (use a long random string; never commit real secrets)                                                 |
-| `FRONTEND_URL`                              | recommended | Origin of the Vite app for CORS (default `http://localhost:5173`)                                                             |
-| `SERVER_PUBLIC_URL`                         | for OAuth   | Public URL of this API (default `http://localhost:3001`); used in OAuth callback URLs                                         |
-| `ALLOW_DEV_LOGIN`                           | optional    | Set to `1` to enable **POST `/auth/dev-login`** and the dev login button on the sign-in page. **Turn off in production.** |
-| `ALLOW_GUEST_LOGIN`                         | optional    | Set to `0` to disable **POST `/auth/guest-login`** and the “Continue as guest” button. Defaults **on**.                   |
-| `GUEST_LOGIN_RATE_LIMIT_MAX`                | optional    | Max guest sign-ins per IP per window (default `5`).                                                                           |
-| `GUEST_LOGIN_RATE_LIMIT_WINDOW_MS`          | optional    | Guest sign-in rate-limit window in ms (default `900000`, 15 minutes).                                                         |
-| `TRUST_PROXY`                               | optional    | Express `trust proxy` hop count for correct client IP behind a reverse proxy (default `1`). Set to `0` for direct exposure.   |
-| `REFRESH_COOKIE_SAMESITE`                   | optional    | Override the refresh-cookie `SameSite` (`lax` / `strict` / `none`). Default: `strict`. |
-| `REFRESH_COOKIE_SECURE`                     | optional    | Force the `Secure` flag on the refresh cookie (`1` / `0`). Auto: on when the API or SPA URL is HTTPS.                          |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional    | Enable “Continue with Google” when both are set                                                                               |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional    | Enable “Continue with GitHub” when both are set                                                                               |
+| Variable                                    | Required    | Description                                                                                                                                           |
+| ------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                                      | optional    | API port (default `3001`)                                                                                                                             |
+| `DATABASE_URL`                              | **yes**     | Postgres connection string, e.g. `postgresql://lobby:lobby@localhost:5432/lobby`                                                                      |
+| `JWT_SECRET`                                | **yes**     | Secret for signing JWTs (use a long random string; never commit real secrets)                                                                         |
+| `FRONTEND_URL`                              | recommended | Origin of the Vite app for CORS (default `http://localhost:5173`)                                                                                     |
+| `SERVER_PUBLIC_URL`                         | for OAuth   | Public URL of this API (default `http://localhost:3001`); used in OAuth callback URLs                                                                 |
+| `ALLOW_DEV_LOGIN`                           | optional    | Set to `1` to enable **POST `/auth/dev-login`** and the dev login button on the sign-in page. **Turn off in production.**                             |
+| `ALLOW_GUEST_LOGIN`                         | optional    | Set to `0` to disable **POST `/auth/guest-login`** and the “Continue as guest” button. Defaults **on**.                                               |
+| `GUEST_LOGIN_RATE_LIMIT_MAX`                | optional    | Max guest sign-ins per IP per window (default `5`).                                                                                                   |
+| `GUEST_LOGIN_RATE_LIMIT_WINDOW_MS`          | optional    | Guest sign-in rate-limit window in ms (default `900000`, 15 minutes).                                                                                 |
+| `TRUST_PROXY`                               | optional    | Express `trust proxy` hop count for correct client IP behind a reverse proxy (default `1`). Set to `0` for direct exposure.                           |
+| `REFRESH_COOKIE_SAMESITE`                   | optional    | Override the refresh-cookie `SameSite` (`lax` / `strict` / `none`). Default: `strict`.                                                                |
+| `REFRESH_COOKIE_SECURE`                     | optional    | Force the `Secure` flag on the refresh cookie (`1` / `0`). Auto: on when the API or SPA URL is HTTPS.                                                 |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional    | Enable “Continue with Google” when both are set                                                                                                       |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | optional    | Enable “Continue with GitHub” when both are set                                                                                                       |
 | `GROQ_API_KEY`                              | optional    | Groq API key for room ChatNpc replies ([console.groq.com](https://console.groq.com)). Without it, ChatNpcs render but use canned fallback lines only. |
 
 Example for local Docker Postgres and dev login:
@@ -162,8 +162,8 @@ So in the provider’s dashboard:
 
 The server builds redirect URIs as **`${SERVER_PUBLIC_URL}/auth/.../callback`**. For default local dev (`SERVER_PUBLIC_URL=http://localhost:3001`):
 
-| Provider | Redirect / callback URL to register              |
-| -------- | ------------------------------------------------ |
+| Provider | Redirect / callback URL to register          |
+| -------- | -------------------------------------------- |
 | Google   | `http://localhost:3001/auth/google/callback` |
 | GitHub   | `http://localhost:3001/auth/github/callback` |
 

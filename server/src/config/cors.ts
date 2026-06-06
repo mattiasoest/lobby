@@ -1,6 +1,6 @@
 const DEFAULT_ORIGIN = 'http://localhost:5173';
 
-/** Comma-separated origins in FRONTEND_URL, e.g. `https://lobby-rho.vercel.app,http://localhost:5173`. */
+/** Comma-separated origins in FRONTEND_URL, e.g. `https://https://pixelport.app,http://localhost:5173`. */
 export function parseAllowedOrigins(raw?: string): string[] {
   const source = (raw ?? DEFAULT_ORIGIN).trim() || DEFAULT_ORIGIN;
   const origins = source
@@ -61,10 +61,7 @@ export function resolveFrontendReturnUrl(
 }
 
 export function corsOriginDelegate(allowedOrigins: string[]) {
-  return (
-    origin: string | undefined,
-    callback: (err: Error | null, allow?: boolean | string) => void,
-  ) => {
+  return (origin: string | undefined, callback: (err: Error | null, allow?: boolean | string) => void) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, origin ?? allowedOrigins[0]);
       return;
