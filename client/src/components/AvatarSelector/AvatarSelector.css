@@ -62,7 +62,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--avatar-option-size), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--avatar-option-min-width), 1fr));
   gap: clamp(6px, 2vw, 12px);
   width: 100%;
   min-width: 0;
@@ -70,6 +70,7 @@
   --avatar-option-size: calc(
     var(--avatar-option-sprite-size) + clamp(12px, 4vw, 20px) + clamp(4px, 1.5vw, 8px) + 1.25em
   );
+  --avatar-option-min-width: calc(var(--avatar-option-size) + 10px);
 }
 
 .option {
@@ -87,7 +88,7 @@
   letter-spacing: 0;
   cursor: pointer;
   box-shadow: var(--bevel);
-  min-width: var(--avatar-option-size);
+  min-width: var(--avatar-option-min-width);
   min-height: var(--avatar-option-size);
   box-sizing: border-box;
   transition:
@@ -140,19 +141,20 @@
   fill: var(--pal-bg);
 }
 
-.comingSoon {
-  font-family: inherit;
-  color: var(--text-muted);
-  text-align: center;
-}
-
 .optionLabel {
   font-family: inherit;
   font-size: clamp(0.45rem, 2vw, 0.625rem);
   font-weight: 400;
   color: var(--text-h);
   max-width: 100%;
-  overflow-wrap: anywhere;
   text-align: center;
   line-height: 1.4;
+  white-space: nowrap;
+}
+
+.comingSoon {
+  font-family: inherit;
+  color: var(--text-muted);
+  text-align: center;
+  white-space: normal;
 }
