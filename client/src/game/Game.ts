@@ -7,9 +7,9 @@ import { UNLOCKED_AVATAR_IDS } from './config/avatars.ts';
 import { ROOM_CAMERA_ZOOM } from './core/constants.ts';
 import { roomServerTimeMs } from './core/syncState.ts';
 import { entityInnerQuad, scrollWorldPx, clampWorldTopLeft } from './core/worldMath.ts';
-import { loadRoomAssets, Scene, type NpcTextureCache } from './scenes/Scene.ts';
+import { sharedMerchantFramesCache, sharedNpcTextureCache } from './config/roomSharedAssets.ts';
 import type { MerchantIdleFrames } from './entities/Merchant.ts';
-import type { NpcType, NpcTextureSet } from './entities/npcs/WalkEntity.ts';
+import { loadRoomAssets, Scene } from './scenes/Scene.ts';
 import { NpcSystem } from './systems/NpcSystem.ts';
 import { ChatNpcSystem } from './systems/ChatNpcSystem.ts';
 import { CameraSystem } from './systems/CameraSystem.ts';
@@ -44,9 +44,6 @@ export class Game {
   private readonly speechBubbleSystem = new SpeechBubbleSystem();
   private readonly weatherSystem = new WeatherSystem();
   private readonly minimapSystem = new MinimapSystem();
-  private readonly npcTextureCache: NpcTextureCache = new Map<NpcType, NpcTextureSet>();
-  private readonly merchantFramesCache: { current: MerchantIdleFrames | null } = { current: null };
-
   constructor(opts: GameOptions) {
     this.opts = opts;
     this.inputSystem = new InputSystem(opts.syncRef);
@@ -83,8 +80,8 @@ export class Game {
 
     const assets = await Scene.loadBootstrapAssets(
       this.opts.roomId,
-      this.npcTextureCache,
-      this.merchantFramesCache,
+      sharedNpcTextureCache,
+      sharedMerchantFramesCache,
       UNLOCKED_AVATAR_IDS,
     );
     if (this.cancelBootstrap) {
@@ -357,7 +354,7 @@ export class Game {
     this.playerRenderSystem.resetLocalFacing(this.movementSystem.getLocalPx());
     this.syncPlayerLayer();
 
-    const roomAssets = await loadRoomAssets(roomId, this.npcTextureCache, this.merchantFramesCache);
+    const roomAssets = await loadRoomAssets(roomId, sharedNpcTextureCache, sharedMerchantFramesCache);
     const { tileSize, worldCols, worldRows } = this.opts.dimensions;
     const worldPixelW = worldCols * tileSize;
     const worldPixelH = worldRows * tileSize;

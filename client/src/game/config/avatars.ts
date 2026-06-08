@@ -168,14 +168,23 @@ export function preloadAvatarPreviewSheets(): Promise<void> {
   return Promise.all([loadPreviewSheet(PLAYER_IDLE_SHEET_SRC), preloadPixiIdleSheet()]).then(() => undefined);
 }
 
-/** Suspend until the packed idle sheet is decoded for lobby previews (cached after first load). */
-export function readAvatarPreviewSheets(): void {
-  if (areAvatarPreviewSheetsLoaded()) return;
-
+function ensureAvatarPreviewSheetsPromise(): Promise<void> {
+  if (areAvatarPreviewSheetsLoaded()) return Promise.resolve();
   if (previewSheetLoadPromise == null) {
     previewSheetLoadPromise = preloadAvatarPreviewSheets().finally(() => {
       previewSheetLoadPromise = null;
     });
   }
-  throw previewSheetLoadPromise;
+  return previewSheetLoadPromise;
+}
+
+/** Resolves when lobby avatar preview sheets are ready (shared with {@link readAvatarPreviewSheets}). */
+export function whenAvatarPreviewSheetsReady(): Promise<void> {
+  return ensureAvatarPreviewSheetsPromise();
+}
+
+/** Suspend until the packed idle sheet is decoded for lobby previews (cached after first load). */
+export function readAvatarPreviewSheets(): void {
+  if (areAvatarPreviewSheetsLoaded()) return;
+  throw ensureAvatarPreviewSheetsPromise();
 }
