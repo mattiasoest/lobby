@@ -2,7 +2,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RouteErrorPage } from '@/components/RouteErrorPage/RouteErrorPage.tsx';
 import { devErrorPreviewRoutes } from '@/features/dev/errorPreviewRoutes.tsx';
 import { importWithChunkRetry } from '@/utils/chunkLoadError.ts';
-import { ProtectedLayout } from './ProtectedLayout.tsx';
 
 export const router = createBrowserRouter([
   {
@@ -25,7 +24,8 @@ export const router = createBrowserRouter([
           ),
       },
       {
-        element: <ProtectedLayout />,
+        lazy: () =>
+          importWithChunkRetry(() => import('./ProtectedLayout.tsx').then((m) => ({ Component: m.ProtectedLayout }))),
         children: [
           {
             path: '/lobby',

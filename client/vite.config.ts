@@ -57,6 +57,11 @@ export default defineConfig({
     host: true,
   },
   build: {
+    modulePreload: {
+      resolveDependencies(_filename, deps) {
+        return deps.filter((dep) => !dep.includes('pixi-'));
+      },
+    },
     rolldownOptions: {
       output: {
         // Pixi v8 must stay in one chunk — Rolldown's default split creates a circular

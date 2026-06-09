@@ -1,4 +1,4 @@
-import { Assets, Texture } from 'pixi.js';
+import { Assets, Cache, Texture } from 'pixi.js';
 import {
   avatarSheetBlockIndex,
   PLAYER_IDLE_BLOCK_WIDTH,
@@ -51,6 +51,15 @@ export class Player extends Entity {
     this.applyFrame();
   }
 
+  private static async loadSheetTexture(src: string): Promise<Texture> {
+    if (Cache.has(src)) {
+      return Cache.get<Texture>(src);
+    }
+    const texture = await Assets.load<Texture>(src);
+    texture.source.scaleMode = 'nearest';
+    return texture;
+  }
+
   /** Load packed idle + walk sheets once, then slice textures for each avatar block. */
   static async loadAllCharacterTextures(
     avatarIds: readonly string[],
@@ -58,9 +67,10 @@ export class Player extends Entity {
     walkSrc: string = PLAYER_WALK_SHEET_SRC,
   ): Promise<Map<string, CharacterTextureSet>> {
     try {
-      const [idleBase, walkBase] = await Promise.all([Assets.load<Texture>(idleSrc), Assets.load<Texture>(walkSrc)]);
-      idleBase.source.scaleMode = 'nearest';
-      walkBase.source.scaleMode = 'nearest';
+      const [idleBase, walkBase] = await Promise.all([
+        Player.loadSheetTexture(idleSrc),
+        Player.loadSheetTexture(walkSrc),
+      ]);
 
       const texturesByAvatarId = new Map<string, CharacterTextureSet>();
       for (const avatarId of avatarIds) {
