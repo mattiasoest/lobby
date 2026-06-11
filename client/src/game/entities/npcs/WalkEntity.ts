@@ -20,7 +20,16 @@ import {
   resolveNpcHomeAwayFromMerchant,
 } from '../../core/npc/npcWander.ts';
 
-export type NpcType = 'bomber' | 'bull' | 'cow' | 'deer' | 'frogBlue' | 'highlandBull' | 'penguin' | 'slime';
+export type NpcType =
+  | 'bomber'
+  | 'bull'
+  | 'cow'
+  | 'deer'
+  | 'frogBlue'
+  | 'highlandBull'
+  | 'penguin'
+  | 'penguinMini'
+  | 'slime';
 export type WalkDirection = NpcCardinalDirection;
 
 export type WalkTextureSet = {
@@ -68,6 +77,7 @@ export abstract class WalkEntity extends Entity {
     frogBlue: 0x6672_6f67,
     highlandBull: 0x6869_6768,
     penguin: 0x7065_6e67,
+    penguinMini: 0x706d_696e,
     slime: 0x736c_696d,
   };
 

@@ -8,6 +8,7 @@ import { Bull } from '../entities/npcs/Bull.ts';
 import { Cow } from '../entities/npcs/Cow.ts';
 import { Deer } from '../entities/npcs/Deer.ts';
 import { Penguin } from '../entities/npcs/Penguin.ts';
+import { PenguinMini } from '../entities/npcs/PenguinMini.ts';
 import { Slime } from '../entities/npcs/Slime.ts';
 import { FrogBlue } from '../entities/npcs/FrogBlue.ts';
 import { HopEntity } from '../entities/npcs/HopEntity.ts';
@@ -181,6 +182,22 @@ export class NpcSystem {
           this.scatteredHomes(tileSize, worldCols, worldRows, count, 4, 'penguin', 0x706f_736e),
           roomId,
           'penguin',
+          tileSize,
+          worldCols,
+          worldRows,
+          actorLayer,
+        );
+        return;
+      }
+      case 'penguinMini': {
+        const walkTextures = textures.penguinMini;
+        if (!walkTextures) return;
+        this.spawnWalkNpcInstances(
+          PenguinMini,
+          walkTextures,
+          this.scatteredHomes(tileSize, worldCols, worldRows, count, 5, 'penguinMini', 0x706d_696e),
+          roomId,
+          'penguinMini',
           tileSize,
           worldCols,
           worldRows,

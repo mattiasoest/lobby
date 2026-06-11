@@ -8,6 +8,7 @@ import { Deer } from '../entities/npcs/Deer.ts';
 import { FrogBlue } from '../entities/npcs/FrogBlue.ts';
 import { HighlandBull } from '../entities/npcs/HighlandBull.ts';
 import { Penguin } from '../entities/npcs/Penguin.ts';
+import { PenguinMini } from '../entities/npcs/PenguinMini.ts';
 import { Slime } from '../entities/npcs/Slime.ts';
 import { Bomber } from '../entities/npcs/Bomber.ts';
 import { type LoadedNpcTextures, type NpcType, type NpcTextureSet } from '../entities/npcs/WalkEntity.ts';
@@ -180,6 +181,8 @@ async function loadNpcTexturesForType(npcType: NpcType): Promise<NpcTextureSet |
       return HighlandBull.loadTextures(asset.src);
     case 'penguin':
       return Penguin.loadTextures(asset.src);
+    case 'penguinMini':
+      return PenguinMini.loadTextures(asset.src);
     case 'slime':
       return Slime.loadTextures(asset.idle, asset.walk);
     case 'bomber':

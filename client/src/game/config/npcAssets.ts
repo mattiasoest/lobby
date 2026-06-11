@@ -10,6 +10,7 @@ import frogBlueSpriteSrc from '@/assets/entities/frogBlue/frogBlue.png';
 import highlandBullSpriteSrc from '@/assets/entities/highlandBull/highlandBull.png';
 import merchantSpriteSrc from '@/assets/entities/merchant/merchant.png';
 import penguinSpriteSrc from '@/assets/entities/penguin/penguin.png';
+import penguinMiniSpriteSrc from '@/assets/entities/penguinMini/penguinMini.png';
 import slimeIdleSpriteSrc from '@/assets/entities/slimeBlue/idle.png';
 import slimeWalkSpriteSrc from '@/assets/entities/slimeBlue/walk.png';
 import bomberIdleSpriteSrc from '@/assets/entities/bomber/bomberIdle.png';
@@ -26,7 +27,7 @@ const BACKGROUND_SRC_BY_KEY: Record<RoomBackgroundKey, string> = {
 };
 
 export type NpcAssetSrc =
-  | { type: 'bull' | 'cow' | 'frogBlue' | 'highlandBull' | 'penguin'; src: string }
+  | { type: 'bull' | 'cow' | 'frogBlue' | 'highlandBull' | 'penguin' | 'penguinMini'; src: string }
   | { type: 'deer' | 'slime'; idle: string; walk: string }
   | { type: 'bomber'; idle: string; walk: string; run: string };
 
@@ -52,6 +53,8 @@ export function npcAssetSrcForType(npcType: NpcType): NpcAssetSrc {
       return { type: 'highlandBull', src: highlandBullSpriteSrc };
     case 'penguin':
       return { type: 'penguin', src: penguinSpriteSrc };
+    case 'penguinMini':
+      return { type: 'penguinMini', src: penguinMiniSpriteSrc };
     case 'slime':
       return { type: 'slime', idle: slimeIdleSpriteSrc, walk: slimeWalkSpriteSrc };
     case 'bomber':

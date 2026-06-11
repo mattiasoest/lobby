@@ -56,6 +56,7 @@ const ROOM_CONFIGS: Record<RoomId, RoomConfig> = {
     npcs: [
       { type: 'deer', count: 3 },
       { type: 'penguin', count: 8 },
+      { type: 'penguinMini', count: 10 },
       { type: 'bomber', count: 1 },
     ],
   },
