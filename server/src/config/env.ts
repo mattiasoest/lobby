@@ -22,6 +22,7 @@ const envSchema = z.object({
   REFRESH_COOKIE_SAMESITE: z.enum(['none', 'lax', 'strict']).optional(),
   GUEST_LOGIN_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
   GUEST_LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
+  VERSION: z.string().default('dev'),
 });
 
 export type AppConfig = {
@@ -46,6 +47,7 @@ export type AppConfig = {
   refreshCookieSameSite: 'none' | 'lax' | 'strict' | undefined;
   guestLoginRateLimitWindowMs: number | undefined;
   guestLoginRateLimitMax: number | undefined;
+  version: string;
 };
 
 export function loadConfig(): AppConfig {
@@ -78,5 +80,6 @@ export function loadConfig(): AppConfig {
     refreshCookieSameSite: env.REFRESH_COOKIE_SAMESITE,
     guestLoginRateLimitWindowMs: env.GUEST_LOGIN_RATE_LIMIT_WINDOW_MS,
     guestLoginRateLimitMax: env.GUEST_LOGIN_RATE_LIMIT_MAX,
+    version: env.VERSION,
   };
 }

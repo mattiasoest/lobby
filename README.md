@@ -220,6 +220,8 @@ Releases are triggered by pushing a semver tag (e.g. `v1.0.0`). GitHub Actions (
 
 On the server host, **Watchtower** (in `docker-compose.server.yml`) polls GHCR every minute and recreates the server container when a new `latest` image is available. Migrations run automatically on container start.
 
+Check the running server version: `curl https://api.pixelport.app/version` (returns `{"version":"v1.0.0"}`).
+
 ### Release a new version
 
 ```bash

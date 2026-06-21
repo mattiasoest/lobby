@@ -3,8 +3,8 @@ Lobby server — Docker commands (run from repo root)
 # First-time setup (server host)
 # Authenticate to GHCR if the package is private:
 #   echo $GITHUB_PAT | docker login ghcr.io -u USERNAME --password-stdin
-docker-compose -f docker-compose.server.yml pull
-docker-compose -f docker-compose.server.yml up -d
+docker compose -f docker-compose.server.yml pull
+docker compose -f docker-compose.server.yml up -d
 
 # Env-only change (no image pull)
 docker-compose -f docker-compose.server.yml up -d --force-recreate server
@@ -20,7 +20,10 @@ docker-compose -f docker-compose.server.yml logs -f server
 docker-compose -f docker-compose.server.yml logs -f watchtower
 
 # Status
-docker-compose -f docker-compose.server.yml ps
+docker compose -f docker-compose.server.yml ps
+
+# Running version (HTTP)
+curl -s http://localhost:1002/version
 
 # One-off migrate (normally runs automatically on container start)
 docker-compose -f docker-compose.server.yml run --rm server node dist/migrate.js

@@ -13,6 +13,9 @@ RUN npx tsc
 
 FROM node:22-alpine AS production
 
+ARG VERSION=dev
+ENV VERSION=$VERSION
+
 WORKDIR /app
 
 ENV NODE_ENV=production

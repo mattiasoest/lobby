@@ -44,6 +44,10 @@ export class HttpApp {
     app.use(express.json());
     app.use(passport.initialize());
 
+    app.get('/version', (_req, res) => {
+      res.json({ version: config.version });
+    });
+
     setupOAuth(app, config, controllers.auth);
 
     app.use('/auth', createAuthRouter(controllers.auth, createGuestLoginRateLimit(config)));
