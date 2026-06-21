@@ -6,7 +6,7 @@ Realtime lobby and rooms: **React (Vite)** frontend, **Express** API with **Post
 
 ## Prerequisites
 
-- **Node.js** 20+ (LTS recommended)
+- **Node.js** 24
 - **Docker** (optional but recommended) — to run Postgres locally via `docker compose`
 
 ## 1. Install dependencies
