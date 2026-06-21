@@ -1,10 +1,21 @@
 services:
   server:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    image: ghcr.io/mattiasoest/lobby-server:latest
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
     ports:
       - '1002:3001'
     env_file:
       - ./server/.env
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_POLL_INTERVAL: 60
+      WATCHTOWER_LABEL_ENABLE: 'true'
+      WATCHTOWER_CLEANUP: 'true'
+    command: --interval 60 --label-enable
     restart: unless-stopped

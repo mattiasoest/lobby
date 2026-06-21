@@ -1,16 +1,31 @@
 Lobby server — Docker commands (run from repo root)
 
-# 1. Migrate (one-off)
-docker-compose -f docker-compose.server.yml run --rm server node dist/migrate.js
+# First-time setup (server host)
+# Authenticate to GHCR if the package is private:
+#   echo $GITHUB_PAT | docker login ghcr.io -u USERNAME --password-stdin
+docker-compose -f docker-compose.server.yml pull
+docker-compose -f docker-compose.server.yml up -d
 
-# 2. Start/restart server
-docker-compose -f docker-compose.server.yml up -d --build
+# Env-only change (no image pull)
+docker-compose -f docker-compose.server.yml up -d --force-recreate server
 
-# Env-only change (no code rebuild)
-docker-compose -f docker-compose.server.yml up -d --force-recreate
+# Manual pull + restart (Watchtower normally handles this within ~1 min of a release)
+docker-compose -f docker-compose.server.yml pull server
+docker-compose -f docker-compose.server.yml up -d server
 
 # Logs
 docker-compose -f docker-compose.server.yml logs -f server
 
+# Watchtower logs
+docker-compose -f docker-compose.server.yml logs -f watchtower
+
 # Status
 docker-compose -f docker-compose.server.yml ps
+
+# One-off migrate (normally runs automatically on container start)
+docker-compose -f docker-compose.server.yml run --rm server node dist/migrate.js
+
+# Roll back server to a previous release tag
+# GitHub → Actions → "Rollback server" → Run workflow → enter tag (e.g. v1.0.0)
+# Retags that image as :latest; Watchtower restarts within ~1 min.
+# Does not roll back Vercel — use Vercel dashboard for the frontend.

@@ -211,6 +211,58 @@ npm run build
 
 Output is in `dist/`. Set **`VITE_API_ORIGIN`** to your API subdomain when building for production. `npm run preview` runs Vite’s static preview only and does **not** start the API by default.
 
+## Production deploy
+
+Releases are triggered by pushing a semver tag (e.g. `v1.0.0`). GitHub Actions (`.github/workflows/release.yml`) then:
+
+1. Builds and pushes the server Docker image to `ghcr.io/mattiasoest/lobby-server` (tagged with the release version and `latest`)
+2. Deploys the client to Vercel production
+
+On the server host, **Watchtower** (in `docker-compose.server.yml`) polls GHCR every minute and recreates the server container when a new `latest` image is available. Migrations run automatically on container start.
+
+### Release a new version
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+### GitHub Actions secrets
+
+Add these under **Settings → Secrets and variables → Actions**:
+
+| Secret              | Description                                      |
+| ------------------- | ------------------------------------------------ |
+| `VERCEL_TOKEN`      | Vercel account token                             |
+| `VERCEL_ORG_ID`     | Vercel team/org ID (from project settings)       |
+| `VERCEL_PROJECT_ID` | Vercel project ID (from project settings)        |
+
+Ensure **`VITE_API_ORIGIN=https://api.pixelport.app`** is set in the Vercel project environment variables.
+
+### First-time server host setup
+
+1. Copy `server/.env` to the host with production values (`DATABASE_URL`, `JWT_SECRET`, etc.)
+2. Log in to GHCR if the package is private:
+   ```bash
+   echo $GITHUB_PAT | docker login ghcr.io -u USERNAME --password-stdin
+   ```
+   Use a GitHub PAT with `read:packages`.
+3. Start the stack:
+   ```bash
+   docker compose -f docker-compose.server.yml pull
+   docker compose -f docker-compose.server.yml up -d
+   ```
+
+See `server-docker-commands.txt` for day-to-day Docker operations.
+
+### Roll back the server
+
+Use **Actions → Rollback server → Run workflow** and enter the release tag (e.g. `v1.0.0`). This retags that GHCR image as `:latest`; Watchtower picks it up within ~1 minute.
+
+This does **not** roll back the Vercel frontend — use **Promote to Production** on a previous deployment in the Vercel dashboard for that.
+
+If the bad release ran new database migrations, rolling back server code alone may not be safe. Restore the database from backup or fix forward instead.
+
 ## Troubleshooting
 
 - **“Could not reach the API” on dev login** — API not running or wrong port; ensure `npm run dev` (or `dev:server`) is up and `VITE_PROXY_TARGET` matches if you changed the API port.
