@@ -239,6 +239,10 @@ Add these under **Settings → Secrets and variables → Actions**:
 
 Ensure **`VITE_API_ORIGIN=https://api.pixelport.app`** is set in the Vercel project environment variables.
 
+**Disable Vercel auto-deploy on push:** [`client/vercel.json`](client/vercel.json) sets `"git.deploymentEnabled": false` so commits to GitHub do not trigger Vercel builds. Production deploys come only from the release workflow (`vercel deploy --prod` via CLI). You can keep the Git repo connected in Vercel for deployment history and rollbacks.
+
+If pushes still deploy before that config is live, use Vercel → Project → **Settings → Git → Ignored Build Step** and set `exit 0` to skip all git-triggered builds.
+
 ### First-time server host setup
 
 1. Copy `server/.env` to the host with production values (`DATABASE_URL`, `JWT_SECRET`, etc.)
