@@ -218,7 +218,7 @@ Releases are triggered by pushing a semver tag (e.g. `v1.0.0`). GitHub Actions (
 1. Builds and pushes the server Docker image to `ghcr.io/mattiasoest/lobby-server` (tagged with the release version and `latest`)
 2. Deploys the client to Vercel production
 
-On the server host, **Watchtower** (in `docker-compose.server.yml`) polls GHCR every minute and recreates the server container when a new `latest` image is available. Migrations run automatically on container start.
+On the server host, **Watchtower** (in `docker-compose.server.yml`) polls GHCR every other minute and recreates the server container when a new `latest` image is available. Migrations run automatically on container start.
 
 Check the running server version: `curl https://api.pixelport.app/version` (returns `{"version":"v1.0.0"}`).
 
@@ -263,7 +263,7 @@ See `server-docker-commands.txt` for day-to-day Docker operations.
 
 ### Roll back the server
 
-Use **Actions → Rollback server → Run workflow** and enter the release tag (e.g. `v1.0.0`). This retags that GHCR image as `:latest`; Watchtower picks it up within ~1 minute.
+Use **Actions → Rollback server → Run workflow** and enter the release tag (e.g. `v1.0.0`). This retags that GHCR image as `:latest`; Watchtower picks it up within ~2 minutes.
 
 This does **not** roll back the Vercel frontend — use **Promote to Production** on a previous deployment in the Vercel dashboard for that.
 

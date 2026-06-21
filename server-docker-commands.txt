@@ -9,7 +9,7 @@ docker compose -f docker-compose.server.yml up -d
 # Env-only change (no image pull)
 docker-compose -f docker-compose.server.yml up -d --force-recreate server
 
-# Manual pull + restart (Watchtower normally handles this within ~1 min of a release)
+# Manual pull + restart (Watchtower normally handles this within ~2 min of a release)
 docker-compose -f docker-compose.server.yml pull server
 docker-compose -f docker-compose.server.yml up -d server
 
@@ -30,5 +30,5 @@ docker-compose -f docker-compose.server.yml run --rm server node dist/migrate.js
 
 # Roll back server to a previous release tag
 # GitHub → Actions → "Rollback server" → Run workflow → enter tag (e.g. v1.0.0)
-# Retags that image as :latest; Watchtower restarts within ~1 min.
+# Retags that image as :latest; Watchtower restarts within ~2 min.
 # Does not roll back Vercel — use Vercel dashboard for the frontend.

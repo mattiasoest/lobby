@@ -50,4 +50,4 @@ jobs:
       - name: Summary
         run: |
           echo "Promoted ${{ env.IMAGE_NAME }}:${{ inputs.tag }} to :latest"
-          echo "Watchtower should pull and restart the server within ~1 minute."
+          echo "Watchtower should pull and restart the server within ~2 minutes."
