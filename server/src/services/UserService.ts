@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { isUnlockedAvatarId, sanitizeAvatarId } from '../domain/avatars.js';
+import { isUnlockedAvatarId, sanitizeAvatarId } from '../shared/avatars.js';
 import type { AppDatabase } from '../infrastructure/db/createDatabase.js';
 import { users } from '../infrastructure/db/schema.js';
 

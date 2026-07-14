@@ -1,5 +1,5 @@
 import type { Server } from 'socket.io';
-import { ROOM_IDS } from '../domain/rooms.js';
+import { ROOM_IDS } from '../shared/rooms.js';
 import type { AuthGuard } from '../auth/AuthGuard.js';
 import type { RealtimeControllers } from './createRealtimeControllers.js';
 

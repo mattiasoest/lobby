@@ -1,14 +1,8 @@
 import {
   MAX_REMOTE_SAMPLES,
-  REMOTE_BURST_DELAY_SHAVE_MS,
-  REMOTE_BURST_DURATION_MS,
-  REMOTE_BURST_IDLE_SPEED_PX_S,
-  REMOTE_BURST_WAKE_SPEED_PX_S,
   REMOTE_CLOCK_CORRECTION,
   REMOTE_CLOCK_REANCHOR_MS,
   REMOTE_DISPLAY_LAMBDA,
-  REMOTE_DISPLAY_LAMBDA_BURST,
-  REMOTE_RENDER_DELAY_FLOOR_MS,
   REMOTE_SAMPLE_TTL_MS,
   REMOTE_SNAP_EPS_SQ,
 } from '../core/constants.ts';
@@ -24,9 +18,6 @@ export class RemoteInterpolationSystem {
   private remotePxRef = new Map<string, { x: number; y: number }>();
   private remoteSampleBufRef = new Map<string, RemoteSample[]>();
   private lastServerSnapRef = new Map<string, { x: number; y: number }>();
-  private remoteTargetPrevRef = new Map<string, { x: number; y: number }>();
-  private remoteSpeedSmoothedRef = new Map<string, number>();
-  private remoteBurstUntilRef = new Map<string, number>();
   private remoteClockAnchorRef: { localMs: number; serverMs: number } | null = null;
   private lastRemoteServerStampRef = 0;
   private lastRemoteSampleTimeRef = 0;
@@ -59,9 +50,6 @@ export class RemoteInterpolationSystem {
     this.remotePxRef.clear();
     this.remoteSampleBufRef.clear();
     this.lastServerSnapRef.clear();
-    this.remoteTargetPrevRef.clear();
-    this.remoteSpeedSmoothedRef.clear();
-    this.remoteBurstUntilRef.clear();
     this.resetRemoteClock();
   }
 
@@ -135,48 +123,11 @@ export class RemoteInterpolationSystem {
       }
 
       const ready = this.remoteSampleBufRef.get(player.id) ?? [];
-      const baseDelay = remoteRenderDelayMs(ready);
-      let burst = now < (this.remoteBurstUntilRef.get(player.id) ?? 0);
-
-      let playbackDelay = burst
-        ? Math.max(REMOTE_RENDER_DELAY_FLOOR_MS, baseDelay - REMOTE_BURST_DELAY_SHAVE_MS)
-        : baseDelay;
-      let target = posFromRemoteBuffer(ready, now - playbackDelay);
-
-      const prevTarget = this.remoteTargetPrevRef.get(player.id);
-      let instSpeed = 0;
-      if (prevTarget) {
-        const invDt = 1 / Math.max(dt, 1e-4);
-        instSpeed = Math.hypot(target.x - prevTarget.x, target.y - prevTarget.y) * invDt;
-      }
-      const prevSmooth = this.remoteSpeedSmoothedRef.get(player.id) ?? 0;
-      let smoothSpeed = prevSmooth * 0.55 + instSpeed * 0.45;
-
-      const woke =
-        prevTarget !== undefined &&
-        prevSmooth < REMOTE_BURST_IDLE_SPEED_PX_S &&
-        smoothSpeed > REMOTE_BURST_WAKE_SPEED_PX_S;
-
-      if (woke) {
-        this.remoteBurstUntilRef.set(player.id, now + REMOTE_BURST_DURATION_MS);
-        if (!burst) {
-          burst = true;
-          playbackDelay = Math.max(REMOTE_RENDER_DELAY_FLOOR_MS, baseDelay - REMOTE_BURST_DELAY_SHAVE_MS);
-          target = posFromRemoteBuffer(ready, now - playbackDelay);
-          if (prevTarget) {
-            const invDt = 1 / Math.max(dt, 1e-4);
-            instSpeed = Math.hypot(target.x - prevTarget.x, target.y - prevTarget.y) * invDt;
-            smoothSpeed = prevSmooth * 0.55 + instSpeed * 0.45;
-          }
-        }
-      }
-
-      this.remoteSpeedSmoothedRef.set(player.id, smoothSpeed);
-      this.remoteTargetPrevRef.set(player.id, { x: target.x, y: target.y });
+      const playbackDelay = remoteRenderDelayMs(ready);
+      const target = posFromRemoteBuffer(ready, now - playbackDelay);
 
       const prevDrawn = this.remotePxRef.get(player.id);
-      const lambda = burst ? REMOTE_DISPLAY_LAMBDA_BURST : REMOTE_DISPLAY_LAMBDA;
-      const blend = 1 - Math.exp(-lambda * dt);
+      const blend = 1 - Math.exp(-REMOTE_DISPLAY_LAMBDA * dt);
       if (!prevDrawn) {
         this.remotePxRef.set(player.id, { ...target });
       } else {
@@ -196,9 +147,6 @@ export class RemoteInterpolationSystem {
         this.remoteSampleBufRef.delete(id);
         this.lastServerSnapRef.delete(id);
         this.remotePxRef.delete(id);
-        this.remoteTargetPrevRef.delete(id);
-        this.remoteSpeedSmoothedRef.delete(id);
-        this.remoteBurstUntilRef.delete(id);
       }
     }
   }

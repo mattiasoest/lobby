@@ -1,7 +1,8 @@
 import playerIdleSheetPng from '../../assets/character/characters_idle.png';
 import playerWalkSheetPng from '../../assets/character/characters_walk.png';
+import { DEFAULT_AVATAR_ID, isUnlockedAvatarId, sanitizeAvatarId, UNLOCKED_AVATAR_IDS } from '@shared/avatars';
 
-export const DEFAULT_AVATAR_ID = 'default';
+export { DEFAULT_AVATAR_ID, isUnlockedAvatarId, sanitizeAvatarId, UNLOCKED_AVATAR_IDS };
 export const OPTION1_AVATAR_ID = 'option1';
 export const OPTION2_AVATAR_ID = 'option2';
 export const OPTION3_AVATAR_ID = 'option3';
@@ -62,10 +63,6 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
   { id: 'locked-6', label: '???', unlocked: false, minimapColor: 0x64748b },
 ];
 
-export const UNLOCKED_AVATAR_IDS = AVATAR_OPTIONS.filter((option) => option.unlocked).map((option) => option.id);
-
-const UNLOCKED_AVATAR_ID_SET = new Set(UNLOCKED_AVATAR_IDS);
-
 const AVATAR_BY_ID = new Map(AVATAR_OPTIONS.map((option) => [option.id, option]));
 
 const AVATAR_SHEET_BLOCK_INDEX = new Map<string, number>(
@@ -74,15 +71,6 @@ const AVATAR_SHEET_BLOCK_INDEX = new Map<string, number>(
 
 export function getAvatarOption(id: string): AvatarOption | undefined {
   return AVATAR_BY_ID.get(id);
-}
-
-export function isUnlockedAvatarId(id: string): boolean {
-  return UNLOCKED_AVATAR_ID_SET.has(id);
-}
-
-export function sanitizeAvatarId(raw: unknown): string {
-  if (typeof raw === 'string' && isUnlockedAvatarId(raw)) return raw;
-  return DEFAULT_AVATAR_ID;
 }
 
 export function avatarMinimapColor(id: string): number {

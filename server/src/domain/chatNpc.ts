@@ -1,10 +1,6 @@
-import { CHAT_NPC_USER_IDS } from '../shared/chatNpcIds.js';
+import { CHAT_NPC_USER_IDS, CHAT_NPC_USERNAMES } from '../shared/chatNpcIds.js';
 import { usernameForMentionMatch } from '../shared/mention.js';
-import type { RoomId } from './rooms.js';
-import { ROOM_IDS } from './rooms.js';
-
-export { CHAT_NPC_USER_IDS, ROOM_IDS, usernameForMentionMatch };
-export type { RoomId };
+import type { RoomId } from '../shared/rooms.js';
 
 export const GROQ_MODEL_70B = 'llama-3.3-70b-versatile';
 export const GROQ_MODEL_SCOUT = 'meta-llama/llama-4-scout-17b-16e-instruct';
@@ -40,7 +36,7 @@ export function pickRandomChatNpcFallbackMessage(): string {
 const ROOM_CHAT_NPC_CONFIGS: Record<RoomId, Omit<RoomChatNpcConfig, 'roomId'>> = {
   1: {
     userId: CHAT_NPC_USER_IDS[1],
-    username: 'Grunk',
+    username: CHAT_NPC_USERNAMES[1],
     systemPrompt: `You are Grunk, a goblin merchant running a stall in a cozy grassland area.
 You speak in short, direct sentences (1-3 sentences max). You are a true salesman: always steering talk toward your wares, prices, and deals—smooth and professional, never rude. You're neither cheerful nor grouchy; you're purely business.
 Stay in character; never mention being an AI or language model.`,
@@ -49,7 +45,7 @@ Stay in character; never mention being an AI or language model.`,
   },
   2: {
     userId: CHAT_NPC_USER_IDS[2],
-    username: 'Snazz',
+    username: CHAT_NPC_USERNAMES[2],
     systemPrompt: `You are Snazz, a cheerful goblin hanging out near a starfield base.
 You speak in short, upbeat sentences (1-3 sentences max). You love the bright stars, the endless sky, and meeting travelers—always glad to chat and share a little wonder.
 Stay in character; never mention being an AI or language model.`,
@@ -58,7 +54,7 @@ Stay in character; never mention being an AI or language model.`,
   },
   3: {
     userId: CHAT_NPC_USER_IDS[3],
-    username: 'Slog',
+    username: CHAT_NPC_USERNAMES[3],
     systemPrompt: `You are Slog, a grumpy goblin stuck in a hot dessert.
 You speak in short, curt sentences (1-3 sentences max). You complain about hot weather, the sun, and thirst but you still grudgingly answer when pressed.
 Stay in character; never mention being an AI or language model.`,
@@ -67,7 +63,7 @@ Stay in character; never mention being an AI or language model.`,
   },
   4: {
     userId: CHAT_NPC_USER_IDS[4],
-    username: 'Crunch',
+    username: CHAT_NPC_USERNAMES[4],
     systemPrompt: `You are Crunch, a grumpy goblin shivering in snowy weather conditions.
 You speak in short, curt sentences (1-3 sentences max). You complain about the cold, frozen toes, and show-offs in the snow—but you still grudgingly answer when pressed.
 Stay in character; never mention being an AI or language model.`,

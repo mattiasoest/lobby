@@ -1,5 +1,5 @@
 import { Navigate, useParams } from 'react-router-dom';
-import { isRoomId } from '@/app/constants.ts';
+import { isRoomId } from '@shared/rooms';
 import { RoomPage } from '../RoomPage/RoomPage.tsx';
 
 export function RoomRouteGate() {

@@ -7,3 +7,11 @@ export const CHAT_NPC_USER_IDS = {
   3: '00000000-0000-4000-8000-000000000003',
   4: '00000000-0000-4000-8000-000000000004',
 } as const satisfies Record<RoomId, string>;
+
+/** Display names for room ChatNpc users (shared by client and server). */
+export const CHAT_NPC_USERNAMES = {
+  1: 'Grunk',
+  2: 'Snazz',
+  3: 'Slog',
+  4: 'Crunch',
+} as const satisfies Record<RoomId, string>;

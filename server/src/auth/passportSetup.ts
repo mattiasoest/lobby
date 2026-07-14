@@ -20,7 +20,7 @@ export function setupOAuth(app: Express, config: AppConfig, auth: AuthController
           clientSecret: googleSecret,
           callbackURL: `${config.serverPublicUrl}/auth/google/callback`,
         },
-        (accessToken, refreshToken, profile, done: VerifyCallback) => {
+        (_accessToken, _refreshToken, profile, done: VerifyCallback) => {
           void auth
             .verifyGoogleProfile(profile)
             .then((user) => done(null, user))

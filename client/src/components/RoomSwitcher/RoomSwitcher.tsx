@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ROOM_IDS } from '@/app/constants.ts';
+import { ROOM_IDS } from '@shared/rooms';
 import layout from '@/styles/layout.module.css';
 import styles from './RoomSwitcher.css';
 

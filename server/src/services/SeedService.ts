@@ -1,5 +1,5 @@
 import { getRoomChatNpcConfig } from '../domain/chatNpc.js';
-import { ROOM_IDS } from '../domain/rooms.js';
+import { ROOM_IDS } from '../shared/rooms.js';
 import type { AppDatabase } from '../infrastructure/db/createDatabase.js';
 import { users } from '../infrastructure/db/schema.js';
 

@@ -1,4 +1,4 @@
-import type { RoomId } from '../../app/constants.ts';
+import type { RoomId } from '@shared/rooms';
 import type { NpcType } from '../entities/npcs/WalkEntity.ts';
 
 export type RoomBackgroundKey = 'grass' | 'space' | 'desert' | 'snow';

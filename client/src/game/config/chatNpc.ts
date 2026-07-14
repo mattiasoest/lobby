@@ -1,4 +1,4 @@
-import { CHAT_NPC_USER_IDS } from '@shared/chatNpcIds';
+import { CHAT_NPC_USER_IDS, CHAT_NPC_USERNAMES } from '@shared/chatNpcIds';
 import { Merchant } from '../entities/Merchant.ts';
 
 export { CHAT_NPC_USER_IDS };
@@ -13,10 +13,10 @@ export type RoomChatNpcInfo = {
 };
 
 const ROOM_CHAT_NPC_BY_ID: Record<number, RoomChatNpcInfo> = {
-  1: { userId: CHAT_NPC_USER_IDS[1], username: 'Grunk' },
-  2: { userId: CHAT_NPC_USER_IDS[2], username: 'Snazz' },
-  3: { userId: CHAT_NPC_USER_IDS[3], username: 'Slog' },
-  4: { userId: CHAT_NPC_USER_IDS[4], username: 'Crunch' },
+  1: { userId: CHAT_NPC_USER_IDS[1], username: CHAT_NPC_USERNAMES[1] },
+  2: { userId: CHAT_NPC_USER_IDS[2], username: CHAT_NPC_USERNAMES[2] },
+  3: { userId: CHAT_NPC_USER_IDS[3], username: CHAT_NPC_USERNAMES[3] },
+  4: { userId: CHAT_NPC_USER_IDS[4], username: CHAT_NPC_USERNAMES[4] },
 };
 
 export function getRoomChatNpc(roomId: number): RoomChatNpcInfo | null {

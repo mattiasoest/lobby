@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { whenAvatarPreviewSheetsReady } from '@/game/config/avatars.ts';
 import { preloadRoomSharedAssets } from '@/game/config/roomSharedAssets.ts';
-import { ROOM_IDS } from '@/app/constants.ts';
+import { ROOM_IDS } from '@shared/rooms';
 import { AvatarSelector } from '@/components/AvatarSelector/AvatarSelector.tsx';
 import layout from '@/styles/layout.module.css';
 import styles from './LobbyPage.css';

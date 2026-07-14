@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ChatMessageDTO } from '@/services/messagesApi.ts';
-import { usernameForMentionMatch } from '@/utils/usernameForMentions.ts';
+import { usernameForMentionMatch } from '@shared/mention';
 import styles from './ChatBox.css';
 
 const MENTION = /@([A-Za-z0-9_.-]{1,64})/g;

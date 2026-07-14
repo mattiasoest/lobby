@@ -19,7 +19,7 @@ HTTP and realtime are **two transport layers** that share the same **services** 
 | Controllers | `AuthController` (incl. OAuth callbacks), `MeController`, … | `RoomController` (one per room namespace) |
 | Services | `AuthService`, `MessageService`, … | same instances |
 
-**Naming:** PascalCase files export a primary class (`AuthService.ts`, `RoomController.ts`). Lowercase files export functions or pure domain helpers (`createServices.ts`, `domain/rooms.ts`).
+**Naming:** PascalCase files export a primary class (`AuthService.ts`, `RoomController.ts`). Lowercase files export functions or pure domain helpers (`createServices.ts`, `shared/rooms.ts`).
 
 ## Bootstrap
 

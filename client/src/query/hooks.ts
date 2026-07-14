@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { isRoomId } from '@/app/constants.ts';
+import { isRoomId } from '@shared/rooms';
 import { bootstrapServerSession, clearSessionBootstrapCache } from '@/features/auth/oauthBootstrap.ts';
 import type { ProvidersResponse } from '@/services/authApi.ts';
 import { devLogin, fetchProviders, guestLogin } from '@/services/authApi.ts';

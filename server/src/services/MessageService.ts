@@ -1,5 +1,5 @@
 import { asc, eq } from 'drizzle-orm';
-import { isValidRoomId } from '../domain/rooms.js';
+import { isRoomId } from '../shared/rooms.js';
 import { maskProfanity } from '../infrastructure/content/profanity.js';
 import type { AppDatabase } from '../infrastructure/db/createDatabase.js';
 import { messages, users } from '../infrastructure/db/schema.js';
@@ -50,7 +50,7 @@ export class MessageService {
   }
 
   async getRoomHistory(roomId: number): Promise<ChatMessagePayload[] | null> {
-    if (!isValidRoomId(roomId)) return null;
+    if (!isRoomId(roomId)) return null;
     const rows = await this.db
       .select({
         id: messages.id,

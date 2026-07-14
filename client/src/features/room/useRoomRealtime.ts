@@ -11,7 +11,7 @@ import type { ChatMessageDTO } from '@/services/messagesApi.ts';
 import type { PlayerDTO } from '@/types.ts';
 import { decodeJwtPayload } from '@/utils/jwt.ts';
 import { createPlayerListPositionStore, type PlayerListPositionStore } from '@/utils/playerListPositionStore.ts';
-import { usernameForMentionMatch } from '@/utils/usernameForMentions.ts';
+import { usernameForMentionMatch } from '@shared/mention';
 import type { Socket } from 'socket.io-client';
 import { jitterAroundWorldSpawn } from './roomSpawn.ts';
 import { resolveLocalPlayerId, rosterStructureKey, withGhostPlayerIfNeeded } from './roomPlayerRoster.ts';

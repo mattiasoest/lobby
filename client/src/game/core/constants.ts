@@ -66,13 +66,3 @@ export const REMOTE_SNAP_EPS_SQ = 0.06 * 0.06;
 
 /** Soft follow from last drawn pos → buffer target (lower = silkier; avoid high values — they read as flicker). */
 export const REMOTE_DISPLAY_LAMBDA = 18;
-/** Burst follow disabled for anti-flicker profile — kept equal to {@link REMOTE_DISPLAY_LAMBDA}. */
-export const REMOTE_DISPLAY_LAMBDA_BURST = 18;
-export const REMOTE_BURST_DURATION_MS = 0;
-/** Burst wake disabled — high threshold so the burst window never opens. */
-export const REMOTE_BURST_IDLE_SPEED_PX_S = 22;
-export const REMOTE_BURST_WAKE_SPEED_PX_S = 999;
-/** No delay shave during burst — deep buffer at all times. */
-export const REMOTE_BURST_DELAY_SHAVE_MS = 0;
-/** Floor matches MIN so playback never runs with a dangerously shallow buffer. */
-export const REMOTE_RENDER_DELAY_FLOOR_MS = 220;
